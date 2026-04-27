@@ -1,4 +1,5 @@
-# Welcome to your Expo app 👋
+# Welcome to your SweetCasa Expo app 👋
+SweetCasa is a trusted real estate platform tackling the “fake agent” crisis by blending AI-powered CASA-Match logic with a secure Document Vault. It restores confidence for landlords and tenants, ensuring safe, transparent, and reliable housing connections.
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
