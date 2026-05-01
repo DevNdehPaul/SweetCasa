@@ -1,50 +1,101 @@
-# Welcome to your Expo app 👋
+<div align="center">
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+# 🏠 SweetCasa
+### *Find a home you can actually trust.*
 
-## Get started
+**A mobile-first real estate platform that fights fake agents, verifies listings, and connects landlords and tenants with confidence — powered by AI matching and a secure Document Vault.**
 
-1. Install dependencies
+[What it does](#-the-problem-sweetcasa-solves) · [Features](#-features) · [Tech Stack](#-tech-stack) · [Getting Started](#-getting-started) · [Project Structure](#-project-structure) · [Contributing](#-contributing)
 
-   ```bash
-   npm install
-   ```
+</div>
 
-2. Start the app
+---
 
-   ```bash
-   npx expo start
-   ```
+## 🌍 The Problem SweetCasa Solves
 
-In the output, you'll find options to open the app in a
+Anyone who's searched for a rental in a fast-moving housing market knows the feeling — you find a great listing, reach out, and slowly realize the "agent" isn't real, the property doesn't exist, or the deal was too good to be true.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Fake agents are a genuine crisis. They prey on people who just want a safe place to live.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+**SweetCasa was built to fix that.**
 
-## Get a fresh project
+It's a trusted real estate platform that combines AI-powered matching with a secure Document Vault — so landlords can list with confidence, tenants can search without fear, and everyone knows exactly who they're dealing with before a single key changes hands.
 
-When you're ready, run:
+> *"A home is the most personal thing you'll ever rent. You deserve to know it's real."*
 
-```bash
-npm run reset-project
+---
+
+## ✨ Features
+
+### 🔍 For Tenants
+- **CASA-Match** — AI-powered matching that surfaces properties based on what you actually need, not just keyword search
+- **Verified Listings** — Every property goes through a verification layer before it shows up in results
+- **Secure Document Vault** — View and store important rental documents safely in one place
+- **Transparent Agent Profiles** — Know who you're talking to before you make contact
+
+### 🏡 For Landlords
+- **List with Confidence** — Your listing stands out because it carries a verified badge that tenants trust
+- **Document Vault** — Upload and manage lease agreements, IDs, and property documents securely
+- **Tenant Matching** — CASA-Match works both ways — connecting you with tenants who are a genuine fit for your property
+
+### 🛡️ For Everyone
+- **Anti-Fraud Layer** — Built-in safeguards to flag suspicious listings and unverified agents
+- **Safe, Transparent Connections** — Every interaction on SweetCasa is designed with accountability in mind
+
+---
+
+## 🛠️ Tech Stack
+
+SweetCasa is a cross-platform mobile app built with Expo and React Native, written entirely in TypeScript.
+
+| Layer | Technology |
+|---|---|
+| Framework | Expo (React Native) |
+| Language | TypeScript |
+| Routing | Expo Router (file-based) |
+| Build & Deploy | EAS (Expo Application Services) |
+| Platforms | Android · iOS · Web |
+
+---
+
+
+
+## 📁 Project Structure
+
+```
+SweetCasa/
+├── app/              # Screens and navigation (file-based routing via Expo Router)
+├── components/       # Reusable UI components
+├── constants/        # App-wide constants (colors, config, etc.)
+├── hooks/            # Custom React hooks
+├── scripts/          # Utility scripts
+├── assets/
+│   └── images/       # App images and icons
+├── app.json          # Expo app configuration
+├── eas.json          # EAS build configuration
+├── package.json      # Dependencies
+└── tsconfig.json     # TypeScript configuration
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+demo video link: https://drive.google.com/file/d/1oJ34CKlHUVOeGBcD3L9q6GMqq7yHvYOI/view?usp=drivesdk
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 📬 Get in Touch
 
-## Join the community
+Have a question, found a bug, or want to help build safer housing connections?
 
-Join our community of developers creating universal apps.
+- Open an [issue](https://github.com/DevNdehPaul/SweetCasa/issues) on GitHub
+- Reach out directly through the repository
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+<div align="center">
+
+Built with care, for people who just want a home they can trust.
+
+**SweetCasa — Find a home you can actually trust.**
+
+</div>
