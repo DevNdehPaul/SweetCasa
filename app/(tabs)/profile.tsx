@@ -1,16 +1,19 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
-  Image,
-  SafeAreaView,
+  Image, Pressable, SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -19,105 +22,29 @@ const RECENT_CARD_W = (width - H_PAD * 2 - 12) / 3;
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const RECENT_LISTINGS = [
-  {
-    id: '1',
-    title: 'Villa in Bastos',
-    price: '450k/mo',
-    image: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=300&q=80',
-  },
-  {
-    id: '2',
-    title: 'Studio Akwa',
-    price: '120k/mo',
-    image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&q=80',
-  },
-  {
-    id: '3',
-    title: 'Bungalow',
-    price: '300k/mo',
-    image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=300&q=80',
-  },
+  { id: '1', title: 'Villa in Bastos',  price: '450k/mo', image: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=300&q=80' },
+  { id: '2', title: 'Studio Akwa',      price: '120k/mo', image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&q=80' },
+  { id: '3', title: 'Bungalow',         price: '300k/mo', image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=300&q=80' },
 ];
 
 type MenuItem = {
   id: string;
   icon: string;
-  iconLib: 'feather' | 'ion' | 'mci';
   label: string;
   sub: string;
   danger?: boolean;
   iconBg: string;
   iconColor: string;
+  onPress?: () => void;
 };
-
-const MENU_GROUP_1: MenuItem[] = [
-  {
-    id: 'account',
-    icon: 'user',
-    iconLib: 'feather',
-    label: 'Account Information',
-    sub: 'Personal details & verification',
-    iconBg: '#F3F0FF',
-    iconColor: '#7C3AED',
-  },
-  {
-    id: 'wallet',
-    icon: 'credit-card',
-    iconLib: 'feather',
-    label: 'Escrow Wallet',
-    sub: 'Manage funds & payments',
-    iconBg: '#F3F0FF',
-    iconColor: '#7C3AED',
-  },
-  {
-    id: 'history',
-    icon: 'rotate-ccw',
-    iconLib: 'feather',
-    label: 'Transaction History',
-    sub: 'Past rentals & escrow logs',
-    iconBg: '#F3F0FF',
-    iconColor: '#7C3AED',
-  },
-];
-
-const MENU_GROUP_2: MenuItem[] = [
-  {
-    id: 'security',
-    icon: 'shield',
-    iconLib: 'feather',
-    label: 'Security & 2FA',
-    sub: 'Two-factor authentication active',
-    iconBg: '#F3F0FF',
-    iconColor: '#7C3AED',
-  },
-  {
-    id: 'language',
-    icon: 'globe',
-    iconLib: 'feather',
-    label: 'App Language',
-    sub: 'English (Cameroon)',
-    iconBg: '#F3F0FF',
-    iconColor: '#7C3AED',
-  },
-];
-
-const MENU_GROUP_3: MenuItem[] = [
-  {
-    id: 'logout',
-    icon: 'log-out',
-    iconLib: 'feather',
-    label: 'Log Out',
-    sub: 'Safely exit your account',
-    danger: true,
-    iconBg: '#FFF1F1',
-    iconColor: '#EF4444',
-  },
-];
 
 // ─── Menu Item Row ─────────────────────────────────────────────────────────────
 function MenuRow({ item }: { item: MenuItem }) {
   return (
-    <TouchableOpacity style={styles.menuRow} activeOpacity={0.7}>
+    <Pressable
+      style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.6 }]}
+      onPress={() => item.onPress?.()}
+    >
       <View style={[styles.menuIconBox, { backgroundColor: item.iconBg }]}>
         <Feather name={item.icon as any} size={16} color={item.iconColor} />
       </View>
@@ -128,11 +55,10 @@ function MenuRow({ item }: { item: MenuItem }) {
         <Text style={styles.menuSub}>{item.sub}</Text>
       </View>
       <Feather name="chevron-right" size={16} color="#CECECE" />
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
-// ─── Menu Group ───────────────────────────────────────────────────────────────
 function MenuGroup({ items }: { items: MenuItem[] }) {
   return (
     <View style={styles.menuGroup}>
@@ -148,11 +74,95 @@ function MenuGroup({ items }: { items: MenuItem[] }) {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
+  const [profile, setProfile]   = useState<any>(null);
+  const [role, setRole]         = useState<string | null>(null);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      const [storedProfile, storedRole] = await Promise.all([
+        AsyncStorage.getItem('profile'),
+        AsyncStorage.getItem('role'),
+      ]);
+      if (storedProfile) setProfile(JSON.parse(storedProfile));
+      if (storedRole)    setRole(storedRole);
+    } catch (e) {
+      console.error('Failed to load profile:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            await AsyncStorage.clear();
+            router.replace('/portal');
+          },
+        },
+      ]
+    );
+  };
+
+  // Build menu groups with logout wired up
+  const MENU_GROUP_1: MenuItem[] = [
+    { id: 'account', icon: 'user',        label: 'Account Information',  sub: 'Personal details & verification', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+    { id: 'wallet',  icon: 'credit-card', label: 'Escrow Wallet',        sub: 'Manage funds & payments',         iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+    { id: 'history', icon: 'rotate-ccw',  label: 'Transaction History',  sub: 'Past rentals & escrow logs',      iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+  ];
+
+  const MENU_GROUP_2: MenuItem[] = [
+    { id: 'security', icon: 'shield', label: 'Security & 2FA',  sub: 'Two-factor authentication active', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+    { id: 'language', icon: 'globe',  label: 'App Language',    sub: 'English (Cameroon)',               iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+  ];
+
+  const MENU_GROUP_3: MenuItem[] = [
+    {
+      id: 'logout',
+      icon: 'log-out',
+      label: 'Log Out',
+      sub: 'Safely exit your account',
+      danger: true,
+      iconBg: '#FFF1F1',
+      iconColor: '#EF4444',
+      onPress: handleLogout,   // ← wired up
+    },
+  ];
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#7C3AED" />
+      </View>
+    );
+  }
+
+  // Pull real data from profile
+  const fullName    = profile?.fullName    || profile?.companyName || 'SweetCasa User';
+  const city        = profile?.city        || '';
+  const region      = profile?.region      || '';
+  const country     = profile?.country     || '';
+  const isSeller    = role === 'SELLER';
+
+  // Build location string from real data
+  const locationStr = [city, region, country].filter(Boolean).join(', ') || 'Location not set';
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={{ width: 38 }} />
         <Text style={styles.headerTitle}>My Profile</Text>
@@ -163,9 +173,8 @@ export default function ProfileScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        {/* ── Profile Hero ── */}
+        {/* Profile Hero */}
         <View style={styles.heroSection}>
-          {/* Avatar */}
           <View style={styles.avatarWrap}>
             <Image
               source={{ uri: 'https://randomuser.me/api/portraits/men/32.jpg' }}
@@ -176,15 +185,20 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <Text style={styles.profileName}>Samuel Eto'o Junior</Text>
+          {/* Real name from DB */}
+          <Text style={styles.profileName}>{fullName}</Text>
 
+          {/* Real location from DB */}
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={13} color="#A0A0A0" />
-            <Text style={styles.locationTxt}>Bastos, Yaoundé</Text>
+            <Text style={styles.locationTxt}>{locationStr}</Text>
           </View>
 
-          <View style={styles.badgeChip}>
-            <Text style={styles.badgeChipTxt}>Premium Seeker</Text>
+          {/* Role badge — dynamic based on role */}
+          <View style={[styles.badgeChip, isSeller && styles.badgeChipSeller]}>
+            <Text style={[styles.badgeChipTxt, isSeller && styles.badgeChipTxtSeller]}>
+              {isSeller ? '🏢 House Owner' : '🔍 House Seeker'}
+            </Text>
           </View>
 
           <TouchableOpacity style={styles.editBtn} activeOpacity={0.8}>
@@ -192,7 +206,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Stats ── */}
+        {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Feather name="bookmark" size={20} color="#7C3AED" />
@@ -207,7 +221,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* ── Recently Viewed ── */}
+        {/* Recently Viewed */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recently Viewed</Text>
           <TouchableOpacity>
@@ -234,33 +248,30 @@ export default function ProfileScreen() {
           )}
         />
 
-        {/* ── Agent Mode Banner ── */}
-        <TouchableOpacity style={styles.agentBanner} activeOpacity={0.85}>
-          <View style={styles.agentIconWrap}>
-            <Ionicons name="flash" size={20} color="#fff" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.agentBannerTitle}>Agent Mode</Text>
-            <Text style={styles.agentBannerSub}>List properties & track leads</Text>
-          </View>
-          <Feather name="chevron-right" size={18} color="#7C3AED" />
-        </TouchableOpacity>
+        {/* Agent Mode Banner — only show for buyers */}
+        {!isSeller && (
+          <TouchableOpacity style={styles.agentBanner} activeOpacity={0.85}>
+            <View style={styles.agentIconWrap}>
+              <Ionicons name="flash" size={20} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.agentBannerTitle}>Agent Mode</Text>
+              <Text style={styles.agentBannerSub}>List properties & track leads</Text>
+            </View>
+            <Feather name="chevron-right" size={18} color="#7C3AED" />
+          </TouchableOpacity>
+        )}
 
-        {/* ── Menu Groups ── */}
         <MenuGroup items={MENU_GROUP_1} />
         <MenuGroup items={MENU_GROUP_2} />
         <MenuGroup items={MENU_GROUP_3} />
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerVersion}>SweetCasa Cameroon v2.4.0</Text>
           <View style={styles.footerLinks}>
-            <TouchableOpacity>
-              <Text style={styles.footerLink}>Privacy Policy</Text>
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <Text style={styles.footerLink}>Support Center</Text>
-            </TouchableOpacity>
+            <TouchableOpacity><Text style={styles.footerLink}>Privacy Policy</Text></TouchableOpacity>
+            <TouchableOpacity><Text style={styles.footerLink}>Support Center</Text></TouchableOpacity>
           </View>
         </View>
 
@@ -275,277 +286,84 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
   scroll: { paddingBottom: 16 },
 
-  // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: H_PAD,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: H_PAD, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
   },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111',
-    letterSpacing: -0.2,
-  },
-  iconBtn: {
-    width: 38, height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
+  iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
 
-  // Hero
   heroSection: {
-    alignItems: 'center',
-    paddingTop: 28,
-    paddingBottom: 24,
-    backgroundColor: '#FDF9F6',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    alignItems: 'center', paddingTop: 28, paddingBottom: 24,
+    backgroundColor: '#FDF9F6', borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  avatarWrap: {
-    position: 'relative',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 90, height: 90,
-    borderRadius: 45,
-    borderWidth: 3,
-    borderColor: '#fff',
-  },
-  verifiedBadge: {
-    position: 'absolute',
-    bottom: 0, right: 0,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 1,
-  },
-  profileName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#111',
-    letterSpacing: -0.4,
-    marginBottom: 5,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    marginBottom: 10,
-  },
-  locationTxt: {
-    fontSize: 12.5,
-    color: '#A0A0A0',
-  },
-  badgeChip: {
-    backgroundColor: '#EDE9FE',
-    borderRadius: 30,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    marginBottom: 16,
-  },
-  badgeChipTxt: {
-    fontSize: 12,
-    color: '#7C3AED',
-    fontWeight: '600',
-  },
-  editBtn: {
-    borderWidth: 1.5,
-    borderColor: '#7C3AED',
-    borderRadius: 30,
-    paddingHorizontal: 36,
-    paddingVertical: 10,
-  },
-  editBtnTxt: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#7C3AED',
-  },
+  avatarWrap: { position: 'relative', marginBottom: 12 },
+  avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#fff' },
+  verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 12, padding: 1 },
+  profileName: { fontSize: 20, fontWeight: '800', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 10 },
+  locationTxt: { fontSize: 12.5, color: '#A0A0A0' },
 
-  // Stats
+  badgeChip: { backgroundColor: '#EDE9FE', borderRadius: 30, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 16 },
+  badgeChipTxt: { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
+  badgeChipSeller: { backgroundColor: '#FFF3E0' },
+  badgeChipTxtSeller: { color: '#D97706' },
+
+  editBtn: { borderWidth: 1.5, borderColor: '#7C3AED', borderRadius: 30, paddingHorizontal: 36, paddingVertical: 10 },
+  editBtnTxt: { fontSize: 13.5, fontWeight: '700', color: '#7C3AED' },
+
   statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 20,
-    marginHorizontal: H_PAD,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 20,
+    marginHorizontal: H_PAD, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  statNum: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111',
-    letterSpacing: -0.5,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: '#B0B0B0',
-    fontWeight: '600',
-    letterSpacing: 0.8,
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#EFEFEF',
-  },
+  statItem: { flex: 1, alignItems: 'center', gap: 4 },
+  statNum: { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.5 },
+  statLabel: { fontSize: 10, color: '#B0B0B0', fontWeight: '600', letterSpacing: 0.8 },
+  statDivider: { width: 1, height: 40, backgroundColor: '#EFEFEF' },
 
-  // Section
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: H_PAD,
-    paddingTop: 22,
-    paddingBottom: 14,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: H_PAD, paddingTop: 22, paddingBottom: 14,
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111',
-    letterSpacing: -0.2,
-  },
-  seeAll: {
-    fontSize: 12.5,
-    color: '#7C3AED',
-    fontWeight: '600',
-  },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
+  seeAll: { fontSize: 12.5, color: '#7C3AED', fontWeight: '600' },
 
-  // Recent listings
-  recentList: {
-    paddingLeft: H_PAD,
-    paddingRight: H_PAD / 2,
-    gap: 10,
-    paddingBottom: 4,
-  },
-  recentCard: {
-    width: RECENT_CARD_W,
-    gap: 6,
-  },
-  recentImgWrap: {
-    width: '100%',
-    height: RECENT_CARD_W,
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-  },
+  recentList: { paddingLeft: H_PAD, paddingRight: H_PAD / 2, gap: 10, paddingBottom: 4 },
+  recentCard: { width: RECENT_CARD_W, gap: 6 },
+  recentImgWrap: { width: '100%', height: RECENT_CARD_W, borderRadius: 12, overflow: 'hidden', position: 'relative' },
   recentImg: { width: '100%', height: '100%' },
   recentPricePill: {
-    position: 'absolute',
-    top: 7, left: 7,
-    backgroundColor: 'rgba(0,0,0,0.52)',
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    position: 'absolute', top: 7, left: 7,
+    backgroundColor: 'rgba(0,0,0,0.52)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3,
   },
-  recentPriceTxt: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  recentTitle: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#333',
-    paddingHorizontal: 2,
-  },
+  recentPriceTxt: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  recentTitle: { fontSize: 11.5, fontWeight: '600', color: '#333', paddingHorizontal: 2 },
 
-  // Agent banner
   agentBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginHorizontal: H_PAD,
-    marginTop: 24,
-    marginBottom: 8,
-    backgroundColor: '#F3F0FF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#EDE9FE',
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    marginHorizontal: H_PAD, marginTop: 24, marginBottom: 8,
+    backgroundColor: '#F3F0FF', borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: '#EDE9FE',
   },
-  agentIconWrap: {
-    width: 44, height: 44,
-    borderRadius: 14,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  agentBannerTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#7C3AED',
-    marginBottom: 2,
-  },
-  agentBannerSub: {
-    fontSize: 11.5,
-    color: '#A78BFA',
-  },
+  agentIconWrap: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
+  agentBannerTitle: { fontSize: 14, fontWeight: '700', color: '#7C3AED', marginBottom: 2 },
+  agentBannerSub: { fontSize: 11.5, color: '#A78BFA' },
 
-  // Menu
   menuGroup: {
-    marginHorizontal: H_PAD,
-    marginTop: 14,
-    backgroundColor: '#FAFAFA',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-    overflow: 'hidden',
+    marginHorizontal: H_PAD, marginTop: 14,
+    backgroundColor: '#FAFAFA', borderRadius: 16,
+    borderWidth: 1, borderColor: '#EFEFEF', overflow: 'hidden',
   },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  menuIconBox: {
-    width: 38, height: 38,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  menuRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  menuIconBox: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   menuText: { flex: 1 },
-  menuLabel: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: '#111',
-    marginBottom: 1,
-  },
-  menuSub: {
-    fontSize: 11.5,
-    color: '#B0B0B0',
-  },
-  menuDivider: {
-    height: 1,
-    backgroundColor: '#F0F0F0',
-    marginLeft: 68,
-  },
+  menuLabel: { fontSize: 13.5, fontWeight: '600', color: '#111', marginBottom: 1 },
+  menuSub: { fontSize: 11.5, color: '#B0B0B0' },
+  menuDivider: { height: 1, backgroundColor: '#F0F0F0', marginLeft: 68 },
 
-  // Footer
-  footer: {
-    alignItems: 'center',
-    paddingTop: 28,
-    gap: 8,
-  },
-  footerVersion: {
-    fontSize: 11.5,
-    color: '#C0C0C0',
-  },
-  footerLinks: {
-    flexDirection: 'row',
-    gap: 20,
-  },
-  footerLink: {
-    fontSize: 12,
-    color: '#7C3AED',
-    fontWeight: '600',
-  },
+  footer: { alignItems: 'center', paddingTop: 28, gap: 8 },
+  footerVersion: { fontSize: 11.5, color: '#C0C0C0' },
+  footerLinks: { flexDirection: 'row', gap: 20 },
+  footerLink: { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
 });

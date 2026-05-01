@@ -196,7 +196,7 @@ export default function MessagesScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.safetyBold}>Never pay landlords directly.</Text>
           <Text style={styles.safetyText}>
-            To be protected by the SweetCasa 1-Week Guarantee, all payments must stay inside the Escrow Wallet.
+            To be protected by SweetCasa, all payments must stay inside the Escrow Wallet.
           </Text>
         </View>
       </View>

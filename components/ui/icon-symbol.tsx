@@ -12,6 +12,7 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'plus.circle.fill': 'upload',
 
   // ✅ your added icons (corrected)
   'magnifyingglass': 'search',

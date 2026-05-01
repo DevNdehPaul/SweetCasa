@@ -1,5 +1,5 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { Link, router } from 'expo-router';
 import React from 'react';
 import {
   Dimensions,
@@ -60,15 +60,17 @@ const LISTINGS = [
 // ─── Action Card ──────────────────────────────────────────────────────────────
 function ActionCard({ item }: { item: typeof QUICK_ACTIONS[0] }) {
   return (
-    <Link href={item.link as any}>
-      <TouchableOpacity activeOpacity={0.7} style={[styles.actionCard, { width: ACTION_SIZE }]}>
-        <View style={[styles.actionIcon, { backgroundColor: item.bg }]}>
-          <Feather name={item.icon as any} size={18} color={item.iconColor} />
-        </View>
-        <Text style={styles.actionLabel}>{item.label}</Text>
-        <Text style={styles.actionSub}>{item.sub}</Text>
-      </TouchableOpacity>
-    </Link>
+    <TouchableOpacity
+      activeOpacity={0.7}
+      style={styles.actionCard}
+      onPress={() => router.push(item.link as any)}
+    >
+      <View style={[styles.actionIcon, { backgroundColor: item.bg }]}>
+        <Feather name={item.icon as any} size={18} color={item.iconColor} />
+      </View>
+      <Text style={styles.actionLabel}>{item.label}</Text>
+      <Text style={styles.actionSub}>{item.sub}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -178,7 +180,7 @@ export default function HomeScreen() {
             <Text style={styles.bannerSub}>
               Our AI analyzes your lifestyle preferences to find the 100% compatible home for you.
             </Text>
-            <Link href="../agentdashboard">
+            <Link href="../casamatch">
               <TouchableOpacity style={styles.bannerBtn} activeOpacity={0.85}>
                 <Text style={styles.bannerBtnTxt}>Start Quiz</Text>
                 <Feather name="arrow-right" size={13} color="#6D28D9" />
@@ -290,20 +292,6 @@ const styles = StyleSheet.create({
   },
 
   // ── Quick Actions
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    paddingHorizontal: H_PAD,
-    marginBottom: 28,
-  },
-  actionCard: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 16,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#EFEFEF',
-  },
   actionIcon: {
     width: 38, height: 38,
     borderRadius: 10,
@@ -558,4 +546,19 @@ const styles = StyleSheet.create({
     color: '#A0A0A0',
     lineHeight: 17,
   },
+  actionsGrid: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  gap: 12,
+  paddingHorizontal: H_PAD,
+  marginBottom: 28,
+},
+actionCard: {
+  backgroundColor: '#FAFAFA',
+  borderRadius: 16,
+  padding: 15,
+  borderWidth: 1,
+  borderColor: '#EFEFEF',
+  width: ACTION_SIZE,  // ← make sure width is here, not just in the component
+},
 });

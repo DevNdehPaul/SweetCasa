@@ -36,7 +36,7 @@ export default function SplashScreen() {
         toValue: width * 0.55, duration: 1200, useNativeDriver: false,
       }),
     ]).start(() => {
-      router.replace('/login_signup');
+      router.replace('/portal');
     });
   }, []);
 
