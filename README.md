@@ -3,9 +3,7 @@
 # 🏠 SweetCasa
 ### *Find a home you can actually trust.*
 
-**A mobile-first real estate platform that fights fake agents, verifies listings, and connects landlords and tenants with confidence — powered by AI matching and a secure Document Vault.**
-
-[What it does](#-the-problem-sweetcasa-solves) · [Features](#-features) · [Tech Stack](#-tech-stack) · [Getting Started](#-getting-started) · [Project Structure](#-project-structure) · [Contributing](#-contributing)
+**SweetCasa is a mobile-first proptech platform that combats fake agents, verifies listings, and confidently connects landlords with tenants through AI-matching and a safe Document Vault.**
 
 </div>
 
@@ -13,40 +11,48 @@
 
 ## 🌍 The Problem SweetCasa Solves
 
-Anyone who's searched for a rental in a fast-moving housing market knows the feeling — you find a great listing, reach out, and slowly realize the "agent" isn't real, the property doesn't exist, or the deal was too good to be true.
+If you have ever looked for a rental in a competitive housing market, you might have experienced this scenario, finding a tempting listing, contacting the "agent", and then realizing that the "agent" does not exist, the property is a "phantom", or the offer was just a scam.
 
-Fake agents are a genuine crisis. They prey on people who just want a safe place to live.
+Fake agents really are a menace. They exploit people who mainly seek a safe place to live.
 
-**SweetCasa was built to fix that.**
+That is why SweetCasa was developed.
 
-It's a trusted real estate platform that combines AI-powered matching with a secure Document Vault — so landlords can list with confidence, tenants can search without fear, and everyone knows exactly who they're dealing with before a single key changes hands.
+It is a reliable real estate platform, utilizing AI-assisted matchmaking alongside a secure Document Vault, letting landlords list with peace of mind, tenants search without worry, and all parties know exactly who they are dealing with even before the first key changes hands.
 
-> *"A home is the most personal thing you'll ever rent. You deserve to know it's real."*
+"A home is the most personal thing you'll ever rent. You deserve to know that it's real."
 
 ---
 
 ## ✨ Features
 
 ### 🔍 For Tenants
-- **CASA-Match** — AI-powered matching that surfaces properties based on what you actually need, not just keyword search
-- **Verified Listings** — Every property goes through a verification layer before it shows up in results
-- **Secure Document Vault** — View and store important rental documents safely in one place
-- **Transparent Agent Profiles** — Know who you're talking to before you make contact
+
+CASA-Match, Intelligent property matching that discovers homes tailored to your needs, not just based on keyword search
+
+Verified Listings, Each property must undergo verification before being listed in search results
+
+Secure Document Vault, Organize and securely access all important rental documents from one location
+
+Transparent Agent Profiles, See who you are talking to prior to getting in touch
 
 ### 🏡 For Landlords
-- **List with Confidence** — Your listing stands out because it carries a verified badge that tenants trust
-- **Document Vault** — Upload and manage lease agreements, IDs, and property documents securely
-- **Tenant Matching** — CASA-Match works both ways — connecting you with tenants who are a genuine fit for your property
+Post your Divulgence with Assurance, Your listing displays a "verified" badge that prospects recognize as a sign of trust
+
+Document Vault, Store and control lease contracts, identification as well as real estate papers in a safe environment
+
+Tenant Matching, CASA-Match is not only for tenants, it also links you up with tenants who are an excellent match for your property
 
 ### 🛡️ For Everyone
-- **Anti-Fraud Layer** — Built-in safeguards to flag suspicious listings and unverified agents
-- **Safe, Transparent Connections** — Every interaction on SweetCasa is designed with accountability in mind
+
+Anti-Fraud Layer, There are built-in mechanisms that will automatically detect and alert fraud or suspicious agents while offering safeguards to block them.
+
+Safe, Transparent Connections, Each step of the SweetCasa user experience is thought out and made to be accountable and, therefore, safe.
 
 ---
 
 ## 🛠️ Tech Stack
 
-SweetCasa is a cross-platform mobile app built with Expo and React Native, written entirely in TypeScript.
+SweetCasa is a mobile app developed for Android, iOS, and web platforms using Expo, React Native, and TypeScript.
 
 | Layer | Technology |
 |---|---|
@@ -83,19 +89,3 @@ demo video link: https://drive.google.com/file/d/1oJ34CKlHUVOeGBcD3L9q6GMqq7yHvY
 
 ---
 
-## 📬 Get in Touch
-
-Have a question, found a bug, or want to help build safer housing connections?
-
-- Open an [issue](https://github.com/DevNdehPaul/SweetCasa/issues) on GitHub
-- Reach out directly through the repository
-
----
-
-<div align="center">
-
-Built with care, for people who just want a home they can trust.
-
-**SweetCasa — Find a home you can actually trust.**
-
-</div>
