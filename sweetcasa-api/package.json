@@ -9,8 +9,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/app.js",
-    "start": "node src/app.js",
-    "build": "npx prisma generate && npx prisma db push"
+    "build": "npx prisma generate",
+  "start": "node src/api.js"
   },
   "keywords": [],
   "author": "",
