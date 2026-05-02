@@ -3,7 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "node app.js",
+    "start": "node sweetcasa-api/src/api.js",
   "client": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
