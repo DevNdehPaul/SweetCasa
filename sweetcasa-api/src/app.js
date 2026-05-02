@@ -5,11 +5,8 @@ const authRoutes = require('./routes/auth.routes')
 
 const app = express()
 
-// Allow requests from your Expo web app
 app.use(cors({
-  origin: 'http://localhost:8081',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: '*',
 }))
 
 app.use(express.json())
