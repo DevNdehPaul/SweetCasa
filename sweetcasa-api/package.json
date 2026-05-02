@@ -10,7 +10,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/app.js",
     "build": "node node_modules/prisma/build/index.js generate",
-  "start": "node src/api.js"
+  "start": "node src/app.js"
   },
   "keywords": [],
   "author": "",
