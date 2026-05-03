@@ -1,3 +1,4 @@
+process.on('unhandledRejection', (err) => console.error('UNHANDLED:', err))
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
