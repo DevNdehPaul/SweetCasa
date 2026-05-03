@@ -16,4 +16,4 @@ process.on('uncaughtException', (err) => console.error('UNCAUGHT:', err))
 process.on('unhandledRejection', (err) => console.error('REJECTION:', err))
 
 const PORT = process.env.PORT || 3000
-app.listen(PORT, () => console.log(`SweetCasa API running on port ${PORT}`))
+app.listen(PORT, '0.0.0.0', () => console.log(`SweetCasa API running on port ${PORT}`))
