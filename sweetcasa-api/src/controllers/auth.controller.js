@@ -1,11 +1,10 @@
 const { PrismaClient } = require('@prisma/client')
-const { PrismaPg } = require('@prisma/adapter-pg')
+const prisma = new PrismaClient()
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 
 require('dotenv').config()
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-const prisma = new PrismaClient({ adapter })
+
 
 const signToken = (user) =>
   jwt.sign(
