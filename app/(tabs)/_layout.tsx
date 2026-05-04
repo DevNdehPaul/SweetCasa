@@ -67,7 +67,7 @@ export default function TabLayout() {
         />
         {/* Hide buyer-only screen from seller tab bar */}
         <Tabs.Screen name="search" options={{ href: null }} />
-        <Tabs.Screen name="index" options={{ href: null }} />
+        <Tabs.Screen name="seeker-dashboard" options={{ href: null }} />
       </Tabs>
     );
   }
@@ -76,7 +76,7 @@ export default function TabLayout() {
   return (
     <Tabs screenOptions={{ tabBarActiveTintColor: tint, headerShown: false, tabBarButton: HapticTab, tabBarStyle }}>
       <Tabs.Screen
-        name="index"
+        name="seeker-dashboard"
         options={{ title: 'Home', tabBarIcon: ({ color }) => <IconSymbol size={26} name="house.fill" color={color} /> }}
       />
       <Tabs.Screen

@@ -10,7 +10,6 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -89,8 +88,6 @@ function LoginTab() {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
-  const [twoFA, setTwoFA]       = useState(false);
-  const [terms, setTerms]       = useState(false);
   const [loading, setLoading]   = useState(false);
 
   const handleLogin = async () => {
@@ -105,7 +102,7 @@ function LoginTab() {
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('role', role);
       if (profile) await AsyncStorage.setItem('profile', JSON.stringify(profile));
-      router.replace('/(tabs)');
+      router.replace('/agent-dashboard');
     } catch (err: any) {
       const message = err.response?.data?.error || 'Login failed. Please try again.';
       Alert.alert('Login failed', message);
@@ -154,45 +151,12 @@ function LoginTab() {
         }
       />
 
-      {/* 2FA */}
-      <View style={styles.twofaCard}>
-        <View style={styles.twofaIcon}>
-          <Ionicons name="shield-outline" size={18} color="#7C3AED" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <View style={styles.twofaTitleRow}>
-            <Text style={styles.twofaTitle}>Two-Factor Auth</Text>
-            <View style={styles.recommendedBadge}>
-              <Text style={styles.recommendedTxt}>Recommended</Text>
-            </View>
-          </View>
-          <Text style={styles.twofaDesc}>
-            Protect your listings and wallet with an extra layer of security.
-          </Text>
-        </View>
-        <Switch value={twoFA} onValueChange={setTwoFA}
-          trackColor={{ false: '#E5E7EB', true: '#7C3AED' }} thumbColor="#fff" />
-      </View>
-
-      {/* Terms */}
-      <View style={styles.termsRow}>
-        <TouchableOpacity
-          style={[styles.checkbox, terms && styles.checkboxChecked]}
-          onPress={() => setTerms(p => !p)}
-        >
-          {terms && <Feather name="check" size={11} color="#fff" />}
-        </TouchableOpacity>
-        <Text style={styles.termsText}>
-          I agree to the <Text style={styles.termsLink}>Terms of Service</Text>
-          {' '}and <Text style={styles.termsLink}>Privacy Policy</Text>.
-        </Text>
-      </View>
+     
 
       <TouchableOpacity
-        style={[styles.primaryBtn, (!terms || loading) && styles.primaryBtnDisabled]}
-        activeOpacity={terms ? 0.85 : 1}
-        disabled={!terms || loading}
-        onPress={handleLogin}
+        style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
+  disabled={loading}
+  onPress={handleLogin}
       >
         {loading ? <ActivityIndicator color="#fff" /> : (
           <>
@@ -279,7 +243,7 @@ function SignupTab() {
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('role', role);
       if (profile) await AsyncStorage.setItem('profile', JSON.stringify(profile));
-      router.replace('/(tabs)');
+      router.replace('/agent-dashboard');
     } catch (err: any) {
       const message = err.response?.data?.error || 'Registration failed. Please try again.';
       Alert.alert('Sign up failed', message);

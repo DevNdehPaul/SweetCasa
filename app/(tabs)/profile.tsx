@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   FlatList,
   Image, Pressable, SafeAreaView,
@@ -97,23 +96,12 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.clear();
-            router.replace('/portal');
-          },
-        },
-      ]
-    );
-  };
+  const handleLogout = async () => {
+  await AsyncStorage.removeItem('token');
+  await AsyncStorage.removeItem('role');
+  await AsyncStorage.removeItem('profile');
+  router.replace('/portal');
+};
 
   // Build menu groups with logout wired up
   const MENU_GROUP_1: MenuItem[] = [
