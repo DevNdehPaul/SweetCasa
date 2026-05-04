@@ -94,7 +94,7 @@ exports.login = async (req, res) => {
   try {
     const { email, password, expectedRole } = req.body
 
-    const user = await prisma.user.findUnique({
+    const user = await getPrisma().user.findUnique({
       where: { email },
       include: {
         buyerProfile:  true,
