@@ -1,6 +1,7 @@
+import * as ImagePicker from 'expo-image-picker';
 import type { CSSProperties, ChangeEvent } from "react";
 import { useRef, useState } from "react";
-
+import { Alert, Image, Text, TouchableOpacity, View } from 'react-native';
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const PURPLE       = "#7C5CFC";
 const PURPLE_LIGHT = "#F0EBFF";
@@ -252,108 +253,50 @@ interface MediaUploadBoxProps {
 
 // ── KEY FIX: max is now optional; when omitted the user can upload as many
 //    files as they like. The "Add" button is always visible when max is not set.
-const MediaUploadBox = ({ label, max, badge = false }: MediaUploadBoxProps) => {
-  const [files, setFiles] = useState<MediaFile[]>([]);
-  const ref = useRef<HTMLInputElement>(null);
+const MediaUploadBox = ({ label, max }: { label: string; max?: number }) => {
+  const [files, setFiles] = useState<string[]>([]);
 
-  const handleAdd = (e: ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files ?? []);
-    // If max is defined, respect it; otherwise add all selected files
-    const remaining = max !== undefined ? max - files.length : Infinity;
-    const toAdd = selected.slice(0, remaining).map((f) => ({
-      url: URL.createObjectURL(f),
-      name: f.name,
-    }));
-    setFiles((prev) => [...prev, ...toAdd]);
-    if (ref.current) ref.current.value = "";
+  const handleAdd = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow access to your photos.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const newUris = result.assets.map(a => a.uri);
+      const remaining = max !== undefined ? max - files.length : Infinity;
+      setFiles(prev => [...prev, ...newUris.slice(0, remaining)]);
+    }
   };
 
-  const remove = (i: number) =>
-    setFiles((prev) => prev.filter((_, idx) => idx !== i));
-
-  // Show "Add" button when there's no max, or when below the max
   const canAddMore = max === undefined || files.length < max;
 
   return (
-    <div style={{ marginBottom: 18 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: TEXT_DARK }}>{label}</span>
-          {badge && (
-            <span style={{
-              background: "#E0F2FE", color: "#0284C7",
-              fontSize: 10, fontWeight: 700,
-              padding: "2px 6px", borderRadius: 6,
-            }}>NEW</span>
-          )}
-        </div>
-        {/* Show count badge / "unlimited" hint */}
-        {files.length > 0 && (
-          <span style={{ fontSize: 11, color: TEXT_MID, fontWeight: 500 }}>
-            {files.length} added{max !== undefined ? ` / ${max} max` : ""}
-          </span>
-        )}
-        {files.length === 0 && max !== undefined && (
-          <span style={{ fontSize: 11, color: TEXT_LIGHT, fontWeight: 500 }}>Max {max}</span>
-        )}
-        {files.length === 0 && max === undefined && (
-          <span style={{ fontSize: 11, color: TEXT_LIGHT, fontWeight: 500 }}>Unlimited</span>
-        )}
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {files.map((f, i) => (
-          <div
-            key={i}
-            style={{
-              width: 72, height: 72, borderRadius: 10, overflow: "hidden",
-              position: "relative", border: `1.5px solid ${GRAY_BORDER}`,
-              flexShrink: 0,
-            }}
-          >
-            <img src={f.url} alt={f.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            <button
-              onClick={() => remove(i)}
-              style={{
-                position: "absolute", top: 2, right: 2,
-                background: "rgba(0,0,0,0.55)", color: "#fff",
-                border: "none", borderRadius: "50%",
-                width: 18, height: 18, fontSize: 10,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer",
-              }}
-            >✕</button>
-          </div>
+    <View style={{ marginBottom: 18 }}>
+      <Text style={{ fontSize: 13, fontWeight: '600', marginBottom: 8 }}>{label}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {files.map((uri, i) => (
+          <Image key={i} source={{ uri }} style={{ width: 72, height: 72, borderRadius: 10 }} />
         ))}
-
         {canAddMore && (
-          <button
-            onClick={() => ref.current?.click()}
-            style={{
-              width: 72, height: 72, borderRadius: 10,
-              border: `1.5px dashed ${PURPLE}`,
-              background: PURPLE_LIGHT,
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              cursor: "pointer", color: PURPLE, gap: 4,
-              flexShrink: 0,
-            }}
-          >
-            <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
-            <span style={{ fontSize: 10, fontWeight: 600 }}>Add</span>
-          </button>
+          <TouchableOpacity onPress={handleAdd} style={{
+            width: 72, height: 72, borderRadius: 10,
+            borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#7C5CFC',
+            backgroundColor: '#F0EBFF',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ fontSize: 24, color: '#7C5CFC' }}>+</Text>
+          </TouchableOpacity>
         )}
-      </div>
-
-      <input
-        ref={ref}
-        type="file"
-        accept="image/*,video/*"
-        multiple
-        style={{ display: "none" }}
-        onChange={handleAdd}
-      />
-    </div>
+      </View>
+    </View>
   );
 };
 
@@ -636,7 +579,7 @@ export default function NewListing() {
           {/* No max prop → unlimited uploads */}
           <MediaUploadBox label="Photos" />
           {/* Video walkthrough: still capped at 1 */}
-          <MediaUploadBox label="Video Walkthrough" max={1} badge={true} />
+          <MediaUploadBox label="Video Walkthrough" max={1} />
           {/* Floor plan: still capped at 1 */}
           <MediaUploadBox label="Floor Plan" max={1} />
           <DocUpload />
