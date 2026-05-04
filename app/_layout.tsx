@@ -5,9 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-export const unstable_settings = {
-  anchor: 'splashscreen',
-};
+
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -17,7 +15,7 @@ export default function RootLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           <Stack>
-  <Stack.Screen name="splashscreen" options={{ headerShown: false }} />
+  <Stack.Screen name="index" options={{ headerShown: false }} />
   <Stack.Screen name="portal"       options={{ headerShown: false }} />  {/* ← add this */}
   <Stack.Screen name="welcome"      options={{ headerShown: false }} />
   <Stack.Screen name="house_seekers_login_signup" options={{ headerShown: false }} />
