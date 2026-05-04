@@ -40,13 +40,13 @@ exports.register = async (req, res) => {
       : 'BUYER'
 
     // Check email not already taken
-    const existing = await prisma.user.findUnique({ where: { email } })
+    const existing = await getPrisma().user.findUnique({ where: { email } })
     if (existing) return res.status(409).json({ error: 'Email already in use.' })
 
     const hashed = await bcrypt.hash(password, 12)
 
     // Create user + profile in one transaction
-    const user = await prisma.$transaction(async (tx) => {
+    const user = await getPrisma().$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: { email, password: hashed, role: userRole },
       })
