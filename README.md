@@ -8,6 +8,9 @@ When the user want to signup or login into the app, he or she is first prompted 
 
 <img width="157" height="347" alt="image" src="https://github.com/user-attachments/assets/152f9928-6295-493c-bd75-e2f8687eb377" />
 
+# Demo Video
+
+https://drive.google.com/file/d/1oJ34CKlHUVOeGBcD3L9q6GMqq7yHvYOI/view?usp=drive_link
 
 # App Features
 
