@@ -216,10 +216,7 @@ export default function NewListing() {
               <Text style={s.label}>Total Area (m²)</Text>
               <TextInput style={s.input} value={area} onChangeText={setArea} keyboardType="numeric" />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.label}>Floor Number</Text>
-              <TextInput style={s.input} value={floor} onChangeText={setFloor} keyboardType="numeric" />
-            </View>
+            
           </View>
         </View>
 
