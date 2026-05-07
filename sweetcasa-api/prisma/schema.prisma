@@ -8,19 +8,16 @@ datasource db {
 
 model User {
   id               Int                @id @default(autoincrement())
-  name             String             @db.VarChar(50)
-  companyName      String?            @map("company_name") @db.VarChar(100)
+  name             String             @db.VarChar(255)
+  companyName      String?            @map("company_name") @db.VarChar(255)
   email            String             @db.VarChar(255)
   password         String             @db.VarChar(255)
   phone            Int
-  role             String             @db.VarChar(50)
-  avatar           String             @db.VarChar(255)
-  country          String?            @db.VarChar(50)
-  region           String?            @db.VarChar(50)
-  city             String?            @db.VarChar(50)
+  role             String             @db.VarChar(255)
+  country          String?            @db.VarChar(255)
+  region           String?            @db.VarChar(255)
+  city             String?            @db.VarChar(255)
   street           String?
-  isVerified       Boolean            @default(false) @map("is_verified")
-  isSuspended      Boolean            @default(false) @map("is_suspended")
   createdAt        DateTime?          @default(now()) @map("created_at")
   casaMatchHistory CasaMatchHistory[]
   listings         Listing[]
