@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { clearAuthSession, routeForRole } from '../constants/auth';
 
 const { width } = Dimensions.get('window');
 
@@ -44,11 +45,10 @@ export default function SplashScreen() {
   const token = await AsyncStorage.getItem('token');
   const role = await AsyncStorage.getItem('role');
 
-  if (token && role === 'BUYER') {
-    router.replace('/seeker-dashboard');
-  } else if (token && role === 'SELLER') {
-    router.replace('/agent-dashboard');
+  if (token && (role === 'BUYER' || role === 'SELLER')) {
+    router.replace(routeForRole(role) as any);
   } else {
+    await clearAuthSession();
     router.replace('/portal');
   }
 });

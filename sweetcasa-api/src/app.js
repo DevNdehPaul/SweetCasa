@@ -1,30 +1,54 @@
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
+
 const authRoutes = require('./routes/auth.routes')
+const listingRoutes = require('./routes/listing.routes')
+const { ensureDatabaseCompatibility } = require('./lib/db-compat')
+const { getPrisma } = require('./lib/prisma')
+
 const app = express()
 
 app.use(cors({ origin: '*' }))
 app.use(express.json())
 
-// ADD THIS BEFORE auth routes
-app.get('/health', (req, res) => res.json({ status: 'ok' }))
+app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 
 app.use('/auth', authRoutes)
+app.use('/listings', listingRoutes)
 
 process.on('uncaughtException', (err) => console.error('UNCAUGHT:', err))
 process.on('unhandledRejection', (err) => console.error('REJECTION:', err))
-app.get('/db-test', async (req, res) => {
+
+app.get('/db-test', async (_req, res) => {
   try {
-    const { PrismaClient } = require('@prisma/client')
-    const { PrismaPg } = require('@prisma/adapter-pg')
-    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
-    const prisma = new PrismaClient({ adapter })
-    await prisma.$connect()
-    res.json({ db: 'connected ✅' })
+    const prisma = getPrisma()
+    await prisma.$queryRawUnsafe('SELECT 1')
+    const userCount = await prisma.user.count()
+    const listingCount = await prisma.listing.count()
+
+    res.json({
+      db: 'connected',
+      users: userCount,
+      listings: listingCount,
+    })
   } catch (err) {
-    res.json({ db: 'failed ❌', error: err.message })
+    res.status(500).json({ db: 'failed', error: err.message })
   }
 })
+
 const PORT = process.env.PORT || 3000
-app.listen(PORT, '0.0.0.0', () => console.log(`SweetCasa API running on port ${PORT}`))
+
+async function bootstrap() {
+  await ensureDatabaseCompatibility()
+  await getPrisma().$connect()
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`SweetCasa API running on port ${PORT}`)
+  })
+}
+
+bootstrap().catch((err) => {
+  console.error('Startup failed:', err)
+  process.exit(1)
+})

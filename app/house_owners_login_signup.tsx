@@ -1,5 +1,4 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -16,6 +15,7 @@ import {
   View
 } from 'react-native';
 import api from '../constants/api';
+import { persistAuthSession, routeForRole } from '../constants/auth';
 
 const { width } = Dimensions.get('window');
 const H_PAD = 20;
@@ -97,12 +97,14 @@ function LoginTab() {
     }
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password, expectedRole: 'SELLER' })
+      const res = await api.post('/auth/login', {
+        email: email.trim(),
+        password,
+        expectedRole: 'SELLER',
+      })
       const { token, role, profile } = res.data;
-      await AsyncStorage.setItem('token', token);
-      await AsyncStorage.setItem('role', role);
-      if (profile) await AsyncStorage.setItem('profile', JSON.stringify(profile));
-      router.replace('/agent-dashboard');
+      await persistAuthSession({ token, role, profile });
+      router.replace(routeForRole(role) as any);
     } catch (err: any) {
       const message = err.response?.data?.error || 'Login failed. Please try again.';
       Alert.alert('Login failed', message);
@@ -228,22 +230,20 @@ function SignupTab() {
     setLoading(true);
     try {
       const res = await api.post('/auth/register', {
-        email:       form.email,
+        email:       form.email.trim(),
         password:    form.password,
         role:        'SELLER',
-        fullName:    form.fullName,
-        companyName: form.companyName,
+        fullName:    form.fullName.trim(),
+        companyName: form.companyName.trim(),
         phone:       form.phone,
-        country:     form.country,
-        region:      form.region,
-        city:        form.city,
-        street:      form.street,
+        country:     form.country.trim(),
+        region:      form.region.trim(),
+        city:        form.city.trim(),
+        street:      form.street.trim(),
       });
       const { token, role, profile } = res.data;
-      await AsyncStorage.setItem('token', token);
-      await AsyncStorage.setItem('role', role);
-      if (profile) await AsyncStorage.setItem('profile', JSON.stringify(profile));
-      router.replace('/agent-dashboard');
+      await persistAuthSession({ token, role, profile });
+      router.replace(routeForRole(role) as any);
     } catch (err: any) {
       const message = err.response?.data?.error || 'Registration failed. Please try again.';
       Alert.alert('Sign up failed', message);

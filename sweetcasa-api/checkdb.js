@@ -1,38 +1,59 @@
-require('dotenv').config();
-const { PrismaClient } = require('@prisma/client');
-const { PrismaPg } = require('@prisma/adapter-pg');
+require('dotenv').config()
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-});
+const { getPrisma } = require('./src/lib/prisma')
+const { ensureDatabaseCompatibility } = require('./src/lib/db-compat')
 
 async function main() {
-  // List all tables
+  const prisma = getPrisma()
+
+  await ensureDatabaseCompatibility()
+
   const tables = await prisma.$queryRawUnsafe(
-    `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`
-  );
-  console.log('\n📋 Tables in your database:');
-  console.table(tables);
+    `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`
+  )
+  console.log('\nTables in your database:')
+  console.table(tables)
 
-  // Show all users
-  const users = await prisma.user.findMany();
-  console.log('\n👥 Users:');
-  console.table(users.map(u => ({ id: u.id, email: u.email, role: u.role })));
+  const users = await prisma.user.findMany({
+    select: {
+      id: true,
+      name: true,
+      companyName: true,
+      email: true,
+      country: true,
+      region: true,
+      city: true,
+      street: true,
+      role: true,
+      isVerified: true,
+      isSuspended: true,
+      createdAt: true,
+    },
+    orderBy: { id: 'asc' },
+  })
+  console.log('\nUsers:')
+  console.table(users)
 
-  // Show all buyer profiles
-  const buyers = await prisma.buyerProfile.findMany();
-  console.log('\n🏠 Buyer Profiles:');
-  console.table(buyers);
-
-  // Show all seller profiles
-  const sellers = await prisma.sellerProfile.findMany();
-  console.log('\n🏢 Seller Profiles:');
-  console.table(sellers);
-
-  process.exit(0);
+  const listings = await prisma.listing.findMany({
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      city: true,
+      region: true,
+      createdAt: true,
+    },
+    orderBy: { id: 'asc' },
+  })
+  console.log('\nListings:')
+  console.table(listings)
 }
 
-main().catch(e => {
-  console.error('Error:', e.message);
-  process.exit(1);
-});
+main()
+  .catch((e) => {
+    console.error('Error:', e.message)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await getPrisma().$disconnect()
+  })
