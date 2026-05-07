@@ -69,7 +69,7 @@ export default function WelcomeScreen() {
           <TouchableOpacity
             style={styles.cardPrimary}
             activeOpacity={0.87}
-            onPress={() => router.push('/house_seekers_login_signup')}
+            onPress={() => router.push('/onboarding_house_seekers')}
           >
             <View style={styles.iconWrapPrimary}>
               <Feather name="search" size={30} color="#fff" />
@@ -89,7 +89,7 @@ export default function WelcomeScreen() {
           <TouchableOpacity
             style={styles.cardSecondary}
             activeOpacity={0.87}
-            onPress={() => router.push('/house_owners_login_signup')}
+            onPress={() => router.push('/onboarding_house_owners')}
           >
             <View style={styles.iconWrapSecondary}>
               <Feather name="key" size={28} color="#7C3AED" />

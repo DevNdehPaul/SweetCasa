@@ -122,7 +122,8 @@ export default function AgentHubScreen() {
         {/* ── Live Listings ── */}
         <View style={styles.listingsHeader}>
           <Text style={styles.sectionLabel}>LIVE LISTINGS</Text>
-          <TouchableOpacity>
+          <TouchableOpacity
+       onPress={() => router.push('/listings')}>
             <Text style={styles.seeAll}>See All</Text>
           </TouchableOpacity>
         </View>

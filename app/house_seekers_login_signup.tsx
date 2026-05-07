@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,11 +16,16 @@ import {
   View
 } from 'react-native';
 import api from '../constants/api';
-
+const PURPLE_LIGHT = '#F0EBFF';
 const { width } = Dimensions.get('window');
 const H_PAD = 20;
 
 type Tab = 'login' | 'signup';
+
+const EMPTY_FORM = {
+  fullName: '', email: '', phone: '', password: '', confirmPassword: '',
+  country: '', region: '', city: '', street: '',
+};
 
 // ─── Reusable Field ───────────────────────────────────────────────────────────
 function Field({
@@ -84,9 +89,12 @@ function SectionCard({ icon, title, children }: {
 }
 
 // ─── Login Tab ────────────────────────────────────────────────────────────────
-function LoginTab() {
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
+function LoginTab({ email, setEmail, password, setPassword }: {
+  email: string;
+  setEmail: (v: string) => void;
+  password: string;
+  setPassword: (v: string) => void;
+}) {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
 
@@ -97,7 +105,7 @@ function LoginTab() {
     }
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password, expectedRole: 'BUYER' })
+      const res = await api.post('/auth/login', { email, password, expectedRole: 'BUYER' });
       const { token, role, profile } = res.data;
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('role', role);
@@ -151,12 +159,10 @@ function LoginTab() {
         }
       />
 
-      
-
       <TouchableOpacity
-         style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
-  disabled={loading}
-  onPress={handleLogin}
+        style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
+        disabled={loading}
+        onPress={handleLogin}
       >
         {loading ? <ActivityIndicator color="#fff" /> : (
           <>
@@ -195,15 +201,31 @@ function LoginTab() {
 }
 
 // ─── Sign Up Tab ──────────────────────────────────────────────────────────────
-function SignupTab() {
-  const [form, setForm] = useState({
-    fullName: '', email: '', phone: '', password: '', confirmPassword: '',
-    country: '', region: '', city: '', street: '',
-  });
+function SignupTab({
+  termsAccepted,
+  form,
+  setForm,
+}: {
+  termsAccepted: boolean;
+  form: typeof EMPTY_FORM;
+  setForm: React.Dispatch<React.SetStateAction<typeof EMPTY_FORM>>;
+}) {
   const [loading, setLoading] = useState(false);
-  const set = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }));
+  const set = (k: keyof typeof EMPTY_FORM) => (v: string) =>
+    setForm(p => ({ ...p, [k]: v }));
 
   const handleSignup = async () => {
+    if (!termsAccepted) {
+      Alert.alert(
+        'Agreement Required',
+        'You must read and accept the Terms of Service & Privacy Policy before creating an account.',
+        [
+          { text: 'Read Terms', onPress: () => router.push('/TermsSeeker') },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
     if (!form.fullName.trim() || !form.email.trim() || !form.password.trim()) {
       Alert.alert('Missing fields', 'Please fill in your name, email, and password.');
       return;
@@ -229,6 +251,7 @@ function SignupTab() {
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('role', role);
       if (profile) await AsyncStorage.setItem('profile', JSON.stringify(profile));
+      await AsyncStorage.removeItem('signup_draft');
       router.replace('/seeker-dashboard');
     } catch (err: any) {
       const message = err.response?.data?.error || 'Registration failed. Please try again.';
@@ -339,22 +362,55 @@ function SignupTab() {
         </View>
       </SectionCard>
 
-      <View style={styles.securityNote}>
-        <Feather name="check-circle" size={15} color="#9CA3AF" style={{ marginTop: 2 }} />
-        <Text style={styles.securityText}>
-          Your data is secured with AES-256 encryption. By continuing, you agree to SWEETCASA's{' '}
-          <Text style={styles.termsLink}>Terms of Service</Text>
-          {' '}and <Text style={styles.termsLink}>Privacy Policy</Text>.
-        </Text>
+      {/* ── Terms & Conditions ─────────────────────────────────────────────── */}
+      <View style={styles.termsCard}>
+        <Feather name="file-text" size={16} color="#7C3AED" style={{ marginTop: 1 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.termsCardLabel}>Required before registering</Text>
+          <Text style={styles.termsCardBody}>
+            You must read and accept our{' '}
+            <Text style={styles.termsLink} onPress={() => router.push('/TermsSeeker')}>
+              Terms of Service & Privacy Policy
+            </Text>{' '}
+            to create an account.
+          </Text>
+        </View>
       </View>
 
+      <TouchableOpacity
+        style={styles.termsRow}
+        activeOpacity={0.7}
+        onPress={() => { if (!termsAccepted) router.push('/TermsSeeker'); }}
+      >
+        <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+          {termsAccepted && <Feather name="check" size={12} color="#fff" />}
+        </View>
+        <Text style={styles.termsText}>
+          {termsAccepted
+            ? '✓ I have read and accepted the Terms of Service & Privacy Policy.'
+            : 'I agree to the Terms of Service & Privacy Policy (tap to read & accept)'}
+        </Text>
+      </TouchableOpacity>
+
+      {!termsAccepted && (
+        <View style={styles.termsWarning}>
+          <Feather name="alert-circle" size={13} color="#D97706" />
+          <Text style={styles.termsWarningTxt}>
+            Tap the link above to read the Terms, then tap{' '}
+            <Text style={{ fontWeight: '700' }}>Accept & Continue</Text> to unlock registration.
+          </Text>
+        </View>
+      )}
+      {termsAccepted && (
+        <View style={styles.termsSuccess}>
+          <Feather name="check-circle" size={13} color="#16A34A" />
+          <Text style={styles.termsSuccessTxt}>Terms accepted — you're all set to register!</Text>
+        </View>
+      )}
+
       <View style={styles.actionRow}>
-        <TouchableOpacity style={styles.saveBtn}>
-          <Feather name="save" size={15} color="#374151" />
-          <Text style={styles.saveBtnTxt}>Save</Text>
-        </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.nextBtn, loading && styles.primaryBtnDisabled]}
+          style={[styles.nextBtn, (loading || !termsAccepted) && styles.primaryBtnDisabled]}
           disabled={loading}
           onPress={handleSignup}
         >
@@ -372,13 +428,65 @@ function SignupTab() {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function HouseSeekersLoginSignup() {
-  const [activeTab, setActiveTab] = useState<Tab>('login');
+  const params = useLocalSearchParams<{ tab?: string; termsAccepted?: string }>();
+
+  const [activeTab, setActiveTab] = useState<Tab>(
+    params.tab === 'signup' ? 'signup' : 'login'
+  );
+
+  useEffect(() => {
+    if (params.tab === 'signup' || params.tab === 'login') {
+      setActiveTab(params.tab);
+    }
+  }, [params.tab]);
+
+  const termsAccepted = params.termsAccepted === 'true';
+
+  // ── Signup form state (lifted up so back button can reset it) ──────────────
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  // ── Login field state (lifted up so back button can reset them) ───────────
+  const [loginEmail, setLoginEmail]       = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // Tracks whether we've loaded the draft at least once
+  const draftLoaded = useRef(false);
+
+  // Load draft on focus (handles returning from Terms page)
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem('signup_draft').then(raw => {
+        if (raw) {
+          try { setForm(JSON.parse(raw)); } catch {}
+        }
+        draftLoaded.current = true;
+      });
+    }, [])
+  );
+
+  // Save draft on every form change, but only after the first load
+  useEffect(() => {
+    if (!draftLoaded.current) return;
+    AsyncStorage.setItem('signup_draft', JSON.stringify(form));
+  }, [form]);
+
+  // ── Clear all state + draft, then navigate back ────────────────────────────
+  const handleBack = () => {
+    setForm(EMPTY_FORM);
+    setLoginEmail('');
+    setLoginPassword('');
+    draftLoaded.current = false;
+    AsyncStorage.removeItem('signup_draft');
+    router.push('/portal');
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F7F7FB" />
       <View style={{ height: 16 }} />
-
+      <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+        <Feather name="arrow-left" size={22} color="#111827" />
+      </TouchableOpacity>
       <View style={styles.tabRow}>
         {(['login', 'signup'] as Tab[]).map(t => (
           <TouchableOpacity
@@ -401,8 +509,21 @@ export default function HouseSeekersLoginSignup() {
         <Text style={styles.formHeaderSub}>House Seekers Portal</Text>
       </View>
 
-      {activeTab === 'login'  && <LoginTab />}
-      {activeTab === 'signup' && <SignupTab />}
+      {activeTab === 'login' && (
+        <LoginTab
+          email={loginEmail}
+          setEmail={setLoginEmail}
+          password={loginPassword}
+          setPassword={setLoginPassword}
+        />
+      )}
+      {activeTab === 'signup' && (
+        <SignupTab
+          termsAccepted={termsAccepted}
+          form={form}
+          setForm={setForm}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -410,6 +531,10 @@ export default function HouseSeekersLoginSignup() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F7F7FB' },
+  backBtn: {
+    width: 38, height: 38, borderRadius: 19, margin: 20,
+    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
+  },
   tabRow: {
     flexDirection: 'row', backgroundColor: '#EDE9FE', borderRadius: 14,
     marginHorizontal: H_PAD, padding: 4, gap: 4, marginBottom: 4,
@@ -444,21 +569,6 @@ const styles = StyleSheet.create({
   },
   fieldInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
   fieldHint: { fontSize: 11.5, color: '#9CA3AF', marginTop: 5, fontStyle: 'italic', paddingLeft: 2 },
-  twofaCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff',
-    borderWidth: 1.5, borderColor: '#EDE9FE', borderRadius: 16, padding: 14, marginBottom: 14,
-  },
-  twofaIcon: { width: 40, height: 40, backgroundColor: '#F5F3FF', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  twofaTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
-  twofaTitle: { fontSize: 13, fontWeight: '700', color: '#111827' },
-  recommendedBadge: { backgroundColor: '#F0FDF4', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-  recommendedTxt: { fontSize: 10, fontWeight: '700', color: '#16A34A' },
-  twofaDesc: { fontSize: 11.5, color: '#9CA3AF', lineHeight: 17 },
-  termsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
-  checkbox: { width: 20, height: 20, borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  checkboxChecked: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
-  termsText: { flex: 1, fontSize: 12.5, color: '#6B7280', lineHeight: 19 },
-  termsLink: { color: '#7C3AED', fontWeight: '600' },
   primaryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: '#6D28D9', borderRadius: 18, paddingVertical: 17, marginBottom: 18,
@@ -495,6 +605,37 @@ const styles = StyleSheet.create({
   },
   phonePrefixTxt: { fontSize: 13, fontWeight: '600', color: '#374151' },
   twoCol: { flexDirection: 'row', gap: 10 },
+  termsCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#EDE9FE',
+    borderRadius: 14, padding: 13, marginBottom: 12,
+  },
+  termsCardLabel: { fontSize: 10.5, fontWeight: '700', color: '#7C3AED', letterSpacing: 0.6, marginBottom: 4 },
+  termsCardBody: { fontSize: 12.5, color: '#374151', lineHeight: 19 },
+  termsLink: { color: '#6D28D9', fontWeight: '700', textDecorationLine: 'underline' },
+  termsRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginBottom: 10, paddingHorizontal: 2,
+  },
+  checkbox: {
+    width: 22, height: 22, borderWidth: 2, borderColor: '#D1D5DB',
+    borderRadius: 6, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  checkboxChecked: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  termsText: { flex: 1, fontSize: 12.5, color: '#6B7280', lineHeight: 19 },
+  termsWarning: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 7,
+    backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A',
+    borderRadius: 12, padding: 11, marginBottom: 16,
+  },
+  termsWarningTxt: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 18 },
+  termsSuccess: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0',
+    borderRadius: 12, padding: 11, marginBottom: 16,
+  },
+  termsSuccessTxt: { flex: 1, fontSize: 12, color: '#15803D', fontWeight: '600' },
   securityNote: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginBottom: 16,

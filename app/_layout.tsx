@@ -17,11 +17,14 @@ export default function RootLayout() {
           <Stack>
   <Stack.Screen name="index" options={{ headerShown: false }} />
   <Stack.Screen name="portal"       options={{ headerShown: false }} />  {/* ← add this */}
-  <Stack.Screen name="welcome"      options={{ headerShown: false }} />
+  <Stack.Screen name="listings"      options={{ headerShown: false }} />
   <Stack.Screen name="house_seekers_login_signup" options={{ headerShown: false }} />
   <Stack.Screen name="house_owners_login_signup"  options={{ headerShown: false }} />
+  <Stack.Screen name="onboarding_house_seekers"  options={{ headerShown: false }} />
+  <Stack.Screen name="onboarding_house_owners"  options={{ headerShown: false }} />
   <Stack.Screen name="(tabs)"       options={{ headerShown: false }} />
   <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+  
 </Stack>
         </SafeAreaView>
         <StatusBar style="auto" />
