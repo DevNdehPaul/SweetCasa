@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { clearAuthSession } from '../../constants/auth';
 
 const { width } = Dimensions.get('window');
 const H_PAD = 20;
@@ -97,11 +98,9 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
-  await AsyncStorage.removeItem('token');
-  await AsyncStorage.removeItem('role');
-  await AsyncStorage.removeItem('profile');
-  router.replace('/portal');
-};
+    await clearAuthSession();
+    router.replace('/portal');
+  };
 
   // Build menu groups with logout wired up
   const MENU_GROUP_1: MenuItem[] = [
@@ -137,7 +136,9 @@ export default function ProfileScreen() {
   }
 
   // Pull real data from profile
-  const fullName    = profile?.fullName    || profile?.companyName || 'SweetCasa User';
+  const fullName    = role === 'SELLER'
+    ? profile?.companyName || profile?.name || 'SweetCasa User'
+    : profile?.fullName || profile?.name || 'SweetCasa User';
   const city        = profile?.city        || '';
   const region      = profile?.region      || '';
   const country     = profile?.country     || '';

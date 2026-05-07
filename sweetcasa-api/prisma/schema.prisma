@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,41 +7,109 @@ datasource db {
 }
 
 model User {
-  id          String       @id @default(uuid())
-  email       String       @unique
-  password    String
-  role        Role         @default(BUYER)
-  createdAt   DateTime     @default(now())
-  buyerProfile  BuyerProfile?
-  sellerProfile SellerProfile?
+  id               Int                @id @default(autoincrement())
+  name             String             @db.VarChar(50)
+  companyName      String?            @map("company_name") @db.VarChar(100)
+  email            String             @db.VarChar(255)
+  password         String             @db.VarChar(255)
+  phone            Int
+  role             String             @db.VarChar(50)
+  avatar           String             @db.VarChar(255)
+  country          String?            @db.VarChar(50)
+  region           String?            @db.VarChar(50)
+  city             String?            @db.VarChar(50)
+  street           String?
+  isVerified       Boolean            @default(false) @map("is_verified")
+  isSuspended      Boolean            @default(false) @map("is_suspended")
+  createdAt        DateTime?          @default(now()) @map("created_at")
+  casaMatchHistory CasaMatchHistory[]
+  listings         Listing[]
+  savedListings    SavedListing[]
+
+  @@map("users")
 }
 
-model BuyerProfile {
-  id       String @id @default(uuid())
-  userId   String @unique
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fullName String
-  phone    String
-  country  String
-  region   String
-  city     String
-  street   String
+model Listing {
+  id                Int             @id @default(autoincrement())
+  ownerId           Int?            @map("owner_id")
+  title             String          @db.VarChar(120)
+  price             Decimal         @db.Decimal(12, 2)
+  type              String          @db.VarChar(50)
+  status            String
+  country           String          @db.VarChar(50)
+  city              String          @db.VarChar(50)
+  region            String          @db.VarChar(50)
+  neighborhood      String?         @db.VarChar(100)
+  description       String
+  bedrooms          Int             @default(0)
+  bathrooms         Int             @default(0)
+  toilets           Int             @default(0)
+  parlors           Int             @default(0)
+  verandas          Int             @default(0)
+  areaSqm           Decimal?        @map("area_sqm") @db.Decimal(10, 2)
+  floorNumber       Int?            @map("floor_number")
+  paymentFrequency  String?         @map("payment_frequency") @db.VarChar(20)
+  visitHours        String?         @map("visit_hours") @db.VarChar(120)
+  contactMethods    Json?           @map("contact_methods")
+  facilities        Json?
+  floorPlanUrl      String?         @map("floor_plan_url")
+  legalDocumentUrls Json?           @map("legal_document_urls")
+  approvedAt        DateTime?       @map("approved_at")
+  createdAt         DateTime?       @default(now()) @map("created_at")
+  owner             User?           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  images            ListingImage[]
+  videos            ListingVideo[]
+  savedListings     SavedListing[]
+
+  @@map("listings")
 }
 
-model SellerProfile {
-  id            String @id @default(uuid())
-  userId        String @unique
-  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyName   String
-  phone         String
-  country       String
-  region        String
-  city          String
-  street        String
+model ListingImage {
+  id                 Int       @id @default(autoincrement())
+  listingId          Int?      @map("listing_id")
+  imageUrl           String    @map("image_url")
+  cloudinaryPublicId String?   @map("cloudinary_public_id") @db.VarChar(255)
+  isPrimary          Boolean?  @default(false) @map("is_primary")
+  sortOrder          Int?      @default(0) @map("sort_order")
+  uploaded           DateTime? @default(now())
+  listing            Listing?  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("listings_images")
 }
 
-enum Role {
-  BUYER
-  SELLER
-  ADMIN
+model ListingVideo {
+  id                 Int       @id @default(autoincrement())
+  listingId          Int?      @map("listing_id")
+  videoUrl           String    @map("video_url")
+  thumbnailUrl       String?   @map("thumbnail_url")
+  cloudinaryPublicId String?   @map("cloudinary_public_id") @db.VarChar(255)
+  durationSecond     Int?      @map("duration_second")
+  fileSize           BigInt?   @map("file_size")
+  uploaded           DateTime? @default(now())
+  listing            Listing?  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("listings_videos")
+}
+
+model SavedListing {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  listingId Int       @map("listing_id")
+  savedAt   DateTime? @default(now()) @map("saved_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId], map: "unique_user_saved_listing")
+  @@map("saved_listings")
+}
+
+model CasaMatchHistory {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  message   String?
+  aiReply   String?   @map("ai_reply")
+  createdAt DateTime? @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("casamatch_history")
 }

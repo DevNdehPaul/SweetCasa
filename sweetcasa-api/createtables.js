@@ -1,38 +1,46 @@
-require('dotenv').config();
-const { Pool } = require('pg');
+require('dotenv').config()
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const { getPrisma } = require('./src/lib/prisma')
+const { ensureDatabaseCompatibility } = require('./src/lib/db-compat')
 
-pool.query(`
-  CREATE TABLE IF NOT EXISTS "BuyerProfile" (
-    id TEXT PRIMARY KEY,
-    "userId" TEXT UNIQUE NOT NULL,
-    "fullName" TEXT NOT NULL DEFAULT '',
-    phone TEXT NOT NULL DEFAULT '',
-    country TEXT NOT NULL DEFAULT '',
-    region TEXT NOT NULL DEFAULT '',
-    city TEXT NOT NULL DEFAULT '',
-    street TEXT NOT NULL DEFAULT '',
-    FOREIGN KEY ("userId") REFERENCES "User"(id) ON DELETE CASCADE
-  );
+async function main() {
+  const prisma = getPrisma()
 
-  CREATE TABLE IF NOT EXISTS "SellerProfile" (
-    id TEXT PRIMARY KEY,
-    "userId" TEXT UNIQUE NOT NULL,
-    "companyName" TEXT NOT NULL DEFAULT '',
-    phone TEXT NOT NULL DEFAULT '',
-    country TEXT NOT NULL DEFAULT '',
-    region TEXT NOT NULL DEFAULT '',
-    city TEXT NOT NULL DEFAULT '',
-    street TEXT NOT NULL DEFAULT '',
-    FOREIGN KEY ("userId") REFERENCES "User"(id) ON DELETE CASCADE
-  );
-`)
-.then(() => {
-  console.log('✅ BuyerProfile and SellerProfile tables created successfully!');
-  pool.end();
-})
-.catch(e => {
-  console.error('❌ Error:', e.message);
-  pool.end();
-});
+  await ensureDatabaseCompatibility()
+
+  const requiredTables = [
+    'users',
+    'listings',
+    'listings_images',
+    'listings_videos',
+    'saved_listings',
+    'casamatch_history',
+  ]
+
+  const existingTables = await prisma.$queryRawUnsafe(`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public'
+  `)
+
+  const existingTableNames = new Set(existingTables.map((table) => table.table_name))
+  const missingTables = requiredTables.filter((table) => !existingTableNames.has(table))
+
+  if (missingTables.length) {
+    throw new Error(
+      `Database is missing tables from tryer2.sql: ${missingTables.join(', ')}`
+    )
+  }
+
+  console.log('Database matches the tables required by tryer2.sql.')
+  console.log('Compatibility updates for Prisma/auth have been applied.')
+}
+
+main()
+  .catch((e) => {
+    console.error('Error:', e.message)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await getPrisma().$disconnect()
+  })

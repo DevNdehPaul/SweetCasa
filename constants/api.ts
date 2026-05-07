@@ -1,5 +1,5 @@
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import axios from 'axios'
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 
 const api = axios.create({
   baseURL: 'https://sweetcasa-production.up.railway.app',
@@ -7,9 +7,19 @@ const api = axios.create({
 
 // Automatically attach JWT token to every request
 api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
+  const token = await AsyncStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
 
-export default api
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      await AsyncStorage.multiRemove(["token", "role", "profile"]);
+    }
+    return Promise.reject(error);
+  },
+);
+
+export default api;

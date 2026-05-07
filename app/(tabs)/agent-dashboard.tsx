@@ -13,12 +13,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import api from '../../constants/api';
 
 const { width } = Dimensions.get('window');
 const H_PAD = 20;
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
-const LISTINGS = [
+const FALLBACK_LISTINGS = [
   { id: '1', title: 'Modern Villa, Bastos',       price: '450k', status: 'Active',  views: 124, messages: 4  },
   { id: '2', title: 'Studio, Bonamoussadi',       price: '120k', status: 'Pending', views: 58,  messages: 1  },
   { id: '3', title: 'Duplex, Santa Barbara',      price: '850k', status: 'Active',  views: 312, messages: 18 },
@@ -27,14 +28,36 @@ const LISTINGS = [
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function AgentHubScreen() {
   const [profile, setProfile] = useState<any>(null);
+  const [listings, setListings] = useState(FALLBACK_LISTINGS);
 
   useEffect(() => {
     AsyncStorage.getItem('profile').then(p => {
       if (p) setProfile(JSON.parse(p));
     });
+    loadListings();
   }, []);
 
-  const companyName = profile?.companyName || profile?.fullName || 'Your Company';
+  const companyName = profile?.companyName || profile?.name || profile?.fullName || 'Your Company';
+
+  const loadListings = async () => {
+    try {
+      const res = await api.get('/listings/mine');
+      const mapped = (res.data?.listings || []).map((listing: any) => ({
+        id: String(listing.id),
+        title: listing.title,
+        price: `${Number(listing.price).toLocaleString()} XAF`,
+        status: listing.status === 'Available' ? 'Active' : listing.status,
+        views: 0,
+        messages: 0,
+      }));
+
+      if (mapped.length) {
+        setListings(mapped);
+      }
+    } catch (error) {
+      console.log('Could not load seller listings, using fallback data.');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -136,7 +159,7 @@ export default function AgentHubScreen() {
             <Text style={[styles.tableHeaderTxt, { width: 70, textAlign: 'right' }]}>STATUS</Text>
           </View>
 
-          {LISTINGS.map((item, index) => (
+          {listings.map((item, index) => (
             <View key={item.id}>
               <TouchableOpacity style={styles.tableRow} activeOpacity={0.7}>
                 <View style={{ flex: 2 }}>
@@ -156,7 +179,7 @@ export default function AgentHubScreen() {
                   {item.status}
                 </Text>
               </TouchableOpacity>
-              {index < LISTINGS.length - 1 && <View style={styles.tableDivider} />}
+              {index < listings.length - 1 && <View style={styles.tableDivider} />}
             </View>
           ))}
         </View>
