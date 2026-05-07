@@ -25,51 +25,52 @@ function normalizeEmail(email) {
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '')
   if (!digits) return 0
-
   const parsed = Number.parseInt(digits, 10)
   return Number.isNaN(parsed) ? 0 : parsed
 }
 
 function buildDisplayName({ role, fullName, companyName, email }) {
   const sellerName = String(companyName || '').trim() || String(fullName || '').trim()
-  const buyerName = String(fullName || '').trim() || String(companyName || '').trim()
-  const fallbackName = normalizeEmail(email).split('@')[0] || 'SweetCasa User'
+  const buyerName  = String(fullName || '').trim()  || String(companyName || '').trim()
+  const fallback   = normalizeEmail(email).split('@')[0] || 'SweetCasa User'
 
   return role === 'SELLER'
-    ? sellerName || fallbackName
-    : buyerName || fallbackName
+    ? sellerName || fallback
+    : buyerName  || fallback
 }
 
 function toProfile(user) {
   return {
-    id: user.id,
-    fullName: user.role === 'BUYER' ? user.name : '',
+    id:          user.id,
+    name:        user.name,
+    fullName:    user.role === 'BUYER' ? user.name : '',
     companyName: user.companyName || '',
-    name: user.name,
-    email: user.email,
-    phone: String(user.phone ?? ''),
-    role: user.role,
-    avatar: user.avatar,
-    country: user.country || '',
-    region: user.region || '',
-    city: user.city || '',
-    street: user.street || '',
-    isVerified: user.isVerified,
-    isSuspended: user.isSuspended,
-    createdAt: user.createdAt,
+    email:       user.email,
+    phone:       String(user.phone ?? ''),
+    role:        user.role,
+    country:     user.country  || '',
+    region:      user.region   || '',
+    city:        user.city     || '',
+    street:      user.street   || '',
+    createdAt:   user.createdAt,
   }
 }
 
+// ─── Register ─────────────────────────────────────────────────────────────────
+// The frontend must send role: 'BUYER'  from the House Seeker signup page
+//                          role: 'SELLER' from the House Owner signup page
+
 exports.register = async (req, res) => {
   try {
-    console.log(req.body);
+    console.log(req.body)
+
     const {
       email,
       password,
-      role,
+      role,        // 'BUYER' | 'SELLER' — sent by the frontend
       fullName,
       phone,
-      companyName,
+      companyName, // only used when role === 'SELLER'
       country,
       region,
       city,
@@ -77,7 +78,8 @@ exports.register = async (req, res) => {
     } = req.body
 
     const normalizedEmail = normalizeEmail(email)
-    const userRole = normalizeRole(role)
+    const userRole        = normalizeRole(role)   // guarantees 'BUYER' or 'SELLER'
+
     const name = buildDisplayName({
       role: userRole,
       fullName,
@@ -102,16 +104,18 @@ exports.register = async (req, res) => {
     const user = await getPrisma().user.create({
       data: {
         name,
-        companyName: String(companyName || '').trim() || null,
-        email: normalizedEmail,
+        // company_name: filled for SELLER, null for BUYER
+        companyName: userRole === 'SELLER'
+          ? String(companyName || '').trim() || null
+          : null,
+        email:    normalizedEmail,
         password: hashedPassword,
-        phone: normalizePhone(phone),
-        role: userRole,
-        avatar: '',
-        country: String(country || '').trim() || null,
-        region: String(region || '').trim() || null,
-        city: String(city || '').trim() || null,
-        street: String(street || '').trim() || null,
+        phone:    normalizePhone(phone),
+        role:     userRole,
+        country:  String(country || '').trim() || null,
+        region:   String(region  || '').trim() || null,
+        city:     String(city    || '').trim() || null,
+        street:   String(street  || '').trim() || null,
       },
     })
 
@@ -123,8 +127,10 @@ exports.register = async (req, res) => {
   }
 }
 
+// ─── Login ────────────────────────────────────────────────────────────────────
+
 exports.login = async (req, res) => {
-  console.log(req.body);
+  console.log(req.body)
   try {
     const { email, password, expectedRole } = req.body
     const normalizedEmail = normalizeEmail(email)
@@ -134,14 +140,15 @@ exports.login = async (req, res) => {
     })
 
     if (!user) return res.status(401).json({ error: 'Invalid credentials.' })
-    if (user.isSuspended) return res.status(403).json({ error: 'This account has been suspended.' })
 
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) return res.status(401).json({ error: 'Invalid credentials.' })
 
     if (expectedRole && user.role !== normalizeRole(expectedRole)) {
       return res.status(403).json({
-        error: `This account is not registered as a ${normalizeRole(expectedRole) === 'BUYER' ? 'House Seeker' : 'House Owner'}. Please use the correct portal.`,
+        error: `This account is not registered as a ${
+          normalizeRole(expectedRole) === 'BUYER' ? 'House Seeker' : 'House Owner'
+        }. Please use the correct portal.`,
       })
     }
 
@@ -152,6 +159,8 @@ exports.login = async (req, res) => {
     res.status(500).json({ error: 'Login failed.' })
   }
 }
+
+// ─── Logout ───────────────────────────────────────────────────────────────────
 
 exports.logout = (_req, res) => {
   res.json({ message: 'Logged out. Discard your token on the client.' })
