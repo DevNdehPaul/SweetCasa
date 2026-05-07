@@ -10,7 +10,7 @@
   "test": "echo \"Error: no test specified\" && exit 1",
   "dev": "nodemon src/app.js",
   "build": "node node_modules/prisma/build/index.js generate",
-  "start": "npm run build && node node_modules/prisma/build/index.js db push && node src/app.js",
+  "start": "npm run build && node node_modules/prisma/build/index.js db push --accept-data-loss && node src/app.js",
   "db:check": "node checkdb.js",
   "db:compat": "node createtables.js"
 },

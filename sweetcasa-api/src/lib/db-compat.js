@@ -1,7 +1,29 @@
 const { getPrisma } = require('./prisma')
 
+async function tableExists(prisma, tableName) {
+  const result = await prisma.$queryRawUnsafe(`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public'
+      AND table_name = '${tableName}'
+    ) AS exists
+  `)
+  return result[0].exists
+}
+
 async function ensureDatabaseCompatibility() {
   const prisma = getPrisma()
+
+  const usersExist = await tableExists(prisma, 'users')
+  const listingsExist = await tableExists(prisma, 'listings')
+  const listingsVideosExist = await tableExists(prisma, 'listings_videos')
+
+  if (!usersExist || !listingsExist) {
+    console.log('Tables not yet created — skipping compatibility updates. Run db push first.')
+    return
+  }
+
+  // ── Users table alterations ──────────────────────────────────────────────
 
   await prisma.$executeRawUnsafe(`
     ALTER TABLE public.users
@@ -29,6 +51,8 @@ async function ensureDatabaseCompatibility() {
   await prisma.$executeRawUnsafe(`
     CREATE INDEX IF NOT EXISTS idx_users_email ON public.users (email);
   `)
+
+  // ── Listings table alterations ───────────────────────────────────────────
 
   await prisma.$executeRawUnsafe(`
     ALTER TABLE public.listings
@@ -81,14 +105,20 @@ async function ensureDatabaseCompatibility() {
     END $$;
   `)
 
-  await prisma.$executeRawUnsafe(`
-    ALTER TABLE public.listings_videos
-      ADD COLUMN IF NOT EXISTS cloudinary_public_id VARCHAR(255);
-  `)
+  // ── Listings videos table alterations ────────────────────────────────────
+
+  if (listingsVideosExist) {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE public.listings_videos
+        ADD COLUMN IF NOT EXISTS cloudinary_public_id VARCHAR(255);
+    `)
+  }
 
   await prisma.$executeRawUnsafe(`
     CREATE INDEX IF NOT EXISTS idx_listings_owner_id ON public.listings (owner_id);
   `)
+
+  console.log('Database compatibility updates applied successfully.')
 }
 
 module.exports = { ensureDatabaseCompatibility }
