@@ -7,13 +7,13 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/app.js",
-    "build": "node node_modules/prisma/build/index.js generate",
-    "start": "npm run build && node src/app.js",
-    "db:check": "node checkdb.js",
-    "db:compat": "node createtables.js"
-  },
+  "test": "echo \"Error: no test specified\" && exit 1",
+  "dev": "nodemon src/app.js",
+  "build": "node node_modules/prisma/build/index.js generate",
+  "start": "npm run build && node node_modules/prisma/build/index.js migrate deploy && node src/app.js",
+  "db:check": "node checkdb.js",
+  "db:compat": "node createtables.js"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
