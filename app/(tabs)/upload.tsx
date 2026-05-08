@@ -5,7 +5,6 @@ import React, { useState } from 'react';
 import {
   Alert,
   Image,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -62,9 +61,8 @@ function inferMimeType(uri: string, fallback: string) {
   return fallback;
 }
 
+// Do NOT strip file:// — React Native XHR needs it intact on all platforms
 function fixUri(uri: string) {
-  // On iOS, file URIs sometimes need the file:// prefix stripped for fetch
-  if (Platform.OS === 'ios') return uri.replace('file://', '');
   return uri;
 }
 
@@ -381,7 +379,6 @@ export default function NewListing() {
         } as any);
       });
 
-      // Use XHR — most reliable for React Native multipart uploads
       await uploadListing(formData);
 
       Alert.alert(
