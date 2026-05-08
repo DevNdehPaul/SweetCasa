@@ -111,7 +111,8 @@ function groupFilesByField(files) {
 exports.createListing = async (req, res) => {
   try {
     ensureCloudinaryConfigured()
-
+    console.log('LISTING BODY:', JSON.stringify(req.body))
+    console.log('LISTING FILES:', req.files ? req.files.length : 'none')
     const {
       title,
       price,
