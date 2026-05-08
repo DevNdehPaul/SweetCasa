@@ -113,6 +113,10 @@ exports.createListing = async (req, res) => {
     ensureCloudinaryConfigured()
     console.log('LISTING BODY:', JSON.stringify(req.body))
     console.log('LISTING FILES:', req.files ? req.files.length : 'none')
+    // Temporary debug — add before uploadWithFetch call
+console.log('PHOTOS STATE:', JSON.stringify(photos));
+console.log('PHOTO 0 URI:', photos[0]?.uri);
+console.log('PHOTO 0 TYPE:', photos[0]?.mimeType);
     const {
       title,
       price,
