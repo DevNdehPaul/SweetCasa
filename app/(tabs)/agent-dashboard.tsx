@@ -84,7 +84,7 @@ export default function AgentHubScreen() {
             <View style={styles.onlineDot} />
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>{companyName}</Text>
+            <Text style={styles.userName}>{profile?.name}</Text>
             <View style={styles.verifiedRow}>
               <Ionicons name="shield-checkmark" size={13} color="#7C3AED" />
               <Text style={styles.verifiedTxt}>Verified House Owner</Text>

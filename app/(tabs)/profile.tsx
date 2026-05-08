@@ -22,9 +22,9 @@ const RECENT_CARD_W = (width - H_PAD * 2 - 12) / 3;
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const RECENT_LISTINGS = [
-  { id: '1', title: 'Villa in Bastos',  price: '450k/mo', image: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=300&q=80' },
-  { id: '2', title: 'Studio Akwa',      price: '120k/mo', image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&q=80' },
-  { id: '3', title: 'Bungalow',         price: '300k/mo', image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=300&q=80' },
+  { id: '1', title: 'Villa in Bastos', price: '450k/mo', image: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=300&q=80' },
+  { id: '2', title: 'Studio Akwa', price: '120k/mo', image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&q=80' },
+  { id: '3', title: 'Bungalow', price: '300k/mo', image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=300&q=80' },
 ];
 
 type MenuItem = {
@@ -74,9 +74,9 @@ function MenuGroup({ items }: { items: MenuItem[] }) {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
-  const [profile, setProfile]   = useState<any>(null);
-  const [role, setRole]         = useState<string | null>(null);
-  const [loading, setLoading]   = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadUserData();
@@ -89,7 +89,7 @@ export default function ProfileScreen() {
         AsyncStorage.getItem('role'),
       ]);
       if (storedProfile) setProfile(JSON.parse(storedProfile));
-      if (storedRole)    setRole(storedRole);
+      if (storedRole) setRole(storedRole);
     } catch (e) {
       console.error('Failed to load profile:', e);
     } finally {
@@ -104,14 +104,14 @@ export default function ProfileScreen() {
 
   // Build menu groups with logout wired up
   const MENU_GROUP_1: MenuItem[] = [
-    { id: 'account', icon: 'user',        label: 'Account Information',  sub: 'Personal details & verification', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-    { id: 'wallet',  icon: 'credit-card', label: 'Escrow Wallet',        sub: 'Manage funds & payments',         iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-    { id: 'history', icon: 'rotate-ccw',  label: 'Transaction History',  sub: 'Past rentals & escrow logs',      iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+    { id: 'account', icon: 'user', label: 'Account Information', sub: 'Personal details & verification', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+    { id: 'wallet', icon: 'credit-card', label: 'Escrow Wallet', sub: 'Manage funds & payments', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+    { id: 'history', icon: 'rotate-ccw', label: 'Transaction History', sub: 'Past rentals & escrow logs', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
   ];
 
   const MENU_GROUP_2: MenuItem[] = [
-    { id: 'security', icon: 'shield', label: 'Security & 2FA',  sub: 'Two-factor authentication active', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-    { id: 'language', icon: 'globe',  label: 'App Language',    sub: 'English (Cameroon)',               iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+    { id: 'security', icon: 'shield', label: 'Security & 2FA', sub: 'Two-factor authentication active', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+    { id: 'language', icon: 'globe', label: 'App Language', sub: 'English (Cameroon)', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
   ];
 
   const MENU_GROUP_3: MenuItem[] = [
@@ -136,13 +136,13 @@ export default function ProfileScreen() {
   }
 
   // Pull real data from profile
-  const fullName    = role === 'SELLER'
+  const fullName = role === 'SELLER'
     ? profile?.companyName || profile?.name || 'SweetCasa User'
     : profile?.fullName || profile?.name || 'SweetCasa User';
-  const city        = profile?.city        || '';
-  const region      = profile?.region      || '';
-  const country     = profile?.country     || '';
-  const isSeller    = role === 'SELLER';
+  const city = profile?.city || '';
+  const region = profile?.region || '';
+  const country = profile?.country || '';
+  const isSeller = role === 'SELLER';
 
   // Build location string from real data
   const locationStr = [city, region, country].filter(Boolean).join(', ') || 'Location not set';
@@ -175,8 +175,10 @@ export default function ProfileScreen() {
           </View>
 
           {/* Real name from DB */}
+          {isSeller && (
+            <Text style={styles.userName}>{profile?.name}</Text>
+          )}
           <Text style={styles.profileName}>{fullName}</Text>
-
           {/* Real location from DB */}
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={13} color="#A0A0A0" />
@@ -290,7 +292,8 @@ const styles = StyleSheet.create({
   avatarWrap: { position: 'relative', marginBottom: 12 },
   avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#fff' },
   verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 12, padding: 1 },
-  profileName: { fontSize: 20, fontWeight: '800', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
+  profileName: { fontSize: 18, fontWeight: '700', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
+  userName: { fontSize: 25, fontWeight: '800', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 10 },
   locationTxt: { fontSize: 12.5, color: '#A0A0A0' },
 

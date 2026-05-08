@@ -36,7 +36,7 @@ CREATE TABLE public.listings (
     title                VARCHAR(120)  NOT NULL,
     price                NUMERIC(12,2) NOT NULL,
     type                 VARCHAR(50)   NOT NULL,
-    status               VARCHAR       NOT NULL,
+    status               VARCHAR       NOT NULL DEFAULT 'Pending',  -- ✅ default, user never sends it
     country              VARCHAR(50)   NOT NULL DEFAULT 'Cameroon',
     city                 VARCHAR(50)   NOT NULL,
     region               VARCHAR(50)   NOT NULL,
@@ -47,8 +47,7 @@ CREATE TABLE public.listings (
     toilets              INTEGER       DEFAULT 0,
     parlors              INTEGER       DEFAULT 0,
     verandas             INTEGER       DEFAULT 0,
-    area_sqm             NUMERIC(10,2) DEFAULT NULL,
-    floor_number         INTEGER       DEFAULT NULL,
+    area_sqm             NUMERIC(10,2) DEFAULT NULL,                -- ✅ optional, no change needed
     payment_frequency    VARCHAR(20)   DEFAULT NULL,
     visit_hours          VARCHAR(120)  DEFAULT NULL,
     contact_methods      JSONB         DEFAULT NULL,
