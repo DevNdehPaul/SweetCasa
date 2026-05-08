@@ -3,7 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "build": "node node_modules/prisma/build/index.js generate",
+"start": "npm run build && node node_modules/prisma/build/index.js db push --accept-data-loss && node src/app.js",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
