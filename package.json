@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "build": "rm -rf node_modules/.prisma && node node_modules/prisma/build/index.js generate",
-"start": "npm run build && node node_modules/prisma/build/index.js db push --accept-data-loss && node src/app.js",
+    "start": "npm run build && node node_modules/prisma/build/index.js db push --accept-data-loss && node src/app.js",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -21,6 +21,7 @@
     "cors": "^2.8.6",
     "expo": "~54.0.33",
     "expo-constants": "~18.0.13",
+    "expo-document-picker": "~14.0.8",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
