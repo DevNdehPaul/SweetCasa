@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import {
   Alert,
   Image,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -14,7 +15,8 @@ import {
   View,
 } from 'react-native';
 
-import { uploadWithFetch } from '../../constants/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BASE_URL } from '../../constants/api';
 
 const PURPLE = '#7C5CFC';
 const PURPLE_LIGHT = '#F0EBFF';
@@ -58,6 +60,46 @@ function inferMimeType(uri: string, fallback: string) {
   if (ext === 'pdf') return 'application/pdf';
   if (['doc', 'docx'].includes(ext)) return 'application/msword';
   return fallback;
+}
+
+function fixUri(uri: string) {
+  // On iOS, file URIs sometimes need the file:// prefix stripped for fetch
+  if (Platform.OS === 'ios') return uri.replace('file://', '');
+  return uri;
+}
+
+// XHR-based upload — most reliable for React Native multipart file uploads
+async function uploadListing(formData: FormData): Promise<any> {
+  const token = await AsyncStorage.getItem('token');
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${BASE_URL}/listings`);
+
+    if (token) {
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
+    // Do NOT set Content-Type — XHR sets it automatically with boundary
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject({ response: { data, status: xhr.status } });
+        }
+      } catch {
+        reject(new Error('Invalid server response'));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.ontimeout = () => reject(new Error('Request timed out'));
+    xhr.timeout = 300000; // 5 min for large uploads
+
+    xhr.send(formData);
+  });
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -162,7 +204,7 @@ const MediaUploadBox = ({
   );
 };
 
-// Document picker (pdf, docx, images, etc.)
+// Document picker (pdf, docx, images)
 const DocumentUploadBox = ({
   label, files, setFiles, max,
 }: {
@@ -237,12 +279,12 @@ export default function NewListing() {
   const [toilets, setToilets] = useState(2);
   const [parlors, setParlors] = useState(1);
   const [verandas, setVerandas] = useState(1);
-  const [area, setArea] = useState('');               // optional
+  const [area, setArea] = useState('');
   const [amenities, setAmenities] = useState<string[]>(['Wifi', 'Electricity']);
   const [description, setDescription] = useState('');
   const [contact, setContact] = useState<string[]>(['Call', 'WhatsApp']);
   const [visitHours, setVisitHours] = useState('Weekends 10AM - 2PM');
-  const [photos, setPhotos] = useState<SelectedMedia[]>([]);
+  const [photoFiles, setPhotoFiles] = useState<SelectedMedia[]>([]);
   const [videoFiles, setVideoFiles] = useState<SelectedMedia[]>([]);
   const [floorPlans, setFloorPlans] = useState<SelectedMedia[]>([]);
   const [legalDocs, setLegalDocs] = useState<SelectedMedia[]>([]);
@@ -263,7 +305,7 @@ export default function NewListing() {
     setToilets(2); setParlors(1); setVerandas(1); setArea('');
     setAmenities(['Wifi', 'Electricity']); setDescription('');
     setContact(['Call', 'WhatsApp']); setVisitHours('Weekends 10AM - 2PM');
-    setPhotos([]); setVideoFiles([]); setFloorPlans([]); setLegalDocs([]);
+    setPhotoFiles([]); setVideoFiles([]); setFloorPlans([]); setLegalDocs([]);
   };
 
   const handlePostListing = async () => {
@@ -271,8 +313,12 @@ export default function NewListing() {
       Alert.alert('Missing fields', 'Please complete the required listing details.');
       return;
     }
-    if (!photos.length) {
+    if (!photoFiles.length) {
       Alert.alert('Photos required', 'Please add at least one property photo.');
+      return;
+    }
+    if (!videoFiles.length) {
+      Alert.alert('Video required', 'Please add a video walkthrough of the property.');
       return;
     }
 
@@ -284,7 +330,7 @@ export default function NewListing() {
       formData.append('title', title.trim());
       formData.append('price', String(Number(price.replace(/,/g, ''))));
       formData.append('type', propType);
-      formData.append('status', 'Pending');          // always Pending on upload
+      formData.append('status', 'Pending');
       formData.append('country', country.trim() || 'Cameroon');
       formData.append('region', region.trim());
       formData.append('city', city.trim());
@@ -295,52 +341,53 @@ export default function NewListing() {
       formData.append('toilets', String(toilets));
       formData.append('parlors', String(parlors));
       formData.append('verandas', String(verandas));
-      if (area.trim()) formData.append('areaSqm', area.trim()); // optional
+      if (area.trim()) formData.append('areaSqm', area.trim());
       formData.append('paymentFrequency', payFreq);
       formData.append('visitHours', visitHours.trim());
       formData.append('contactMethods', JSON.stringify(contact));
       formData.append('facilities', JSON.stringify(amenities));
 
-      // Photos
-      photos.forEach((photo, index) => {
+      // Photos — append each as a proper file object
+      photoFiles.forEach((photo, index) => {
         formData.append('photos', {
-          uri: photo.uri,
+          uri: fixUri(photo.uri),
           name: photo.fileName || `photo-${index + 1}.jpg`,
           type: photo.mimeType || inferMimeType(photo.uri, 'image/jpeg'),
         } as any);
       });
 
-      // Video (optional)
-      if (videoFiles[0]) {
-        formData.append('video', {
-          uri: videoFiles[0].uri,
-          name: videoFiles[0].fileName || 'video.mp4',
-          type: videoFiles[0].mimeType || inferMimeType(videoFiles[0].uri, 'video/mp4'),
-        } as any);
-      }
+      // Video — required
+      formData.append('video', {
+        uri: fixUri(videoFiles[0].uri),
+        name: videoFiles[0].fileName || 'walkthrough.mp4',
+        type: videoFiles[0].mimeType || inferMimeType(videoFiles[0].uri, 'video/mp4'),
+      } as any);
 
-      // Floor plan (optional, any doc type)
+      // Floor plan — optional
       if (floorPlans[0]) {
         formData.append('floorPlan', {
-          uri: floorPlans[0].uri,
+          uri: fixUri(floorPlans[0].uri),
           name: floorPlans[0].fileName || 'floor-plan',
           type: floorPlans[0].mimeType || inferMimeType(floorPlans[0].uri, 'application/octet-stream'),
         } as any);
       }
 
-      // Legal documents (optional, any doc type)
+      // Legal documents — optional
       legalDocs.forEach((doc, index) => {
         formData.append('legalDocuments', {
-          uri: doc.uri,
+          uri: fixUri(doc.uri),
           name: doc.fileName || `legal-doc-${index + 1}`,
           type: doc.mimeType || inferMimeType(doc.uri, 'application/octet-stream'),
         } as any);
       });
 
-      // Send — do NOT set Content-Type manually, let axios set it with boundary
-      await uploadWithFetch('/listings', formData);
+      // Use XHR — most reliable for React Native multipart uploads
+      await uploadListing(formData);
 
-      Alert.alert('Submitted!', 'Your listing has been submitted for review. It will appear on the platform once approved.');
+      Alert.alert(
+        'Submitted! 🎉',
+        'Your listing has been submitted for review. It will appear on the platform once approved by the SweetCasa team.'
+      );
       resetForm();
       router.replace('/agent-dashboard');
     } catch (err: any) {
@@ -430,8 +477,9 @@ export default function NewListing() {
               <Stepper value={item.value} onChange={item.setValue} />
             </View>
           ))}
-          {/* Total area — optional */}
-          <Text style={s.label}>Total Area (m²) <Text style={s.optional}>— optional</Text></Text>
+          <Text style={s.label}>
+            Total Area (m²) <Text style={s.optional}>— optional</Text>
+          </Text>
           <TextInput
             style={s.input} placeholderTextColor={TEXT_LIGHT}
             placeholder="e.g. 120" keyboardType="numeric"
@@ -453,10 +501,18 @@ export default function NewListing() {
         {/* 6. Photos & Video */}
         <View style={s.section}>
           <SectionHeader num="6" title="Photos & Video" />
-          <MediaUploadBox label="Photos *" files={photos} setFiles={setPhotos} pickerMode="image" />
           <MediaUploadBox
-            label="Video Walkthrough (optional)" files={videoFiles}
-            setFiles={setVideoFiles} pickerMode="video" max={1}
+            label="Photos *"
+            files={photoFiles}
+            setFiles={setPhotoFiles}
+            pickerMode="image"
+          />
+          <MediaUploadBox
+            label="Video Walkthrough *"
+            files={videoFiles}
+            setFiles={setVideoFiles}
+            pickerMode="video"
+            max={1}
           />
         </View>
 
@@ -464,7 +520,9 @@ export default function NewListing() {
         <View style={s.section}>
           <SectionHeader num="7" title="House Documents" />
           <View style={s.docInfoBox}>
-            <Text style={s.docInfoTitle}>Floor Plan <Text style={s.optional}>(optional)</Text></Text>
+            <Text style={s.docInfoTitle}>
+              Floor Plan <Text style={s.optional}>(optional)</Text>
+            </Text>
             <Text style={s.docInfoDesc}>
               Upload a floor plan so tenants can understand the layout. Accepted: PDF, DOCX, JPG, PNG.
             </Text>
@@ -472,9 +530,10 @@ export default function NewListing() {
           <DocumentUploadBox
             label="Upload Floor Plan" files={floorPlans} setFiles={setFloorPlans} max={1}
           />
-
           <View style={[s.docInfoBox, { marginTop: 12 }]}>
-            <Text style={s.docInfoTitle}>Legal Documents <Text style={s.optional}>(optional)</Text></Text>
+            <Text style={s.docInfoTitle}>
+              Legal Documents <Text style={s.optional}>(optional)</Text>
+            </Text>
             <Text style={s.docInfoDesc}>
               Proof of ownership for internal SweetCasa review. Accepted: PDF, DOCX, JPG, PNG.
             </Text>
@@ -527,7 +586,8 @@ export default function NewListing() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.postBtn, posting && s.postBtnDisabled]}
-            onPress={handlePostListing} disabled={posting}>
+            onPress={handlePostListing}
+            disabled={posting}>
             <Text style={s.postBtnTxt}>{posting ? 'Uploading…' : 'Submit Listing'}</Text>
           </TouchableOpacity>
         </View>
@@ -593,7 +653,6 @@ const s = StyleSheet.create({
     position: 'absolute', right: 14, top: 13,
     fontSize: 13, fontWeight: '700', color: PURPLE,
   },
-  // Media
   mediaSection: { marginBottom: 18 },
   mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   previewWrap: { position: 'relative' },
@@ -611,7 +670,6 @@ const s = StyleSheet.create({
   },
   uploadPlus: { fontSize: 24, color: PURPLE },
   uploadLabel: { fontSize: 10, color: PURPLE, fontWeight: '600' },
-  // Document picker
   docFileList: { gap: 8 },
   docFileRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -626,14 +684,12 @@ const s = StyleSheet.create({
     backgroundColor: PURPLE_LIGHT,
   },
   docUploadTxt: { color: PURPLE, fontSize: 13, fontWeight: '600' },
-  // Doc info box
   docInfoBox: {
     backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginBottom: 10,
     borderWidth: 1, borderColor: GRAY_BORDER,
   },
   docInfoTitle: { fontSize: 13, fontWeight: '700', color: TEXT_DARK, marginBottom: 4 },
   docInfoDesc: { fontSize: 12, color: TEXT_MID, lineHeight: 18 },
-  // Pending notice
   pendingNotice: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
     margin: 10, padding: 14, borderRadius: 12,
@@ -641,7 +697,6 @@ const s = StyleSheet.create({
   },
   pendingIcon: { fontSize: 18 },
   pendingTxt: { flex: 1, fontSize: 13, color: '#92400E', lineHeight: 20 },
-  // Bottom bar
   bottomBar: { flexDirection: 'row', gap: 12, margin: 16 },
   draftBtn: {
     flex: 1, padding: 14, borderWidth: 1.5,
