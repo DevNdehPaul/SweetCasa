@@ -103,7 +103,7 @@ exports.register = async (req, res) => {
 
     const user = await getPrisma().user.create({
       data: {
-        name,
+        name: fullName ? String(fullName).trim() : companyName ? String(companyName).trim() : null,
         // company_name: filled for SELLER, null for BUYER
         companyName: userRole === 'SELLER'
           ? String(companyName || '').trim() || null
