@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 
-import api from '../../constants/api';
+import { uploadWithFetch } from '../../constants/api';
 
 const PURPLE = '#7C5CFC';
 const PURPLE_LIGHT = '#F0EBFF';
@@ -338,10 +338,7 @@ export default function NewListing() {
       });
 
       // Send — do NOT set Content-Type manually, let axios set it with boundary
-      await api.post('/listings', formData, {
-        transformRequest: (data) => data,
-        headers: { Accept: 'application/json' },
-      });
+      await uploadWithFetch('/listings', formData);
 
       Alert.alert('Submitted!', 'Your listing has been submitted for review. It will appear on the platform once approved.');
       resetForm();
