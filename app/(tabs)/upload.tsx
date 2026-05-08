@@ -316,12 +316,8 @@ export default function NewListing() {
         } as any);
       });
 
-      await api.post('/listings', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
+      await api.post('/listings', formData);
+      
       Alert.alert('Success', 'Your listing has been uploaded successfully.');
       resetForm();
       router.replace('/agent-dashboard');

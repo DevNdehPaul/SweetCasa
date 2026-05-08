@@ -3,20 +3,17 @@ import { router } from 'expo-router'
 
 type AuthProfile = {
   id: number
-  fullName?: string
-  companyName?: string
-  name?: string
-  email?: string
-  phone?: string
+  fullName: string
+  companyName: string
+  name: string
+  email: string
+  phone: string
   role: 'BUYER' | 'SELLER'
-  avatar?: string
-  country?: string
-  region?: string
-  city?: string
-  street?: string
-  isVerified?: boolean
-  isSuspended?: boolean
-  createdAt?: string | null
+  country: string
+  region: string
+  city: string
+  street: string
+  createdAt: string | null
 }
 
 type AuthResponse = {
@@ -25,28 +22,28 @@ type AuthResponse = {
   profile?: Partial<AuthProfile> | null
 }
 
-function normalizeProfile(role: 'BUYER' | 'SELLER', profile?: Partial<AuthProfile> | null): AuthProfile {
+function normalizeProfile(
+  role: 'BUYER' | 'SELLER',
+  profile?: Partial<AuthProfile> | null
+): AuthProfile {
   const fallbackName =
     (role === 'SELLER' ? profile?.companyName : profile?.fullName) ||
     profile?.name ||
     ''
 
   return {
-    id: Number(profile?.id || 0),
-    fullName: role === 'BUYER' ? (profile?.fullName || profile?.name || '') : '',
-    companyName: role === 'SELLER' ? (profile?.companyName || profile?.name || '') : '',
-    name: profile?.name || fallbackName,
-    email: profile?.email || '',
-    phone: profile?.phone || '',
+    id:          Number(profile?.id || 0),
+    fullName:    role === 'BUYER'   ? (profile?.fullName   || profile?.name || '') : '',
+    companyName: role === 'SELLER'  ? (profile?.companyName || profile?.name || '') : '',
+    name:        profile?.name      || fallbackName,
+    email:       profile?.email     || '',
+    phone:       profile?.phone     || '',
     role,
-    avatar: profile?.avatar || '',
-    country: profile?.country || '',
-    region: profile?.region || '',
-    city: profile?.city || '',
-    street: profile?.street || '',
-    isVerified: Boolean(profile?.isVerified),
-    isSuspended: Boolean(profile?.isSuspended),
-    createdAt: profile?.createdAt || null,
+    country:     profile?.country   || '',
+    region:      profile?.region    || '',
+    city:        profile?.city      || '',
+    street:      profile?.street    || '',
+    createdAt:   profile?.createdAt || null,
   }
 }
 
