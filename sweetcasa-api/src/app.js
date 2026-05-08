@@ -10,11 +10,15 @@ const { getPrisma } = require('./lib/prisma')
 const app = express()
 
 app.use(cors({ origin: '*' }))
-app.use(express.json())
+
+// ✅ Do NOT use express.json() globally — it consumes the stream before
+//    multer can parse multipart/form-data requests (listings upload).
+//    Apply JSON parsing only to routes that need it.
+app.use('/auth', express.json(), authRoutes)
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 
-app.use('/auth', authRoutes)
+// Listings route handles its own body parsing via multer middleware
 app.use('/listings', listingRoutes)
 
 process.on('uncaughtException', (err) => console.error('UNCAUGHT:', err))

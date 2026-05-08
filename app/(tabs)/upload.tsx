@@ -46,7 +46,7 @@ type SelectedMedia = {
   fileName?: string | null;
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function inferMimeType(uri: string, fallback: string) {
   const ext = uri.split('.').pop()?.toLowerCase();
@@ -61,12 +61,9 @@ function inferMimeType(uri: string, fallback: string) {
   return fallback;
 }
 
-// Do NOT strip file:// — React Native XHR needs it intact on all platforms
-function fixUri(uri: string) {
-  return uri;
-}
-
-// XHR-based upload — most reliable for React Native multipart file uploads
+// XHR-based upload — most reliable for React Native multipart file uploads.
+// ⚠️  If req.files is undefined/empty on the backend, the issue is multer not
+//     being attached to the POST /listings route — NOT a frontend problem.
 async function uploadListing(formData: FormData): Promise<any> {
   const token = await AsyncStorage.getItem('token');
 
@@ -77,7 +74,7 @@ async function uploadListing(formData: FormData): Promise<any> {
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
-    // Do NOT set Content-Type — XHR sets it automatically with boundary
+    // Do NOT set Content-Type manually — XHR sets it with the correct boundary
 
     xhr.onload = () => {
       try {
@@ -94,7 +91,7 @@ async function uploadListing(formData: FormData): Promise<any> {
 
     xhr.onerror = () => reject(new Error('Network error'));
     xhr.ontimeout = () => reject(new Error('Request timed out'));
-    xhr.timeout = 300000; // 5 min for large uploads
+    xhr.timeout = 300_000; // 5 min for large uploads
 
     xhr.send(formData);
   });
@@ -141,7 +138,6 @@ const Stepper = ({ value, onChange }: { value: number; onChange: (v: number) => 
   </View>
 );
 
-// Photo/video picker
 const MediaUploadBox = ({
   label, files, setFiles, pickerMode, max,
 }: {
@@ -202,7 +198,6 @@ const MediaUploadBox = ({
   );
 };
 
-// Document picker (pdf, docx, images)
 const DocumentUploadBox = ({
   label, files, setFiles, max,
 }: {
@@ -308,7 +303,7 @@ export default function NewListing() {
 
   const handlePostListing = async () => {
     if (!title.trim() || !region.trim() || !city.trim() || !price.trim() || !description.trim()) {
-      Alert.alert('Missing fields', 'Please complete the required listing details.');
+      Alert.alert('Missing fields', 'Please complete all required fields (title, region, city, price, description).');
       return;
     }
     if (!photoFiles.length) {
@@ -345,36 +340,36 @@ export default function NewListing() {
       formData.append('contactMethods', JSON.stringify(contact));
       formData.append('facilities', JSON.stringify(amenities));
 
-      // Photos — append each as a proper file object
-      photoFiles.forEach((photo, index) => {
+      // Photos
+      photoFiles.forEach((photo, i) => {
         formData.append('photos', {
-          uri: fixUri(photo.uri),
-          name: photo.fileName || `photo-${index + 1}.jpg`,
+          uri: photo.uri,
+          name: photo.fileName || `photo-${i + 1}.jpg`,
           type: photo.mimeType || inferMimeType(photo.uri, 'image/jpeg'),
         } as any);
       });
 
-      // Video — required
+      // Video (required, first only)
       formData.append('video', {
-        uri: fixUri(videoFiles[0].uri),
+        uri: videoFiles[0].uri,
         name: videoFiles[0].fileName || 'walkthrough.mp4',
         type: videoFiles[0].mimeType || inferMimeType(videoFiles[0].uri, 'video/mp4'),
       } as any);
 
-      // Floor plan — optional
+      // Floor plan (optional)
       if (floorPlans[0]) {
         formData.append('floorPlan', {
-          uri: fixUri(floorPlans[0].uri),
+          uri: floorPlans[0].uri,
           name: floorPlans[0].fileName || 'floor-plan',
           type: floorPlans[0].mimeType || inferMimeType(floorPlans[0].uri, 'application/octet-stream'),
         } as any);
       }
 
-      // Legal documents — optional
-      legalDocs.forEach((doc, index) => {
+      // Legal documents (optional)
+      legalDocs.forEach((doc, i) => {
         formData.append('legalDocuments', {
-          uri: fixUri(doc.uri),
-          name: doc.fileName || `legal-doc-${index + 1}`,
+          uri: doc.uri,
+          name: doc.fileName || `legal-doc-${i + 1}`,
           type: doc.mimeType || inferMimeType(doc.uri, 'application/octet-stream'),
         } as any);
       });
@@ -383,13 +378,13 @@ export default function NewListing() {
 
       Alert.alert(
         'Submitted! 🎉',
-        'Your listing has been submitted for review. It will appear on the platform once approved by the SweetCasa team.'
+        'Your listing has been submitted for review. It will appear on the platform once approved by the SweetCasa team.',
       );
       resetForm();
       router.replace('/agent-dashboard');
     } catch (err: any) {
-      const message = err.response?.data?.error || err.message || 'Failed to upload listing.';
-      Alert.alert('Upload failed', message);
+      const msg = err?.response?.data?.error || err?.message || 'Failed to upload listing.';
+      Alert.alert('Upload failed', msg);
     } finally {
       setPosting(false);
     }
