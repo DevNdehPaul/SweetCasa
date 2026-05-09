@@ -15,7 +15,7 @@ function parseOptionalInteger(value) {
 function parseOptionalDecimal(value) {
   if (value === null || value === undefined || value === '') return null
   const parsed = Number.parseFloat(String(value))
-  return Number.isFinite(parsed) ? parsed : null
+  return Number.isFinite(parsed) ? null : parsed
 }
 
 function normalizeString(value) {
@@ -26,7 +26,6 @@ function normalizeString(value) {
 function parseJsonArray(value) {
   if (!value) return []
   if (Array.isArray(value)) return value.map((item) => String(item || '').trim()).filter(Boolean)
-
   try {
     const parsed = JSON.parse(value)
     if (!Array.isArray(parsed)) return []
@@ -61,26 +60,15 @@ async function uploadFileToCloudinary(file, folder, resourceType = 'image') {
     const stream =
       resourceType === 'video'
         ? cloudinary.uploader.upload_chunked_stream(
-            {
-              ...options,
-              chunk_size: 6 * 1024 * 1024,
-            },
+            { ...options, chunk_size: 6 * 1024 * 1024 },
             (error, result) => {
-              if (error) {
-                reject(error)
-                return
-              }
-
-              resolve(result)
+              if (error) reject(error)
+              else resolve(result)
             }
           )
         : cloudinary.uploader.upload_stream(options, (error, result) => {
-            if (error) {
-              reject(error)
-              return
-            }
-
-            resolve(result)
+            if (error) reject(error)
+            else resolve(result)
           })
 
     stream.end(file.buffer)
@@ -104,7 +92,6 @@ function groupFilesByField(files) {
       return acc
     }, {})
   }
-
   return files
 }
 
@@ -112,33 +99,20 @@ exports.createListing = async (req, res) => {
   try {
     ensureCloudinaryConfigured()
     console.log('LISTING BODY:', JSON.stringify(req.body))
-    console.log('LISTING FILES:', req.files
-  ? Array.isArray(req.files)
-    ? `${req.files.length} files (array)`
-    : `fields: ${Object.keys(req.files).join(', ')}`
-  : 'none'
-)
+    console.log(
+      'LISTING FILES:',
+      req.files
+        ? Array.isArray(req.files)
+          ? `${req.files.length} files (array)`
+          : `fields: ${Object.keys(req.files).join(', ')}`
+        : 'none'
+    )
+
     const {
-      title,
-      price,
-      type,
-      status,
-      country,
-      city,
-      region,
-      neighborhood,
-      description,
-      bedrooms,
-      bathrooms,
-      toilets,
-      parlors,
-      verandas,
-      areaSqm,
-      floorNumber,
-      paymentFrequency,
-      visitHours,
-      contactMethods,
-      facilities,
+      title, price, type, status, country, city, region,
+      neighborhood, description, bedrooms, bathrooms, toilets,
+      parlors, verandas, areaSqm, floorNumber, paymentFrequency,
+      visitHours, contactMethods, facilities,
     } = req.body
 
     const filesByField = groupFilesByField(req.files || [])
@@ -150,7 +124,6 @@ exports.createListing = async (req, res) => {
     if (!title || !price || !type || !status || !country || !city || !region || !description) {
       return res.status(400).json({ error: 'Please fill in the required listing fields.' })
     }
-
     if (!photoFiles.length) {
       return res.status(400).json({ error: 'Please upload at least one property photo.' })
     }
@@ -176,13 +149,14 @@ exports.createListing = async (req, res) => {
 
     const uploadedLegalDocuments = await Promise.all(
       legalDocumentFiles.map((file) =>
-        uploadFileToCloudinary(file, 'sweetcasa/listings/legal-documents').then((uploaded) => uploaded.url)
+        uploadFileToCloudinary(file, 'sweetcasa/listings/legal-documents').then((u) => u.url)
       )
     )
 
     const listing = await getPrisma().listing.create({
       data: {
-        ownerId: req.user.id,
+        // ✅ Fixed: use relation syntax instead of scalar ownerId
+        owner: { connect: { id: req.user.id } },
         title: String(title).trim(),
         price: Number.parseFloat(String(price)),
         type: String(type).trim(),
@@ -236,14 +210,10 @@ exports.createListing = async (req, res) => {
 exports.getMyListings = async (req, res) => {
   try {
     const listings = await getPrisma().listing.findMany({
-      where: { ownerId: req.user.id },
-      include: {
-        images: true,
-        videos: true,
-      },
+      where: { owner: { id: req.user.id } },
+      include: { images: true, videos: true },
       orderBy: { createdAt: 'desc' },
     })
-
     res.json({ listings: listings.map(serializeListing) })
   } catch (err) {
     console.error('Fetch listings error:', err)
