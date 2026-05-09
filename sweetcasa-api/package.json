@@ -9,9 +9,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/app.js",
-    "postinstall": "prisma generate",
-    "build": "prisma generate",
-    "start": "prisma db push --accept-data-loss && node src/app.js",
+    "postinstall": "node node_modules/prisma/build/index.js generate",
+    "build": "node node_modules/prisma/build/index.js generate",
+    "start": "node node_modules/prisma/build/index.js db push --accept-data-loss && node src/app.js",
     "db:check": "node checkdb.js",
     "db:compat": "node createtables.js"
   },
