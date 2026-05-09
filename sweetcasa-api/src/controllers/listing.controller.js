@@ -15,7 +15,7 @@ function parseOptionalInteger(value) {
 function parseOptionalDecimal(value) {
   if (value === null || value === undefined || value === '') return null
   const parsed = Number.parseFloat(String(value))
-  return Number.isFinite(parsed) ? null : parsed
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function normalizeString(value) {
@@ -155,8 +155,7 @@ exports.createListing = async (req, res) => {
 
     const listing = await getPrisma().listing.create({
       data: {
-        // ✅ Fixed: use relation syntax instead of scalar ownerId
-        owner: { connect: { id: req.user.id } },
+        ownerId: req.user.id,
         title: String(title).trim(),
         price: Number.parseFloat(String(price)),
         type: String(type).trim(),
@@ -210,7 +209,7 @@ exports.createListing = async (req, res) => {
 exports.getMyListings = async (req, res) => {
   try {
     const listings = await getPrisma().listing.findMany({
-      where: { owner: { id: req.user.id } },
+      where: { ownerId: req.user.id },
       include: { images: true, videos: true },
       orderBy: { createdAt: 'desc' },
     })
