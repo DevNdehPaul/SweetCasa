@@ -40,4 +40,35 @@ In the House Owners Portal, we have the following tabs:
 
 5. The User Profile Tab: Same thing as the House Seeker Portal, the only difference is that it doesn't have an option button to switch to Agent Mode.
   
-# Project StructureSweetCasa/├── app/              # Screens and navigation (file-based routing via Expo Router)├── components/       # Reusable UI components├── constants/        # App-wide constants (colors, config, etc.)├── hooks/            # Custom React hooks├── scripts/          # Utility scripts├── sweetcasa-api/          # SweetCasa Express Backend Code├── assets/│   └── images/       # App images and icons├── app.json          # Expo app configuration├── eas.json          # EAS build configuration├── package.json      # Dependencies└── tsconfig.json     # TypeScript configuration# Conclusion for Last WeekSo far I have Completed the frontend of the App using the React-Native and also completed the authentication backend of the App using Express and Railway to deploy the backend code online and host my postgres database online<img width="845" height="334" alt="image" src="https://github.com/user-attachments/assets/fd679263-adf5-47c8-9c04-8339ae175519" /><img width="530" height="328" alt="image" src="https://github.com/user-attachments/assets/27e3be46-ec2d-43a7-9c61-ea078a722675" />So my Objective for this week is to complete the Backend Code responsible for uploading the house and their details entered by the House Owner and displaying it on the House Seeker Portal
+# Project Structure
+
+SweetCasa/
+
+├── app/              # Screens and navigation (file-based routing via Expo Router)
+
+├── components/# Reusable UI components
+
+├── constants/  # App-wide constants (colors, config, etc.)
+
+├── hooks/       # Custom React hooks
+
+├── scripts/        # Utility scripts
+
+├── sweetcasa-api/     # SweetCasa Express Backend Code
+
+├── assets/│   └── images/      # App images and icons
+
+├── app.json         # Expo app configuration
+
+├── eas.json       # EAS build configuration
+
+├── package.json      # Dependencies
+
+└── tsconfig.json    #TypeScript configuration
+
+
+# Conclusion
+
+for Last WeekSo far I have Completed the frontend of the App using the React-Native and also completed the authentication backend of the App using Express and Railway to deploy the backend code online and host my postgres database online<img width="845" height="334" alt="image" src="https://github.com/user-attachments/assets/fd679263-adf5-47c8-9c04-8339ae175519" /><img width="530" height="328" alt="image" src="https://github.com/user-attachments/assets/27e3be46-ec2d-43a7-9c61-ea078a722675" />
+
+So my Objective for this week is to complete the Backend Code responsible for uploading the house and their details entered by the House Owner and displaying it on the House Seeker Portal
