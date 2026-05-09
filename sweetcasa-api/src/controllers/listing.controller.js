@@ -155,7 +155,7 @@ exports.createListing = async (req, res) => {
 
     const listing = await getPrisma().listing.create({
       data: {
-        ownerId: req.user.id,
+        owner: { connect: { id: req.user.id } },
         title: String(title).trim(),
         price: Number.parseFloat(String(price)),
         type: String(type).trim(),
@@ -171,7 +171,6 @@ exports.createListing = async (req, res) => {
         parlors: parseNumber(parlors),
         verandas: parseNumber(verandas),
         areaSqm: parseOptionalDecimal(areaSqm),
-        floorNumber: parseOptionalInteger(floorNumber),
         paymentFrequency: normalizeString(paymentFrequency),
         visitHours: normalizeString(visitHours),
         contactMethods: parseJsonArray(contactMethods),
