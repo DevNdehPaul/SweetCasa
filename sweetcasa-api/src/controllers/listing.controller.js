@@ -6,12 +6,6 @@ function parseNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
-function parseOptionalInteger(value) {
-  if (value === null || value === undefined || value === '') return null
-  const parsed = Number.parseInt(String(value), 10)
-  return Number.isNaN(parsed) ? null : parsed
-}
-
 function parseOptionalDecimal(value) {
   if (value === null || value === undefined || value === '') return null
   const parsed = Number.parseFloat(String(value))
@@ -95,6 +89,7 @@ function groupFilesByField(files) {
   return files
 }
 
+// ── CREATE LISTING ────────────────────────────────────────────────────────────
 exports.createListing = async (req, res) => {
   try {
     ensureCloudinaryConfigured()
@@ -109,11 +104,16 @@ exports.createListing = async (req, res) => {
     )
 
     const {
-      title, price, type, status, country, city, region,
+      title, price, type, country, city, region,
       neighborhood, description, bedrooms, bathrooms, toilets,
-      parlors, verandas, areaSqm, floorNumber, paymentFrequency,
+      parlors, verandas, areaSqm, paymentFrequency,
       visitHours, contactMethods, facilities,
     } = req.body
+
+    // status is NOT taken from body — always defaults to 'Pending'
+    if (!title || !price || !type || !country || !city || !region || !description) {
+      return res.status(400).json({ error: 'Please fill in the required listing fields.' })
+    }
 
     const filesByField = groupFilesByField(req.files || [])
     const photoFiles = filesByField.photos || []
@@ -121,9 +121,6 @@ exports.createListing = async (req, res) => {
     const floorPlanFile = filesByField.floorPlan?.[0] || null
     const legalDocumentFiles = filesByField.legalDocuments || []
 
-    if (!title || !price || !type || !status || !country || !city || !region || !description) {
-      return res.status(400).json({ error: 'Please fill in the required listing fields.' })
-    }
     if (!photoFiles.length) {
       return res.status(400).json({ error: 'Please upload at least one property photo.' })
     }
@@ -159,7 +156,7 @@ exports.createListing = async (req, res) => {
         title: String(title).trim(),
         price: Number.parseFloat(String(price)),
         type: String(type).trim(),
-        status: String(status).trim(),
+        status: 'Pending',          // always Pending — admin approves later
         country: String(country).trim(),
         city: String(city).trim(),
         region: String(region).trim(),
@@ -177,9 +174,7 @@ exports.createListing = async (req, res) => {
         facilities: parseJsonArray(facilities),
         floorPlanUrl: uploadedFloorPlan?.url || null,
         legalDocumentUrls: uploadedLegalDocuments,
-        images: {
-          create: uploadedPhotos,
-        },
+        images: { create: uploadedPhotos },
         videos: uploadedVideo
           ? {
               create: {
@@ -192,10 +187,7 @@ exports.createListing = async (req, res) => {
             }
           : undefined,
       },
-      include: {
-        images: true,
-        videos: true,
-      },
+      include: { images: true, videos: true },
     })
 
     res.status(201).json({ listing: serializeListing(listing) })
@@ -205,6 +197,7 @@ exports.createListing = async (req, res) => {
   }
 }
 
+// ── GET MY LISTINGS (seller) ──────────────────────────────────────────────────
 exports.getMyListings = async (req, res) => {
   try {
     const listings = await getPrisma().listing.findMany({
@@ -218,31 +211,28 @@ exports.getMyListings = async (req, res) => {
     res.status(500).json({ error: 'Failed to load listings.' })
   }
 }
+
+// ── GET PUBLIC LISTINGS (search) ──────────────────────────────────────────────
 exports.getListings = async (req, res) => {
   try {
     const {
       region, city, neighborhood,
       type,
-      state,           // Available | Unavailable | Pending
       maxBudget, minBudget,
-      facilities,      // comma-separated e.g. "Wifi,Gated"
+      facilities,
       paymentFrequency,
       page = '1',
       limit = '20',
     } = req.query
 
-    const where = {
-      // Always only show admin-approved listings to public
-      status: 'Approved',
-    }
+    // Always only show approved listings to the public
+    const where = { status: 'Approved' }
 
-    // Optional filters
-    if (region)           where.region       = { equals: region,       mode: 'insensitive' }
-    if (city)             where.city         = { equals: city,         mode: 'insensitive' }
-    if (neighborhood)     where.neighborhood = { contains: neighborhood, mode: 'insensitive' }
-    if (type)             where.type         = { equals: type,         mode: 'insensitive' }
-    if (state)            where.state        = { equals: state,        mode: 'insensitive' }
-    if (paymentFrequency) where.paymentFrequency = { equals: paymentFrequency, mode: 'insensitive' }
+    if (region)           where.region            = { equals: region,        mode: 'insensitive' }
+    if (city)             where.city              = { equals: city,          mode: 'insensitive' }
+    if (neighborhood)     where.neighborhood      = { contains: neighborhood, mode: 'insensitive' }
+    if (type)             where.type              = { equals: type,          mode: 'insensitive' }
+    if (paymentFrequency) where.paymentFrequency  = { equals: paymentFrequency, mode: 'insensitive' }
 
     if (minBudget || maxBudget) {
       where.price = {}
@@ -251,11 +241,9 @@ exports.getListings = async (req, res) => {
     }
 
     if (facilities) {
-      const list = facilities.split(',').map(f => f.trim()).filter(Boolean)
+      const list = facilities.split(',').map((f) => f.trim()).filter(Boolean)
       if (list.length) {
-        where.AND = list.map(f => ({
-          facilities: { array_contains: f },
-        }))
+        where.AND = list.map((f) => ({ facilities: { array_contains: f } }))
       }
     }
 
@@ -284,6 +272,8 @@ exports.getListings = async (req, res) => {
     res.status(500).json({ error: 'Failed to load listings.' })
   }
 }
+
+// ── GET LISTING BY ID ─────────────────────────────────────────────────────────
 exports.getListingById = async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10)
@@ -295,18 +285,12 @@ exports.getListingById = async (req, res) => {
         images: true,
         videos: true,
         owner: {
-          select: {
-            id: true,
-            name: true,
-            companyName: true,
-            phone: true,
-          },
+          select: { id: true, name: true, companyName: true, phone: true },
         },
       },
     })
 
     if (!listing) return res.status(404).json({ error: 'Listing not found.' })
-
     res.json({ listing: serializeListing(listing) })
   } catch (err) {
     console.error('Get listing by id error:', err)
