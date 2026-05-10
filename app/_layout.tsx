@@ -22,6 +22,7 @@ export default function RootLayout() {
   <Stack.Screen name="house_owners_login_signup"  options={{ headerShown: false }} />
   <Stack.Screen name="onboarding_house_seekers"  options={{ headerShown: false }} />
   <Stack.Screen name="onboarding_house_owners"  options={{ headerShown: false }} />
+  <Stack.Screen name="searchresults"  options={{ headerShown: false }} />
   <Stack.Screen name="(tabs)"       options={{ headerShown: false }} />
   <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
   

@@ -1,13 +1,13 @@
 const express = require('express')
-
-const { createListing, getMyListings, getListings } = require('../controllers/listing.controller')
+const { createListing, getMyListings, getListings, getListingById } = require('../controllers/listing.controller')
 const requireRole = require('../middleware/requireRole')
 const upload = require('../middleware/upload')
 
 const router = express.Router()
 
-// Public — house seekers search
-router.get('/', getListings)
+// Public
+router.get('/',     getListings)
+router.get('/:id',  getListingById)
 
 // Agent only
 router.get('/mine', requireRole('SELLER'), getMyListings)

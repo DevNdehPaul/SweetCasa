@@ -284,3 +284,98 @@ exports.getListings = async (req, res) => {
     res.status(500).json({ error: 'Failed to load listings.' })
   }
 }
+exports.getListings = async (req, res) => {
+  try {
+    const {
+      region, city, neighborhood,
+      type,
+      state,           // Available | Unavailable | Pending
+      maxBudget, minBudget,
+      facilities,      // comma-separated e.g. "Wifi,Gated"
+      paymentFrequency,
+      page = '1',
+      limit = '20',
+    } = req.query
+
+    const where = {
+      // Always only show admin-approved listings to public
+      status: 'Approved',
+    }
+
+    // Optional filters
+    if (region)           where.region       = { equals: region,       mode: 'insensitive' }
+    if (city)             where.city         = { equals: city,         mode: 'insensitive' }
+    if (neighborhood)     where.neighborhood = { contains: neighborhood, mode: 'insensitive' }
+    if (type)             where.type         = { equals: type,         mode: 'insensitive' }
+    if (state)            where.state        = { equals: state,        mode: 'insensitive' }
+    if (paymentFrequency) where.paymentFrequency = { equals: paymentFrequency, mode: 'insensitive' }
+
+    if (minBudget || maxBudget) {
+      where.price = {}
+      if (minBudget) where.price.gte = Number.parseFloat(minBudget)
+      if (maxBudget) where.price.lte = Number.parseFloat(maxBudget)
+    }
+
+    if (facilities) {
+      const list = facilities.split(',').map(f => f.trim()).filter(Boolean)
+      if (list.length) {
+        where.AND = list.map(f => ({
+          facilities: { array_contains: f },
+        }))
+      }
+    }
+
+    const pageNum  = Math.max(1, Number.parseInt(page, 10))
+    const pageSize = Math.min(50, Math.max(1, Number.parseInt(limit, 10)))
+
+    const [listings, total] = await Promise.all([
+      getPrisma().listing.findMany({
+        where,
+        include: { images: true, videos: true },
+        orderBy: { createdAt: 'desc' },
+        skip: (pageNum - 1) * pageSize,
+        take: pageSize,
+      }),
+      getPrisma().listing.count({ where }),
+    ])
+
+    res.json({
+      listings: listings.map(serializeListing),
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / pageSize),
+    })
+  } catch (err) {
+    console.error('Get listings error:', err)
+    res.status(500).json({ error: 'Failed to load listings.' })
+  }
+}
+exports.getListingById = async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
+
+    const listing = await getPrisma().listing.findFirst({
+      where: { id, status: 'Approved' },
+      include: {
+        images: true,
+        videos: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            companyName: true,
+            phone: true,
+          },
+        },
+      },
+    })
+
+    if (!listing) return res.status(404).json({ error: 'Listing not found.' })
+
+    res.json({ listing: serializeListing(listing) })
+  } catch (err) {
+    console.error('Get listing by id error:', err)
+    res.status(500).json({ error: 'Failed to load listing.' })
+  }
+}
