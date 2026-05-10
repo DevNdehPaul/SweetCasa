@@ -135,7 +135,8 @@ export default function SeekerOnboarding() {
         <DotIndicator count={slides.length} activeIndex={activeIndex} color={currentAccent} />
         <TouchableOpacity style={[styles.nextBtn, { backgroundColor: currentAccent }]} onPress={goNext} activeOpacity={0.85}>
           <Text style={styles.nextBtnText}>{isLast ? 'Get Started' : 'Next'}</Text>
-          <Text style={styles.nextArrow}>{isLast ? '✓' : '→'}</Text>
+          {/* Use Feather icon instead of unicode arrow — renders correctly on all Android devices */}
+          <Feather name={isLast ? 'check' : 'arrow-right'} size={18} color="#fff" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -199,7 +200,7 @@ const styles = StyleSheet.create({
   },
 
   bottomBar: {
-    paddingHorizontal: 28, paddingBottom: 32, paddingTop: 16,
+    paddingHorizontal: 28, paddingBottom: 16, paddingTop: 12, // ✅ moved up
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#FAFAFA',
   },
@@ -212,5 +213,4 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
   },
   nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
-  nextArrow: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
