@@ -314,6 +314,10 @@ export default function NewListing() {
       Alert.alert('Video required', 'Please add a video walkthrough of the property.');
       return;
     }
+    if (!legalDocs.length) {
+      Alert.alert('Legal documents required', 'Please upload at least one legal document (proof of ownership).');
+      return;
+    }
 
     setPosting(true);
     try {
@@ -524,10 +528,10 @@ export default function NewListing() {
           />
           <View style={[s.docInfoBox, { marginTop: 12 }]}>
             <Text style={s.docInfoTitle}>
-              Legal Documents <Text style={s.optional}>(optional)</Text>
+              Legal Documents *
             </Text>
             <Text style={s.docInfoDesc}>
-              Proof of ownership for internal SweetCasa review. Accepted: PDF, DOCX, JPG, PNG.
+              Proof of ownership required for SweetCasa review. Accepted: PDF, DOCX, JPG, PNG.
             </Text>
           </View>
           <DocumentUploadBox

@@ -218,3 +218,69 @@ exports.getMyListings = async (req, res) => {
     res.status(500).json({ error: 'Failed to load listings.' })
   }
 }
+exports.getListings = async (req, res) => {
+  try {
+    const {
+      region, city, neighborhood,
+      type, status,
+      maxBudget, minBudget,
+      facilities,        // comma-separated string e.g. "wifi,gated"
+      paymentFrequency,
+      page = '1',
+      limit = '20',
+    } = req.query
+
+    const where = {
+      // Only show approved listings to seekers
+      status: status ? String(status) : 'Approved',
+    }
+
+    if (region)           where.region       = { equals: region, mode: 'insensitive' }
+    if (city)             where.city         = { equals: city,   mode: 'insensitive' }
+    if (neighborhood)     where.neighborhood = { contains: neighborhood, mode: 'insensitive' }
+    if (type)             where.type         = { equals: type,   mode: 'insensitive' }
+    if (paymentFrequency) where.paymentFrequency = { equals: paymentFrequency, mode: 'insensitive' }
+
+    if (minBudget || maxBudget) {
+      where.price = {}
+      if (minBudget) where.price.gte = Number.parseFloat(minBudget)
+      if (maxBudget) where.price.lte = Number.parseFloat(maxBudget)
+    }
+
+    // Facilities: listing must contain ALL selected facilities
+    if (facilities) {
+      const facilityList = facilities.split(',').map(f => f.trim()).filter(Boolean)
+      if (facilityList.length) {
+        // Prisma JSON array containment — works for PostgreSQL
+        where.AND = facilityList.map(f => ({
+          facilities: { array_contains: f },
+        }))
+      }
+    }
+
+    const pageNum  = Math.max(1, Number.parseInt(page, 10))
+    const pageSize = Math.min(50, Math.max(1, Number.parseInt(limit, 10)))
+    const skip     = (pageNum - 1) * pageSize
+
+    const [listings, total] = await Promise.all([
+      getPrisma().listing.findMany({
+        where,
+        include: { images: true, videos: true },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: pageSize,
+      }),
+      getPrisma().listing.count({ where }),
+    ])
+
+    res.json({
+      listings: listings.map(serializeListing),
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / pageSize),
+    })
+  } catch (err) {
+    console.error('Get listings error:', err)
+    res.status(500).json({ error: 'Failed to load listings.' })
+  }
+}

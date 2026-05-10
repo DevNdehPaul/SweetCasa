@@ -1,19 +1,23 @@
 const express = require('express')
 
-const { createListing, getMyListings } = require('../controllers/listing.controller')
+const { createListing, getMyListings, getListings } = require('../controllers/listing.controller')
 const requireRole = require('../middleware/requireRole')
 const upload = require('../middleware/upload')
 
 const router = express.Router()
 
+// Public — house seekers search
+router.get('/', getListings)
+
+// Agent only
 router.get('/mine', requireRole('SELLER'), getMyListings)
 router.post(
   '/',
   requireRole('SELLER'),
   upload.fields([
-    { name: 'photos', maxCount: 15 },
-    { name: 'video', maxCount: 1 },
-    { name: 'floorPlan', maxCount: 1 },
+    { name: 'photos',         maxCount: 15 },
+    { name: 'video',          maxCount: 1  },
+    { name: 'floorPlan',      maxCount: 1  },
     { name: 'legalDocuments', maxCount: 10 },
   ]),
   createListing

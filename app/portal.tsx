@@ -104,12 +104,7 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Footer */}
-        <Animated.View style={[styles.footer, { opacity: fadeAnim }]}>
-          <Text style={styles.footerText}>
-            Cameroon's most trusted real estate platform
-          </Text>
-        </Animated.View>
+        
 
       </ScrollView>
     </SafeAreaView>

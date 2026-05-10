@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  FlatList,
   Image, Pressable, SafeAreaView,
   ScrollView,
   StatusBar,
@@ -21,11 +20,6 @@ const H_PAD = 20;
 const RECENT_CARD_W = (width - H_PAD * 2 - 12) / 3;
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const RECENT_LISTINGS = [
-  { id: '1', title: 'Villa in Bastos', price: '450k/mo', image: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=300&q=80' },
-  { id: '2', title: 'Studio Akwa', price: '120k/mo', image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=300&q=80' },
-  { id: '3', title: 'Bungalow', price: '300k/mo', image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=300&q=80' },
-];
 
 type MenuItem = {
   id: string;
@@ -212,32 +206,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Recently Viewed */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recently Viewed</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAll}>See All</Text>
-          </TouchableOpacity>
-        </View>
-
-        <FlatList
-          data={RECENT_LISTINGS}
-          horizontal
-          keyExtractor={i => i.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.recentList}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.recentCard} activeOpacity={0.85}>
-              <View style={styles.recentImgWrap}>
-                <Image source={{ uri: item.image }} style={styles.recentImg} resizeMode="cover" />
-                <View style={styles.recentPricePill}>
-                  <Text style={styles.recentPriceTxt}>{item.price}</Text>
-                </View>
-              </View>
-              <Text style={styles.recentTitle} numberOfLines={1}>{item.title}</Text>
-            </TouchableOpacity>
-          )}
-        />
 
         {/* Agent Mode Banner — only show for buyers */}
         {!isSeller && (
