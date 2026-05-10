@@ -217,7 +217,7 @@ exports.getListings = async (req, res) => {
   try {
     const {
       region, city, neighborhood,
-      type,
+      type, state,
       maxBudget, minBudget,
       facilities,
       paymentFrequency,
@@ -232,6 +232,7 @@ exports.getListings = async (req, res) => {
     if (city)             where.city              = { equals: city,          mode: 'insensitive' }
     if (neighborhood)     where.neighborhood      = { contains: neighborhood, mode: 'insensitive' }
     if (type)             where.type              = { equals: type,          mode: 'insensitive' }
+    if (state)            where.state             = { equals: state,         mode: 'insensitive' }
     if (paymentFrequency) where.paymentFrequency  = { equals: paymentFrequency, mode: 'insensitive' }
 
     if (minBudget || maxBudget) {

@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Dimensions, Image, SafeAreaView,
   ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View,
@@ -65,7 +65,7 @@ function ListingCard({ item }: { item: Listing }) {
         </View>
         <View style={styles.cardFooter}>
           <View style={styles.typeChip}><Text style={styles.typeChipTxt}>{item.type}</Text></View>
-          <Text style={styles.detailsLink}>Details →</Text>
+          <Feather name="arrow-right" size={14} color={PURPLE} />
         </View>
       </View>
     </TouchableOpacity>
@@ -73,10 +73,19 @@ function ListingCard({ item }: { item: Listing }) {
 }
 
 export default function SearchResultsScreen() {
-  const params = useLocalSearchParams<{
+  // Extract params once into a stable ref — prevents useCallback/useEffect
+  // from re-running on every render due to Expo Router creating a new params object
+  const raw = useLocalSearchParams<{
     region?: string; city?: string; neighborhood?: string;
-    type?: string; status?: string; maxBudget?: string; facilities?: string;
+    type?: string; status?: string; state?: string; maxBudget?: string; facilities?: string;
   }>();
+
+  const paramsRef = useRef(raw);
+  // Only update ref if actual values changed, not the object reference
+  useEffect(() => { paramsRef.current = raw; }, [
+    raw.region, raw.city, raw.neighborhood,
+    raw.type, raw.status, raw.maxBudget, raw.facilities,
+  ]);
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -85,19 +94,22 @@ export default function SearchResultsScreen() {
   const [page, setPage]         = useState(1);
   const [hasMore, setHasMore]   = useState(false);
 
-  const fetchListings = useCallback(async (pg = 1) => {
+  // Stable fetch function — reads from ref, no params in dependency array
+  const fetchListings = async (pg = 1) => {
     if (pg === 1) setLoading(true);
     setError(null);
 
     try {
+      const p = paramsRef.current;
       const query = new URLSearchParams();
-      if (params.region)       query.set('region',       params.region);
-      if (params.city)         query.set('city',         params.city);
-      if (params.neighborhood) query.set('neighborhood', params.neighborhood);
-      if (params.type)         query.set('type',         params.type);
-      if (params.status)       query.set('status',       params.status);
-      if (params.maxBudget)    query.set('maxBudget',    params.maxBudget);
-      if (params.facilities)   query.set('facilities',   params.facilities);
+      if (p.region)       query.set('region',       p.region);
+      if (p.city)         query.set('city',         p.city);
+      if (p.neighborhood) query.set('neighborhood', p.neighborhood);
+      if (p.type)         query.set('type',         p.type);
+      if (p.status)       query.set('status',       p.status);
+      if (p.maxBudget)    query.set('maxBudget',    p.maxBudget);
+      if (p.state)       query.set('state',       p.state);
+      if (p.facilities)   query.set('facilities',   p.facilities);
       query.set('page',  String(pg));
       query.set('limit', '20');
 
@@ -114,18 +126,21 @@ export default function SearchResultsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [params]);
+  };
 
-  useEffect(() => { fetchListings(1); }, [fetchListings]);
+  // Run once on mount only
+  useEffect(() => {
+    fetchListings(1);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Build a human-readable summary of active filters
+  const p = paramsRef.current;
   const filterSummary = [
-    params.region, params.type,
-    params.maxBudget ? `≤ ${Number(params.maxBudget) >= 1e9
-      ? (Number(params.maxBudget) / 1e9).toFixed(1) + 'B'
-      : Number(params.maxBudget) >= 1e6
-        ? (Number(params.maxBudget) / 1e6).toFixed(0) + 'M'
-        : (Number(params.maxBudget) / 1000).toFixed(0) + 'k'} XAF` : null,
+    p.region, p.type,
+    p.maxBudget ? `≤ ${Number(p.maxBudget) >= 1e9
+      ? (Number(p.maxBudget) / 1e9).toFixed(1) + 'B'
+      : Number(p.maxBudget) >= 1e6
+        ? (Number(p.maxBudget) / 1e6).toFixed(0) + 'M'
+        : (Number(p.maxBudget) / 1000).toFixed(0) + 'k'} XAF` : null,
   ].filter(Boolean).join(' · ');
 
   return (
@@ -146,7 +161,7 @@ export default function SearchResultsScreen() {
         </TouchableOpacity>
       </View>
 
-      {loading && page === 1 ? (
+      {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={PURPLE} />
           <Text style={styles.loadingTxt}>Finding properties…</Text>
@@ -160,7 +175,6 @@ export default function SearchResultsScreen() {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-          {/* Meta row */}
           <View style={styles.metaRow}>
             <View>
               <Text style={styles.metaSmall}>Found for you</Text>
@@ -182,31 +196,22 @@ export default function SearchResultsScreen() {
               <View style={styles.grid}>
                 {listings.map(item => <ListingCard key={item.id} item={item} />)}
               </View>
-
               {hasMore && (
                 <TouchableOpacity
                   style={styles.seeMoreBtn} activeOpacity={0.8}
                   onPress={() => fetchListings(page + 1)}
-                  disabled={loading}
-                >
-                  {loading
-                    ? <ActivityIndicator size="small" color={PURPLE} />
-                    : <>
-                        <Text style={styles.seeMoreTxt}>Load More</Text>
-                        <Feather name="chevron-down" size={16} color={PURPLE} />
-                      </>
-                  }
+                  disabled={loading}>
+                  <Text style={styles.seeMoreTxt}>Load More</Text>
+                  <Feather name="chevron-down" size={16} color={PURPLE} />
                 </TouchableOpacity>
               )}
               <Text style={styles.showingTxt}>Showing {listings.length} of {total} results</Text>
             </>
           )}
-
           <View style={{ height: 80 }} />
         </ScrollView>
       )}
 
-      {/* Filter FAB — goes back to filters */}
       <TouchableOpacity style={styles.filterFab} onPress={() => router.back()}>
         <Feather name="sliders" size={20} color="#fff" />
       </TouchableOpacity>
@@ -251,7 +256,6 @@ const styles = StyleSheet.create({
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
   typeChip: { backgroundColor: '#F3F4F6', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   typeChipTxt: { fontSize: 10.5, color: '#6B7280', fontWeight: '600' },
-  detailsLink: { fontSize: 12, color: PURPLE, fontWeight: '700' },
 
   emptyBox: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: 24 },
   emptyIcon: { fontSize: 48, marginBottom: 16 },

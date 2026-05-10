@@ -50,8 +50,9 @@ const FACILITIES = [
   { id: 'Parking',       label: 'Parking',       icon: 'truck'        },
 ];
 
-const LISTING_STATUSES = [
-  { id: 'Approved',    label: 'Available',   subtitle: '100% ready to book',      icon: 'check-circle', color: '#059669', bg: '#ECFDF5', border: '#6EE7B7', activeBg: '#D1FAE5', activeBorder: '#059669' },
+// Property state — separate from listing status (Approved/Pending by admin)
+const PROPERTY_STATES = [
+  { id: 'Available',   label: 'Available',   subtitle: 'Ready to rent or buy',    icon: 'check-circle', color: '#059669', bg: '#ECFDF5', border: '#6EE7B7', activeBg: '#D1FAE5', activeBorder: '#059669' },
   { id: 'Pending',     label: 'Pending',     subtitle: 'Transaction in progress', icon: 'clock',        color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', activeBg: '#FEF3C7', activeBorder: '#D97706' },
   { id: 'Unavailable', label: 'Unavailable', subtitle: 'Off the market',          icon: 'x-circle',     color: '#9CA3AF', bg: '#F9FAFB', border: '#E5E7EB', activeBg: '#F3F4F6', activeBorder: '#6B7280' },
 ];
@@ -100,8 +101,8 @@ export default function SearchFiltersScreen() {
   const [regionPickerVisible, setRegionPickerVisible] = useState(false);
   const [selectedType, setSelectedType] = useState('');
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState('Approved');
-  const [budgetPct, setBudgetPct] = useState(1); // default max
+  const [selectedState, setSelectedState] = useState('Available'); // ← property state filter
+  const [budgetPct, setBudgetPct] = useState(1);
   const sliderRef = React.useRef<View>(null);
   const sliderX = React.useRef(0);
 
@@ -122,22 +123,21 @@ export default function SearchFiltersScreen() {
   const handleReset = () => {
     setSelectedRegion(null); setNeighborhood('');
     setSelectedType(''); setSelectedFacilities([]);
-    setSelectedStatus('Approved'); setBudgetPct(1);
+    setSelectedState('Available'); setBudgetPct(1);
   };
 
   const handleSearch = () => {
-    // Build params — only include what the user actually set
     const params: Record<string, string> = {
       maxBudget: String(budget),
-      status: selectedStatus,
+      state: selectedState,       // ← property state (Available/Pending/Unavailable)
     };
     if (selectedRegion) {
       params.region = selectedRegion.label;
       params.city   = selectedRegion.city;
     }
-    if (neighborhood.trim()) params.neighborhood = neighborhood.trim();
-    if (selectedType)         params.type         = selectedType;
-    if (selectedFacilities.length) params.facilities = selectedFacilities.join(',');
+    if (neighborhood.trim())       params.neighborhood = neighborhood.trim();
+    if (selectedType)              params.type         = selectedType;
+    if (selectedFacilities.length) params.facilities   = selectedFacilities.join(',');
 
     router.push({ pathname: '/searchresults', params });
   };
@@ -190,14 +190,14 @@ export default function SearchFiltersScreen() {
           )}
         </View>
 
-        {/* Listing Status */}
-        <Text style={[s.sectionTitle, { marginTop: 26 }]}>Listing Status</Text>
-        <Text style={s.sectionSubtitle}>Filter listings by availability — skip anything not ready.</Text>
+        {/* Property State */}
+        <Text style={[s.sectionTitle, { marginTop: 26 }]}>Property State</Text>
+        <Text style={s.sectionSubtitle}>Filter by whether the property is currently available.</Text>
         <View style={s.statusList}>
-          {LISTING_STATUSES.map(st => {
-            const active = selectedStatus === st.id;
+          {PROPERTY_STATES.map(st => {
+            const active = selectedState === st.id;
             return (
-              <TouchableOpacity key={st.id} activeOpacity={0.75} onPress={() => setSelectedStatus(st.id)}
+              <TouchableOpacity key={st.id} activeOpacity={0.75} onPress={() => setSelectedState(st.id)}
                 style={[s.statusBanner, { backgroundColor: active ? st.activeBg : st.bg, borderColor: active ? st.activeBorder : st.border }]}>
                 <View style={[s.statusAccent, { backgroundColor: st.color }]} />
                 <View style={s.statusIconWrap}><Feather name={st.icon as any} size={20} color={st.color} /></View>
