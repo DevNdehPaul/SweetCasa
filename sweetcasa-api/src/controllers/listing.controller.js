@@ -144,12 +144,12 @@ exports.createListing = async (req, res) => {
       : null
 
     const uploadedFloorPlan = floorPlanFile
-      ? await uploadFileToCloudinary(floorPlanFile, 'sweetcasa/listings/floor-plans')
+      ? await uploadFileToCloudinary(floorPlanFile, 'sweetcasa/listings/floor-plans', 'raw')
       : null
 
     const uploadedLegalDocuments = await Promise.all(
       legalDocumentFiles.map((file) =>
-        uploadFileToCloudinary(file, 'sweetcasa/listings/legal-documents').then((u) => u.url)
+        uploadFileToCloudinary(file, 'sweetcasa/listings/legal-documents', 'raw').then((u) => u.url)
       )
     )
 
