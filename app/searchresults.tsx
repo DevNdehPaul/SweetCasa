@@ -39,9 +39,20 @@ function ListingCard({ item }: { item: Listing }) {
   const img = getPrimaryImage(item.images);
   const location = [item.neighborhood, item.city, item.region].filter(Boolean).join(', ');
 
+  const handlePress = () => {
+    // Pass the full listing as JSON so propertydetail works
+    // even without a GET /listings/:id backend endpoint
+    router.push({
+      pathname: '/propertydetail',
+      params: {
+        id: String(item.id),
+        listingData: JSON.stringify(item),
+      },
+    });
+  };
+
   return (
-    <TouchableOpacity style={[styles.card, { width: CARD_W }]} activeOpacity={0.88}
-      onPress={() => router.push({ pathname: '/propertydetail', params: { id: String(item.id) } })}>
+    <TouchableOpacity style={[styles.card, { width: CARD_W }]} activeOpacity={0.88} onPress={handlePress}>
       <View style={styles.cardImgWrap}>
         {img
           ? <Image source={{ uri: img }} style={styles.cardImg} resizeMode="cover" />
@@ -73,15 +84,12 @@ function ListingCard({ item }: { item: Listing }) {
 }
 
 export default function SearchResultsScreen() {
-  // Extract params once into a stable ref — prevents useCallback/useEffect
-  // from re-running on every render due to Expo Router creating a new params object
   const raw = useLocalSearchParams<{
     region?: string; city?: string; neighborhood?: string;
     type?: string; status?: string; state?: string; maxBudget?: string; facilities?: string;
   }>();
 
   const paramsRef = useRef(raw);
-  // Only update ref if actual values changed, not the object reference
   useEffect(() => { paramsRef.current = raw; }, [
     raw.region, raw.city, raw.neighborhood,
     raw.type, raw.status, raw.maxBudget, raw.facilities,
@@ -94,7 +102,6 @@ export default function SearchResultsScreen() {
   const [page, setPage]         = useState(1);
   const [hasMore, setHasMore]   = useState(false);
 
-  // Stable fetch function — reads from ref, no params in dependency array
   const fetchListings = async (pg = 1) => {
     if (pg === 1) setLoading(true);
     setError(null);
@@ -108,7 +115,7 @@ export default function SearchResultsScreen() {
       if (p.type)         query.set('type',         p.type);
       if (p.status)       query.set('status',       p.status);
       if (p.maxBudget)    query.set('maxBudget',    p.maxBudget);
-      if (p.state)       query.set('state',       p.state);
+      if (p.state)        query.set('state',        p.state);
       if (p.facilities)   query.set('facilities',   p.facilities);
       query.set('page',  String(pg));
       query.set('limit', '20');
@@ -128,7 +135,6 @@ export default function SearchResultsScreen() {
     }
   };
 
-  // Run once on mount only
   useEffect(() => {
     fetchListings(1);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
