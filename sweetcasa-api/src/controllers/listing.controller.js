@@ -30,10 +30,23 @@ function parseJsonArray(value) {
 }
 
 function serializeListing(listing) {
+  // Map owner → agent so the frontend agent card works
+  const owner = listing.owner ?? null
+  const agent = owner
+    ? {
+        id:          owner.id,
+        name:        owner.name ?? owner.companyName ?? 'Property Agent',
+        avatarUrl:   owner.avatarUrl ?? null,
+        rating:      owner.rating ?? 0,
+        reviewCount: owner.reviewCount ?? 0,
+      }
+    : null
+
   return {
     ...listing,
-    price: listing.price?.toString?.() ?? listing.price,
+    price:   listing.price?.toString?.()   ?? listing.price,
     areaSqm: listing.areaSqm?.toString?.() ?? listing.areaSqm,
+    agent,   // expose as 'agent' for the frontend
     videos: Array.isArray(listing.videos)
       ? listing.videos.map((video) => ({
           ...video,

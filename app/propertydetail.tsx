@@ -578,11 +578,11 @@ export default function PropertyDetailScreen() {
   const primaryImageUrl = sortedImages[0]?.imageUrl ?? null;
 
   const stats = [
-    { icon: 'home',    label: 'PARLORS', val: listing.parlors  ?? listing.parlour  ?? '—' },
-    { icon: 'book',    label: 'BEDROOMS',    val: listing.bedrooms ?? '—' },
-    { icon: 'droplet', label: 'BATHROOMS',   val: listing.bathrooms ?? '—' },
+    { icon: 'home',    label: 'PARLOUR', val: listing.parlors  ?? listing.parlour  ?? '—' },
+    { icon: 'book',    label: 'BEDS',    val: listing.bedrooms ?? '—' },
+    { icon: 'droplet', label: 'BATHS',   val: listing.bathrooms ?? '—' },
     { icon: 'wind',    label: 'TOILETS', val: listing.toilets  ?? '—' },
-    { icon: 'coffee',  label: 'KITCHENS', val: listing.kitchens ?? listing.kitchen ?? '—' },
+    { icon: 'coffee',  label: 'KITCHEN', val: listing.kitchens ?? listing.kitchen ?? '—' },
   ] as const;
 
   // Build nearby places from named listing fields; only show populated ones
@@ -864,39 +864,11 @@ export default function PropertyDetailScreen() {
                 <Text style={styles.agentName} numberOfLines={1}>
                   {listing.agent?.name ?? 'Property Agent'}
                 </Text>
-
-                {/* Stars row */}
-                <View style={styles.ratingRow}>
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <Ionicons
-                      key={star}
-                      name={star <= Math.round(listing.agent?.rating ?? 0) ? 'star' : 'star-outline'}
-                      size={13}
-                      color="#F59E0B"
-                    />
-                  ))}
-                  <Text style={styles.ratingTxt}>
-                    {listing.agent
-                      ? `${listing.agent.rating.toFixed(1)}  ·  ${listing.agent.reviewCount} reviews`
-                      : 'No reviews yet'}
+                <View style={styles.agentLocationRow}>
+                  <Ionicons name="location-outline" size={13} color="#9CA3AF" />
+                  <Text style={styles.agentLocationTxt} numberOfLines={1}>
+                    {[listing.neighborhood, listing.city, listing.region].filter(Boolean).join(', ')}
                   </Text>
-                </View>
-
-                {/* Buttons */}
-                <View style={styles.agentBtns}>
-                  <TouchableOpacity
-                    style={styles.agentProfileBtn}
-                    onPress={() => router.push('/agent-dashboard' as any)}
-                  >
-                    <Text style={styles.agentProfileBtnTxt}>View Profile</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.agentChatBtn}
-                    onPress={() => router.push('/messages' as any)}
-                  >
-                    <Feather name="message-circle" size={13} color={PURPLE} />
-                    <Text style={styles.agentChatBtnTxt}>Chat</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -1149,22 +1121,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981', borderWidth: 2, borderColor: '#FAFAFA',
     alignItems: 'center', justifyContent: 'center',
   },
-  agentInfo: { flex: 1, gap: 5 },
+  agentInfo: { flex: 1, gap: 6 },
   agentName: { fontSize: 15, fontWeight: '800', color: '#111', letterSpacing: -0.2 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, flexWrap: 'wrap' },
-  ratingTxt: { fontSize: 11.5, color: '#9CA3AF', marginLeft: 4 },
-  agentBtns: { flexDirection: 'row', gap: 8, marginTop: 6 },
-  agentProfileBtn: {
-    backgroundColor: PURPLE, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 7,
-  },
-  agentProfileBtnTxt: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  agentChatBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1.5, borderColor: PURPLE, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 7,
-  },
-  agentChatBtnTxt: { fontSize: 12, fontWeight: '700', color: PURPLE },
+  agentLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  agentLocationTxt: { fontSize: 12.5, color: '#9CA3AF', flex: 1 },
 
   // ── Bottom bar ──
   bottomBar: {
