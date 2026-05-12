@@ -1,6 +1,13 @@
 const { getPrisma } = require('../lib/prisma')
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
-
+const {
+  createListing,
+  getMyListings,
+  getListings,
+  getListingById,
+  getListingVideo,        // ← add
+  submitListingReview,
+} = require('../controllers/listing.controller')
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -204,7 +211,9 @@ exports.createListing = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to create listing.' })
   }
 }
-
+router.get('/', getListings)
+router.get('/:id/video', getListingVideo)  // ← add BEFORE /:id
+router.get('/:id', getListingById)
 // ── GET MY LISTINGS (seller) ──────────────────────────────────────────────────
 exports.getMyListings = async (req, res) => {
   try {

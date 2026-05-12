@@ -735,13 +735,13 @@ export default function NewListing() {
             label="Upload Floor Plan" files={floorPlans} setFiles={setFloorPlans} max={1}
           />
           <View style={[s.docInfoBox, { marginTop: 12 }]}>
-            <Text style={s.docInfoTitle}>Legal Documents *</Text>
+            <Text style={s.docInfoTitle}>Legal Property Documents *</Text>
             <Text style={s.docInfoDesc}>
               Proof of ownership required for SweetCasa review. Accepted: PDF, DOCX, JPG, PNG.
             </Text>
           </View>
           <DocumentUploadBox
-            label="Upload Legal Documents" files={legalDocs} setFiles={setLegalDocs}
+            label="Upload Legal Property Documents" files={legalDocs} setFiles={setLegalDocs}
           />
         </View>
 

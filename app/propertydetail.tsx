@@ -31,12 +31,6 @@ interface ListingImage {
   sortOrder: number;
 }
 
-interface NearbyPlace {
-  label: string;
-  distance: string;
-  icon: string;
-}
-
 interface Agent {
   id: number;
   name: string;
@@ -68,7 +62,12 @@ interface ListingDetail {
   facilities: string[];
   images: ListingImage[];
   agent: Agent | null;
-  nearbyPlaces: NearbyPlace[];
+  // Named nearby facility fields from the listings table
+  nearby_school_name: string | null;
+  nearby_bank_name: string | null;
+  nearby_restaurant_name: string | null;
+  nearby_market_name: string | null;
+  nearby_clinic_name: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -92,19 +91,92 @@ function getSortedImages(images: ListingImage[]): ListingImage[] {
   });
 }
 
-// ─── Fetch Video Helper ───────────────────────────────────────────────────────
-async function fetchVideo(id: string): Promise<{ videoUrl: string; videoThumbnailUrl: string | null } | null> {
+// ─── Generate Cloudinary video thumbnail from video URL ───────────────────────
+// Cloudinary video URLs look like: https://res.cloudinary.com/<cloud>/video/upload/<public_id>.mp4
+// Thumbnail: replace /video/upload/ with /video/upload/so_0/ and change extension to .jpg
+function getCloudinaryVideoThumbnail(videoUrl: string): string | null {
   try {
-    const res = await fetch(`${BASE_URL}/listings/${id}/video`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const videoUrl = data?.video_url ?? data?.videoUrl ?? null;
-    const videoThumbnailUrl = data?.thumbnail_url ?? data?.thumbnailUrl ?? null;
-    if (!videoUrl) return null;
-    return { videoUrl, videoThumbnailUrl };
+    // Match Cloudinary video URL pattern
+    const match = videoUrl.match(
+      /^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(.+)$/
+    );
+    if (!match) return null;
+    const base = match[1];
+    const rest = match[2];
+    // Replace extension with .jpg and add transformation so_0 (first frame)
+    const withoutExt = rest.replace(/\.[^.]+$/, '');
+    return `${base}so_0/${withoutExt}.jpg`;
   } catch {
     return null;
   }
+}
+
+// ─── Fetch Video from listings_videos table via API ───────────────────────────
+async function fetchVideoForListing(
+  id: string
+): Promise<{ videoUrl: string; videoThumbnailUrl: string | null } | null> {
+  try {
+    // Primary: dedicated video endpoint
+    const res = await fetch(`${BASE_URL}/listings/${id}/video`);
+    if (res.ok) {
+      const data = await res.json();
+      // Handle both snake_case and camelCase responses
+      const videoUrl =
+        data?.video_url ?? data?.videoUrl ?? null;
+      const rawThumb =
+        data?.thumbnail_url ?? data?.thumbnailUrl ?? null;
+
+      if (!videoUrl) return null;
+
+      // If thumbnail_url is NULL in DB, generate it from the Cloudinary video URL
+      const videoThumbnailUrl =
+        rawThumb || getCloudinaryVideoThumbnail(videoUrl);
+
+      return { videoUrl, videoThumbnailUrl };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Build nearby places list from named fields ───────────────────────────────
+interface NearbyPlace {
+  label: string;
+  example: string | null;
+  icon: string;
+}
+
+function buildNearbyPlaces(listing: ListingDetail): NearbyPlace[] {
+  const places: NearbyPlace[] = [
+    {
+      label: 'Nearby School',
+      example: listing.nearby_school_name ?? null,
+      icon: 'book',
+    },
+    {
+      label: 'Nearby Bank',
+      example: listing.nearby_bank_name ?? null,
+      icon: 'credit-card',
+    },
+    {
+      label: 'Nearby Restaurant',
+      example: listing.nearby_restaurant_name ?? null,
+      icon: 'coffee',
+    },
+    {
+      label: 'Nearby Market',
+      example: listing.nearby_market_name ?? null,
+      icon: 'shopping-bag',
+    },
+    {
+      label: 'Nearby Clinic',
+      example: listing.nearby_clinic_name ?? null,
+      icon: 'activity',
+    },
+  ];
+  // Only return places that have a name stored
+  return places.filter(p => p.example !== null && p.example.trim() !== '');
 }
 
 // ─── Photo Carousel ───────────────────────────────────────────────────────────
@@ -379,29 +451,28 @@ export default function PropertyDetailScreen() {
         setListing(parsed);
         setLoading(false);
 
-        // ── Step 2: Fetch video from listing_videos table via /listings/:id/video ──
-        const video = await fetchVideo(id);
-        if (video) {
-          setListing(prev => prev ? { ...prev, ...video } : prev);
-        }
-
-        // ── Step 3: Silently try to enrich with full detail from API ──
+        // ── Step 2: Silently enrich with full detail from API ──
         try {
           const res = await fetch(`${BASE_URL}/listings/${id}`);
           if (res.ok) {
             const data = await res.json();
             const full: ListingDetail = data?.listing ?? data;
             if (full?.id) {
-              // Preserve video data if the full listing doesn't include it
-              setListing(prev => ({
-                ...full,
-                videoUrl: full.videoUrl ?? prev?.videoUrl ?? null,
-                videoThumbnailUrl: full.videoThumbnailUrl ?? prev?.videoThumbnailUrl ?? null,
-              }));
+              // Merge full listing but don't overwrite anything yet — video comes next
+              setListing(full);
             }
           }
         } catch {
           // Silently ignore — base data from params is sufficient
+        }
+
+        // ── Step 3: Fetch video from listings_videos table — ALWAYS runs last ──
+        // so it is never overwritten by the full listing response (which has no videoUrl).
+        // thumbnail_url may be NULL in the DB, so we auto-generate it from the
+        // Cloudinary video URL using the so_0 transformation (first-frame still).
+        const video = await fetchVideoForListing(id);
+        if (video) {
+          setListing(prev => prev ? { ...prev, ...video } : prev);
         }
         return;
       }
@@ -420,7 +491,7 @@ export default function PropertyDetailScreen() {
       setListing(full);
 
       // Also fetch video for deep-link case
-      const video = await fetchVideo(id);
+      const video = await fetchVideoForListing(id);
       if (video) {
         setListing(prev => prev ? { ...prev, ...video } : prev);
       }
@@ -476,13 +547,8 @@ export default function PropertyDetailScreen() {
     { icon: 'wind',   label: 'TOILETS',  val: listing.toilets  ?? '—' },
   ] as const;
 
-  const nearby: NearbyPlace[] = listing.nearbyPlaces?.length
-    ? listing.nearbyPlaces
-    : [
-        { label: 'Government High School', distance: '0.8 km', icon: 'book' },
-        { label: 'Central Clinic',          distance: '1.2 km', icon: 'activity' },
-        { label: 'Total Petrol Station',    distance: '0.5 km', icon: 'droplet' },
-      ];
+  // Build nearby places from named listing fields; only show populated ones
+  const nearbyPlaces = buildNearbyPlaces(listing);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -677,9 +743,9 @@ export default function PropertyDetailScreen() {
           />
 
           {/* ── Floor Plan — only shown when a floor plan image exists ── */}
-          {listing.floorPlanUrl ? (
+          {!!listing.floorPlanUrl && (
             <FloorPlan floorPlanUrl={listing.floorPlanUrl} />
-          ) : null}
+          )}
 
           {/* ── Escrow Protection ── */}
           <TouchableOpacity style={styles.escrowCard} activeOpacity={0.85}>
@@ -696,35 +762,41 @@ export default function PropertyDetailScreen() {
             <Feather name="chevron-right" size={16} color="#C0C0C0" />
           </TouchableOpacity>
 
-          {/* ── Neighborhood ── */}
-          <View style={styles.sectionBlock}>
-            <View style={styles.sectionRow}>
-              <View style={styles.sectionTitleRow}>
-                <View style={styles.sectionDot} />
-                <Text style={styles.sectionTitle}>Neighborhood</Text>
-              </View>
-              <TouchableOpacity onPress={() => router.push('/neighborhoodmap' as any)}>
-                <Text style={styles.linkTxt}>View Map</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.mapPlaceholder}>
-              <View style={styles.mapPill}>
-                <Ionicons name="location-outline" size={14} color={PURPLE} />
-                <Text style={styles.mapPillTxt}>Interactive Map</Text>
-              </View>
-            </View>
-
-            {nearby.map((n, i) => (
-              <View key={i} style={styles.nearbyRow}>
-                <View style={styles.nearbyIcon}>
-                  <Feather name={n.icon as any} size={15} color={PURPLE} />
+          {/* ── Neighborhood — only shown if at least one nearby place exists ── */}
+          {nearbyPlaces.length > 0 && (
+            <View style={styles.sectionBlock}>
+              <View style={styles.sectionRow}>
+                <View style={styles.sectionTitleRow}>
+                  <View style={styles.sectionDot} />
+                  <Text style={styles.sectionTitle}>Neighborhood</Text>
                 </View>
-                <Text style={styles.nearbyLabel}>{n.label}</Text>
-                <Text style={styles.nearbyDist}>{n.distance}</Text>
+                <TouchableOpacity onPress={() => router.push('/neighborhoodmap' as any)}>
+                  <Text style={styles.linkTxt}>View Map</Text>
+                </TouchableOpacity>
               </View>
-            ))}
-          </View>
+
+              <View style={styles.mapPlaceholder}>
+                <View style={styles.mapPill}>
+                  <Ionicons name="location-outline" size={14} color={PURPLE} />
+                  <Text style={styles.mapPillTxt}>Interactive Map</Text>
+                </View>
+              </View>
+
+              {nearbyPlaces.map((n, i) => (
+                <View key={i} style={styles.nearbyRow}>
+                  <View style={styles.nearbyIcon}>
+                    <Feather name={n.icon as any} size={15} color={PURPLE} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nearbyLabel}>{n.label}</Text>
+                    {n.example ? (
+                      <Text style={styles.nearbyExample}>{n.example}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* ── Agent — always visible ── */}
           <View style={styles.sectionBlock}>
@@ -819,7 +891,6 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 28, backgroundColor: '#fff' },
   loadingTxt: { fontSize: 14, color: '#9CA3AF', marginTop: 4 },
   errorTxt: { fontSize: 14, color: '#DC2626', textAlign: 'center', lineHeight: 22 },
-  debugTxt: { fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginTop: 6, marginBottom: 4, paddingHorizontal: 20 },
   retryBtn: { marginTop: 8, backgroundColor: PURPLE, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14 },
   retryTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
@@ -1019,8 +1090,8 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 10,
     backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
   },
-  nearbyLabel: { flex: 1, fontSize: 13.5, fontWeight: '600', color: '#111' },
-  nearbyDist: { fontSize: 12, color: '#9CA3AF' },
+  nearbyLabel: { fontSize: 13.5, fontWeight: '600', color: '#111' },
+  nearbyExample: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
 
   // ── Agent ──
   agentCard: {
@@ -1056,11 +1127,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7,
   },
   agentChatBtnTxt: { fontSize: 12, fontWeight: '700', color: PURPLE },
-  profileBtn: {
-    borderWidth: 1.5, borderColor: PURPLE, borderRadius: 30,
-    paddingHorizontal: 16, paddingVertical: 8,
-  },
-  profileBtnTxt: { fontSize: 12.5, fontWeight: '700', color: PURPLE },
 
   // ── Bottom bar ──
   bottomBar: {
