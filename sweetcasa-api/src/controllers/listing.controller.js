@@ -39,6 +39,10 @@ function serializeListing(listing) {
         avatarUrl:   owner.avatarUrl ?? null,
         rating:      owner.rating ?? 0,
         reviewCount: owner.reviewCount ?? 0,
+        city:        owner.city    ?? null,
+        country:     owner.country ?? null,
+        region:      owner.region  ?? null,
+        street:      owner.street  ?? null,
       }
     : null
 
@@ -303,7 +307,16 @@ exports.getListingById = async (req, res) => {
         images: true,
         videos: true,
         owner: {
-          select: { id: true, name: true, companyName: true, phone: true },
+          select: {
+            id: true,
+            name: true,
+            companyName: true,
+            phone: true,
+            city: true,
+            country: true,
+            region: true,
+            street: true,
+          },
         },
       },
     })

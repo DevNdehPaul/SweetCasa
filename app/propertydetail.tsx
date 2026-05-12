@@ -37,6 +37,10 @@ interface Agent {
   avatarUrl: string | null;
   rating: number;
   reviewCount: number;
+  city: string | null;
+  country: string | null;
+  region: string | null;
+  street: string | null;
 }
 
 interface ListingDetail {
@@ -867,7 +871,12 @@ export default function PropertyDetailScreen() {
                 <View style={styles.agentLocationRow}>
                   <Ionicons name="location-outline" size={13} color="#9CA3AF" />
                   <Text style={styles.agentLocationTxt} numberOfLines={1}>
-                    {[listing.neighborhood, listing.city, listing.region].filter(Boolean).join(', ')}
+                    {[
+                      listing.agent?.street,
+                      listing.agent?.city,
+                      listing.agent?.region,
+                      listing.agent?.country,
+                    ].filter(Boolean).join(', ') || listing.city}
                   </Text>
                 </View>
               </View>
