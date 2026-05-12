@@ -107,7 +107,10 @@ exports.createListing = async (req, res) => {
       title, price, type, country, city, region,
       neighborhood, description, bedrooms, bathrooms, toilets,
       parlors, verandas, areaSqm, paymentFrequency,
-      visitHours, contactMethods, facilities,
+      visitHours, facilities,
+      // Nearby facility names (optional)
+      nearbySchoolName, nearbyBankName, nearbyRestaurantName,
+      nearbyMarketName, nearbyClinicName,
     } = req.body
 
     // status is NOT taken from body — always defaults to 'Pending'
@@ -170,8 +173,13 @@ exports.createListing = async (req, res) => {
         areaSqm: parseOptionalDecimal(areaSqm),
         paymentFrequency: normalizeString(paymentFrequency),
         visitHours: normalizeString(visitHours),
-        contactMethods: parseJsonArray(contactMethods),
         facilities: parseJsonArray(facilities),
+        // Nearby facility names
+        nearbySchoolName: normalizeString(nearbySchoolName),
+        nearbyBankName: normalizeString(nearbyBankName),
+        nearbyRestaurantName: normalizeString(nearbyRestaurantName),
+        nearbyMarketName: normalizeString(nearbyMarketName),
+        nearbyClinicName: normalizeString(nearbyClinicName),
         floorPlanUrl: uploadedFloorPlan?.url || null,
         legalDocumentUrls: uploadedLegalDocuments,
         images: { create: uploadedPhotos },
@@ -296,5 +304,28 @@ exports.getListingById = async (req, res) => {
   } catch (err) {
     console.error('Get listing by id error:', err)
     res.status(500).json({ error: 'Failed to load listing.' })
+  }
+}
+
+// ── SUBMIT LISTING REVIEW ─────────────────────────────────────────────────────
+exports.submitListingReview = async (req, res) => {
+  try {
+    const { review } = req.body
+    if (!review || !String(review).trim()) {
+      return res.status(400).json({ error: 'Review text is required.' })
+    }
+
+    const saved = await getPrisma().listingReview.create({
+      data: {
+        userId: req.user.id,
+        userRole: req.user.role || 'SELLER',
+        review: String(review).trim(),
+      },
+    })
+
+    res.status(201).json({ success: true, review: saved })
+  } catch (err) {
+    console.error('Submit listing review error:', err)
+    res.status(500).json({ error: 'Failed to save review.' })
   }
 }

@@ -1,9 +1,11 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Image,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -17,17 +19,103 @@ import api from '../../constants/api';
 const H_PAD = 20;
 const PURPLE = '#7C3AED';
 
+// ─── Welcome Modal ────────────────────────────────────────────────────────────
+function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 60,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+      <View style={wm.overlay}>
+        <Animated.View style={[wm.card, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
+          {/* Top accent */}
+          <View style={wm.topAccent} />
+
+          {/* Icon */}
+          <View style={wm.iconWrap}>
+            <Ionicons name="home" size={32} color="#fff" />
+          </View>
+
+          {/* Text */}
+          <Text style={wm.title}>Welcome to SweetCasa! 🏠</Text>
+          <Text style={wm.subtitle}>You're logged in as a House Owner</Text>
+          <Text style={wm.body}>
+            As a verified House Owner on SweetCasa, you can{' '}
+            <Text style={wm.bold}>list your properties</Text> — apartments, studios, villas,
+            and more — for{' '}
+            <Text style={wm.bold}>Purchase or Rent</Text>. House Seekers across Cameroon will
+            discover and connect with your listings directly through our platform.
+          </Text>
+
+          {/* Steps */}
+          <View style={wm.stepsWrap}>
+            {[
+              { icon: 'upload-cloud', text: 'Upload your property with photos & video' },
+              { icon: 'users',        text: 'House Seekers find and contact you' },
+              { icon: 'shield',       text: 'SweetCasa verifies & protects every deal' },
+            ].map((step, i) => (
+              <View key={i} style={wm.stepRow}>
+                <View style={wm.stepIcon}>
+                  <Feather name={step.icon as any} size={14} color={PURPLE} />
+                </View>
+                <Text style={wm.stepTxt}>{step.text}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* CTA */}
+          <TouchableOpacity style={wm.btn} onPress={onClose} activeOpacity={0.88}>
+            <Text style={wm.btnTxt}>Get Started</Text>
+            <Feather name="arrow-right" size={16} color="#fff" />
+          </TouchableOpacity>
+          <Text style={wm.skipTxt} onPress={onClose}>
+            I'll explore on my own
+          </Text>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function AgentHubScreen() {
   const [profile, setProfile] = useState<any>(null);
   const [listings, setListings] = useState<any[]>([]);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('profile').then((p) => {
       if (p) setProfile(JSON.parse(p));
     });
     loadListings();
+    checkWelcome();
   }, []);
+
+  const checkWelcome = async () => {
+    const seen = await AsyncStorage.getItem('agent_welcome_seen');
+    if (!seen) {
+      setShowWelcome(true);
+      await AsyncStorage.setItem('agent_welcome_seen', 'true');
+    }
+  };
 
   const loadListings = async () => {
     try {
@@ -46,12 +134,14 @@ export default function AgentHubScreen() {
     }
   };
 
-  // Only show the 3 most recent (API returns newest first)
   const latestListings = listings.slice(0, 3);
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F3FF" />
+
+      {/* Welcome Modal */}
+      <WelcomeModal visible={showWelcome} onClose={() => setShowWelcome(false)} />
 
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -195,7 +285,128 @@ export default function AgentHubScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Welcome Modal Styles ─────────────────────────────────────────────────────
+const wm = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    overflow: 'hidden',
+    paddingBottom: 28,
+  },
+  topAccent: {
+    height: 6,
+    backgroundColor: PURPLE,
+    width: '100%',
+  },
+  iconWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: PURPLE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+    shadowColor: PURPLE,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111',
+    textAlign: 'center',
+    letterSpacing: -0.5,
+    paddingHorizontal: 24,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: PURPLE,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  body: {
+    fontSize: 13.5,
+    color: '#555',
+    lineHeight: 21,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    marginBottom: 20,
+  },
+  bold: {
+    fontWeight: '700',
+    color: '#222',
+  },
+  stepsWrap: {
+    marginHorizontal: 24,
+    backgroundColor: '#F8F7FF',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    marginBottom: 24,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  stepIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepTxt: {
+    flex: 1,
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 24,
+    backgroundColor: PURPLE,
+    borderRadius: 16,
+    paddingVertical: 16,
+    shadowColor: PURPLE,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  btnTxt: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  skipTxt: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#A0A0A0',
+    marginTop: 14,
+    fontWeight: '500',
+  },
+});
+
+// ─── Screen Styles ────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F4F3FF' },
   scroll: { paddingBottom: 20 },

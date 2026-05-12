@@ -5,6 +5,9 @@ import React, { useState } from 'react';
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -26,6 +29,9 @@ const TEXT_DARK = '#111827';
 const TEXT_MID = '#6B7280';
 const TEXT_LIGHT = '#9CA3AF';
 
+// AsyncStorage key for tracking successful upload count
+const UPLOAD_COUNT_KEY = 'sweetcasa_successful_uploads';
+
 const propTypes = [
   'Apartment', 'Studio', 'Villa', 'Office',
   'Room', 'Duplex', 'Guest House', 'Hotel',
@@ -37,13 +43,33 @@ const facilityList = [
   'Bank', 'Restaurant', 'Market', 'Clinic',
 ];
 
+// Facilities that support an optional nearby name
+const NEARBY_FACILITY_FIELDS: {
+  facility: string;
+  key: string;
+  placeholder: string;
+}[] = [
+  { facility: 'Nearby School', key: 'nearbySchoolName',    placeholder: 'e.g. Government Bilingual High School' },
+  { facility: 'Bank',          key: 'nearbyBankName',       placeholder: 'e.g. Ecobank Bonanjo' },
+  { facility: 'Restaurant',    key: 'nearbyRestaurantName', placeholder: 'e.g. La Falaise Restaurant' },
+  { facility: 'Market',        key: 'nearbyMarketName',     placeholder: 'e.g. Marché Central de Douala' },
+  { facility: 'Clinic',        key: 'nearbyClinicName',     placeholder: 'e.g. Polyclinique de la Paix' },
+];
+
 const paymentFrequencies = ['Monthly', 'Yearly', 'For Sale'];
-const contactMethodOptions = ['Call', 'WhatsApp', 'In-app Chat'];
 
 type SelectedMedia = {
   uri: string;
   mimeType?: string | null;
   fileName?: string | null;
+};
+
+type NearbyNames = {
+  nearbySchoolName: string;
+  nearbyBankName: string;
+  nearbyRestaurantName: string;
+  nearbyMarketName: string;
+  nearbyClinicName: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -61,9 +87,6 @@ function inferMimeType(uri: string, fallback: string) {
   return fallback;
 }
 
-// XHR-based upload — most reliable for React Native multipart file uploads.
-// ⚠️  If req.files is undefined/empty on the backend, the issue is multer not
-//     being attached to the POST /listings route — NOT a frontend problem.
 async function uploadListing(formData: FormData): Promise<any> {
   const token = await AsyncStorage.getItem('token');
 
@@ -74,7 +97,6 @@ async function uploadListing(formData: FormData): Promise<any> {
     if (token) {
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
-    // Do NOT set Content-Type manually — XHR sets it with the correct boundary
 
     xhr.onload = () => {
       try {
@@ -91,11 +113,119 @@ async function uploadListing(formData: FormData): Promise<any> {
 
     xhr.onerror = () => reject(new Error('Network error'));
     xhr.ontimeout = () => reject(new Error('Request timed out'));
-    xhr.timeout = 300_000; // 5 min for large uploads
+    xhr.timeout = 300_000;
 
     xhr.send(formData);
   });
 }
+
+async function submitReview(review: string): Promise<void> {
+  const token = await AsyncStorage.getItem('token');
+  const response = await fetch(`${BASE_URL}/listings/reviews`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ review }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data?.error || 'Failed to submit review.');
+  }
+}
+
+/**
+ * Returns true if a review modal should be shown after a successful upload.
+ * Rule: show on 1st upload, then every 5th thereafter (1, 6, 11, 16 …).
+ */
+async function shouldShowReview(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(UPLOAD_COUNT_KEY);
+    const count = raw ? Number.parseInt(raw, 10) : 0;
+    const newCount = count + 1;
+    await AsyncStorage.setItem(UPLOAD_COUNT_KEY, String(newCount));
+    // Show on 1st upload (newCount === 1) or every 5th thereafter
+    return newCount === 1 || newCount % 5 === 0;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Review Modal ─────────────────────────────────────────────────────────────
+
+const ReviewModal = ({
+  visible,
+  onClose,
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) => {
+  const [reviewText, setReviewText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!reviewText.trim()) {
+      Alert.alert('Please write something', 'Share a brief experience before submitting.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await submitReview(reviewText.trim());
+      setReviewText('');
+      onClose();
+    } catch (err: any) {
+      Alert.alert('Could not submit', err?.message || 'Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSkip = () => {
+    setReviewText('');
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleSkip}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={s.modalOverlay}>
+        <View style={s.modalCard}>
+          <View style={s.modalIconRow}>
+            <Text style={s.modalIcon}>🏠</Text>
+          </View>
+          <Text style={s.modalTitle}>How was your experience?</Text>
+          <Text style={s.modalSubtitle}>
+            Tell us what went well or what we can improve in the listing upload process. Your
+            feedback helps us make SweetCasa better for everyone.
+          </Text>
+
+          <TextInput
+            style={s.modalInput}
+            placeholder="Describe your experience, any difficulties, or suggestions for improvement…"
+            placeholderTextColor={TEXT_LIGHT}
+            multiline
+            value={reviewText}
+            onChangeText={setReviewText}
+            textAlignVertical="top"
+          />
+
+          <TouchableOpacity
+            style={[s.modalSubmitBtn, submitting && { opacity: 0.6 }]}
+            onPress={handleSubmit}
+            disabled={submitting}>
+            <Text style={s.modalSubmitTxt}>{submitting ? 'Submitting…' : 'Submit Feedback'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleSkip} style={s.modalSkipBtn} disabled={submitting}>
+            <Text style={s.modalSkipTxt}>Skip for now</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -274,17 +404,27 @@ export default function NewListing() {
   const [verandas, setVerandas] = useState(1);
   const [area, setArea] = useState('');
   const [amenities, setAmenities] = useState<string[]>(['Wifi', 'Electricity']);
+  const [nearbyNames, setNearbyNames] = useState<NearbyNames>({
+    nearbySchoolName: '',
+    nearbyBankName: '',
+    nearbyRestaurantName: '',
+    nearbyMarketName: '',
+    nearbyClinicName: '',
+  });
   const [description, setDescription] = useState('');
-  const [contact, setContact] = useState<string[]>(['Call', 'WhatsApp']);
   const [visitHours, setVisitHours] = useState('Weekends 10AM - 2PM');
   const [photoFiles, setPhotoFiles] = useState<SelectedMedia[]>([]);
   const [videoFiles, setVideoFiles] = useState<SelectedMedia[]>([]);
   const [floorPlans, setFloorPlans] = useState<SelectedMedia[]>([]);
   const [legalDocs, setLegalDocs] = useState<SelectedMedia[]>([]);
   const [posting, setPosting] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
 
   const toggle = (arr: string[], setArr: (v: string[]) => void, val: string) =>
     setArr(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
+
+  const updateNearby = (key: keyof NearbyNames, val: string) =>
+    setNearbyNames((prev) => ({ ...prev, [key]: val }));
 
   const formatPrice = (val: string) => {
     const num = val.replace(/[^0-9]/g, '');
@@ -296,8 +436,12 @@ export default function NewListing() {
     setRegion(''); setCity(''); setNeighborhood(''); setPrice('');
     setPayFreq('Monthly'); setBedrooms(2); setBathrooms(1);
     setToilets(2); setParlors(1); setVerandas(1); setArea('');
-    setAmenities(['Wifi', 'Electricity']); setDescription('');
-    setContact(['Call', 'WhatsApp']); setVisitHours('Weekends 10AM - 2PM');
+    setAmenities(['Wifi', 'Electricity']);
+    setNearbyNames({
+      nearbySchoolName: '', nearbyBankName: '', nearbyRestaurantName: '',
+      nearbyMarketName: '', nearbyClinicName: '',
+    });
+    setDescription(''); setVisitHours('Weekends 10AM - 2PM');
     setPhotoFiles([]); setVideoFiles([]); setFloorPlans([]); setLegalDocs([]);
   };
 
@@ -341,8 +485,19 @@ export default function NewListing() {
       if (area.trim()) formData.append('areaSqm', area.trim());
       formData.append('paymentFrequency', payFreq);
       formData.append('visitHours', visitHours.trim());
-      formData.append('contactMethods', JSON.stringify(contact));
       formData.append('facilities', JSON.stringify(amenities));
+
+      // Nearby facility names (optional — only append if user filled them in)
+      if (nearbyNames.nearbySchoolName.trim())
+        formData.append('nearbySchoolName', nearbyNames.nearbySchoolName.trim());
+      if (nearbyNames.nearbyBankName.trim())
+        formData.append('nearbyBankName', nearbyNames.nearbyBankName.trim());
+      if (nearbyNames.nearbyRestaurantName.trim())
+        formData.append('nearbyRestaurantName', nearbyNames.nearbyRestaurantName.trim());
+      if (nearbyNames.nearbyMarketName.trim())
+        formData.append('nearbyMarketName', nearbyNames.nearbyMarketName.trim());
+      if (nearbyNames.nearbyClinicName.trim())
+        formData.append('nearbyClinicName', nearbyNames.nearbyClinicName.trim());
 
       // Photos
       photoFiles.forEach((photo, i) => {
@@ -369,7 +524,7 @@ export default function NewListing() {
         } as any);
       }
 
-      // Legal documents (optional)
+      // Legal documents
       legalDocs.forEach((doc, i) => {
         formData.append('legalDocuments', {
           uri: doc.uri,
@@ -380,12 +535,26 @@ export default function NewListing() {
 
       await uploadListing(formData);
 
+      // Check if we should show the review modal
+      const showReview = await shouldShowReview();
+
       Alert.alert(
         'Submitted! 🎉',
         'Your listing has been submitted for review. It will appear on the platform once approved by the SweetCasa team.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              resetForm();
+              if (showReview) {
+                setShowReviewModal(true);
+              } else {
+                router.replace('/agent-dashboard');
+              }
+            },
+          },
+        ]
       );
-      resetForm();
-      router.replace('/agent-dashboard');
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.message || 'Failed to upload listing.';
       Alert.alert('Upload failed', msg);
@@ -394,8 +563,15 @@ export default function NewListing() {
     }
   };
 
+  const handleReviewClose = () => {
+    setShowReviewModal(false);
+    router.replace('/agent-dashboard');
+  };
+
   return (
     <SafeAreaView style={s.safe}>
+      <ReviewModal visible={showReviewModal} onClose={handleReviewClose} />
+
       <View style={s.header}>
         <Text style={s.headerTitle}>New Listing</Text>
       </View>
@@ -492,6 +668,38 @@ export default function NewListing() {
                 onPress={() => toggle(amenities, setAmenities, f)} />
             ))}
           </View>
+
+          {/* Nearby facility name inputs — only shown when that facility is selected */}
+          {NEARBY_FACILITY_FIELDS.some((nf) => amenities.includes(nf.facility)) && (
+            <View style={s.nearbySection}>
+              <Text style={s.nearbyHeading}>
+                Nearby Place Names <Text style={s.optional}>— optional</Text>
+              </Text>
+              <Text style={s.nearbySubtext}>
+                Name the specific places nearby so tenants know exactly what's around.
+              </Text>
+
+              {NEARBY_FACILITY_FIELDS.map((nf) => {
+                if (!amenities.includes(nf.facility)) return null;
+                const key = nf.key as keyof NearbyNames;
+                return (
+                  <View key={nf.key} style={s.nearbyRow}>
+                    <View style={s.nearbyLabelRow}>
+                      <Text style={s.nearbyDot}>●</Text>
+                      <Text style={s.nearbyLabel}>{nf.facility}</Text>
+                    </View>
+                    <TextInput
+                      style={s.nearbyInput}
+                      placeholderTextColor={TEXT_LIGHT}
+                      placeholder={nf.placeholder}
+                      value={nearbyNames[key]}
+                      onChangeText={(val) => updateNearby(key, val)}
+                    />
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* 6. Photos & Video */}
@@ -527,9 +735,7 @@ export default function NewListing() {
             label="Upload Floor Plan" files={floorPlans} setFiles={setFloorPlans} max={1}
           />
           <View style={[s.docInfoBox, { marginTop: 12 }]}>
-            <Text style={s.docInfoTitle}>
-              Legal Documents *
-            </Text>
+            <Text style={s.docInfoTitle}>Legal Documents *</Text>
             <Text style={s.docInfoDesc}>
               Proof of ownership required for SweetCasa review. Accepted: PDF, DOCX, JPG, PNG.
             </Text>
@@ -549,17 +755,10 @@ export default function NewListing() {
           />
         </View>
 
-        {/* 9. Contact & Availability */}
+        {/* 9. Availability */}
         <View style={s.section}>
-          <SectionHeader num="9" title="Contact & Availability" />
-          <Text style={s.label}>Preferred Contact Method</Text>
-          <View style={s.chipRow}>
-            {contactMethodOptions.map((m) => (
-              <Chip key={m} label={m} selected={contact.includes(m)} color={GREEN}
-                onPress={() => toggle(contact, setContact, m)} />
-            ))}
-          </View>
-          <Text style={[s.label, s.spacedLabel]}>Available Visiting Hours</Text>
+          <SectionHeader num="9" title="Availability" />
+          <Text style={s.label}>Available Visiting Hours</Text>
           <TextInput
             style={s.input} placeholderTextColor={TEXT_LIGHT}
             placeholder="e.g. Weekends 10AM - 2PM"
@@ -615,7 +814,6 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '700', color: TEXT_DARK },
   label: { fontSize: 12, fontWeight: '600', color: TEXT_MID, marginBottom: 6, marginTop: 10 },
   optional: { fontWeight: '400', color: TEXT_LIGHT },
-  spacedLabel: { marginTop: 14 },
   hint: { fontSize: 11, color: TEXT_LIGHT, marginTop: 4, fontStyle: 'italic' },
   input: {
     borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 10,
@@ -649,6 +847,22 @@ const s = StyleSheet.create({
     position: 'absolute', right: 14, top: 13,
     fontSize: 13, fontWeight: '700', color: PURPLE,
   },
+  // Nearby facility names
+  nearbySection: {
+    marginTop: 16, backgroundColor: '#F9FAFB', borderRadius: 12,
+    padding: 14, borderWidth: 1, borderColor: GRAY_BORDER,
+  },
+  nearbyHeading: { fontSize: 13, fontWeight: '700', color: TEXT_DARK, marginBottom: 4 },
+  nearbySubtext: { fontSize: 12, color: TEXT_MID, marginBottom: 10, lineHeight: 17 },
+  nearbyRow: { marginBottom: 12 },
+  nearbyLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 },
+  nearbyDot: { fontSize: 10, color: GREEN },
+  nearbyLabel: { fontSize: 12, fontWeight: '600', color: TEXT_DARK },
+  nearbyInput: {
+    borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 10,
+    padding: 10, fontSize: 13, color: TEXT_DARK, backgroundColor: '#fff',
+  },
+  // Media
   mediaSection: { marginBottom: 18 },
   mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   previewWrap: { position: 'relative' },
@@ -705,4 +919,38 @@ const s = StyleSheet.create({
   },
   postBtnDisabled: { opacity: 0.55 },
   postBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Review Modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', alignItems: 'center', padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 24,
+    width: '100%', maxWidth: 420,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
+  },
+  modalIconRow: { alignItems: 'center', marginBottom: 12 },
+  modalIcon: { fontSize: 40 },
+  modalTitle: {
+    fontSize: 18, fontWeight: '800', color: TEXT_DARK,
+    textAlign: 'center', marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 13, color: TEXT_MID, textAlign: 'center',
+    lineHeight: 20, marginBottom: 18,
+  },
+  modalInput: {
+    borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 12,
+    padding: 14, fontSize: 14, color: TEXT_DARK,
+    minHeight: 110, textAlignVertical: 'top', backgroundColor: '#FAFAFA',
+    marginBottom: 16,
+  },
+  modalSubmitBtn: {
+    backgroundColor: PURPLE, borderRadius: 12,
+    padding: 14, alignItems: 'center', marginBottom: 10,
+  },
+  modalSubmitTxt: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  modalSkipBtn: { alignItems: 'center', padding: 8 },
+  modalSkipTxt: { color: TEXT_LIGHT, fontSize: 13 },
 });

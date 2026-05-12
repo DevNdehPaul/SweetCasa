@@ -1,10 +1,13 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, router } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   FlatList,
   Image,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -18,13 +21,14 @@ const { width } = Dimensions.get('window');
 const H_PAD = 20;
 const CARD_WIDTH = width * 0.56;
 const ACTION_SIZE = (width - H_PAD * 2 - 12) / 2;
+const PURPLE = '#7C3AED';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
-  { id: '1', icon: 'search',      label: 'Find House',    sub: 'Explore verified listings', iconColor: '#7C3AED', bg: '#F3F0FF', link:'/search' },
-  { id: '2', icon: 'plus-circle', label: 'Favourites', sub: 'Manage your favourite listings',    iconColor: '#7C3AED', bg: '#F3F0FF', link:'/favourites' },
-  { id: '3', icon: 'map',         label: 'Neighborhood',  sub: 'Explore safe areas',        iconColor: '#059669', bg: '#ECFDF5', link:'/neighborhood' },
-  { id: '4', icon: 'credit-card', label: 'Secure Wallet', sub: 'Safe escrow payments',      iconColor: '#D97706', bg: '#FFFBEB', link:'/wallet' },
+  { id: '1', icon: 'search',      label: 'Find House',    sub: 'Explore verified listings', iconColor: '#7C3AED', bg: '#F3F0FF', link: '/search' },
+  { id: '2', icon: 'plus-circle', label: 'Favourites',   sub: 'Manage your favourite listings', iconColor: '#7C3AED', bg: '#F3F0FF', link: '/favourites' },
+  { id: '3', icon: 'map',         label: 'Neighborhood',  sub: 'Explore safe areas',        iconColor: '#059669', bg: '#ECFDF5', link: '/neighborhood' },
+  { id: '4', icon: 'credit-card', label: 'Secure Wallet', sub: 'Safe escrow payments',      iconColor: '#D97706', bg: '#FFFBEB', link: '/wallet' },
 ];
 
 const LISTINGS = [
@@ -35,7 +39,7 @@ const LISTINGS = [
     price: 'FCFA 250,000/mo',
     beds: 3, baths: 2,
     image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=600&q=80',
-    lastVerified: 'Apr 21, 2026',   // ← NEW
+    lastVerified: 'Apr 21, 2026',
   },
   {
     id: '2',
@@ -44,7 +48,7 @@ const LISTINGS = [
     price: 'FCFA 120,000/mo',
     beds: 1, baths: 1,
     image: 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?w=600&q=80',
-    lastVerified: 'Apr 19, 2026',   // ← NEW
+    lastVerified: 'Apr 19, 2026',
   },
   {
     id: '3',
@@ -53,9 +57,84 @@ const LISTINGS = [
     price: 'FCFA 450,000/mo',
     beds: 4, baths: 3,
     image: 'https://images.unsplash.com/photo-1613977257363-707ba9348227?w=600&q=80',
-    lastVerified: 'Apr 22, 2026',   // ← NEW
+    lastVerified: 'Apr 22, 2026',
   },
 ];
+
+// ─── Welcome Modal ────────────────────────────────────────────────────────────
+function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 60,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+      <View style={wm.overlay}>
+        <Animated.View style={[wm.card, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
+          {/* Top accent */}
+          <View style={wm.topAccent} />
+
+          {/* Icon */}
+          <View style={wm.iconWrap}>
+            <Ionicons name="search" size={30} color="#fff" />
+          </View>
+
+          <Text style={wm.title}>Welcome to SweetCasa! 🔍</Text>
+          <Text style={wm.subtitle}>You're logged in as a House Seeker</Text>
+          <Text style={wm.body}>
+            As a House Seeker on SweetCasa, you can{' '}
+            <Text style={wm.bold}>search thousands of verified listings</Text> — apartments,
+            studios, villas, and more — available for{' '}
+            <Text style={wm.bold}>Purchase or Rent</Text> across Cameroon. Find your perfect
+            home today!
+          </Text>
+
+          {/* Feature highlights */}
+          <View style={wm.stepsWrap}>
+            {[
+              { icon: 'search',         text: 'Search our verified house listings by region' },
+              { icon: 'shield',         text: 'Every listing is 12-point verified by our agents' },
+              { icon: 'credit-card',    text: 'Pay securely through our escrow wallet system' },
+            ].map((step, i) => (
+              <View key={i} style={wm.stepRow}>
+                <View style={wm.stepIcon}>
+                  <Feather name={step.icon as any} size={14} color={PURPLE} />
+                </View>
+                <Text style={wm.stepTxt}>{step.text}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* CTA */}
+          <TouchableOpacity style={wm.btn} onPress={onClose} activeOpacity={0.88}>
+            <Text style={wm.btnTxt}>Start Searching</Text>
+            <Feather name="arrow-right" size={16} color="#fff" />
+          </TouchableOpacity>
+          <Text style={wm.skipTxt} onPress={onClose}>
+            I'll explore on my own
+          </Text>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
 
 // ─── Action Card ──────────────────────────────────────────────────────────────
 function ActionCard({ item }: { item: typeof QUICK_ACTIONS[0] }) {
@@ -80,14 +159,10 @@ function ListingCard({ item }: { item: typeof LISTINGS[0] }) {
     <TouchableOpacity activeOpacity={0.85} style={[styles.listingCard, { width: CARD_WIDTH }]}>
       <View style={styles.listingImgWrap}>
         <Image source={{ uri: item.image }} style={styles.listingImg} resizeMode="cover" />
-
-        {/* Verified pill — top left */}
         <View style={styles.verifiedPill}>
           <Ionicons name="shield-checkmark" size={8} color="#fff" />
           <Text style={styles.verifiedPillTxt}>VERIFIED</Text>
         </View>
-
-        {/* Price bar — bottom */}
         <View style={styles.priceBar}>
           <Text style={styles.priceBarTxt}>{item.price}</Text>
         </View>
@@ -95,12 +170,10 @@ function ListingCard({ item }: { item: typeof LISTINGS[0] }) {
 
       <View style={styles.listingBody}>
         <Text style={styles.listingName} numberOfLines={1}>{item.title}</Text>
-
         <View style={styles.listingLocRow}>
           <Ionicons name="location-outline" size={11} color="#A0A0A0" />
           <Text style={styles.listingLocTxt}>{item.location}</Text>
         </View>
-
         <View style={styles.listingMetaRow}>
           <Ionicons name="bed-outline" size={11} color="#888" />
           <Text style={styles.listingMetaTxt}>{item.beds} Beds</Text>
@@ -108,22 +181,16 @@ function ListingCard({ item }: { item: typeof LISTINGS[0] }) {
           <MaterialCommunityIcons name="shower" size={11} color="#888" />
           <Text style={styles.listingMetaTxt}>{item.baths} Baths</Text>
         </View>
-
-        {/* ── NEW: Verification footer ── */}
         <View style={styles.verifyFooter}>
-          {/* 12-Point Check badge */}
           <View style={styles.checkBadge}>
             <Ionicons name="checkmark-circle" size={9} color="#7C3AED" />
             <Text style={styles.checkBadgeTxt}>12-Point Check</Text>
           </View>
-
-          {/* Last Verified date */}
           <View style={styles.verifyDateRow}>
             <Ionicons name="time-outline" size={9} color="#A0A0A0" />
             <Text style={styles.verifyDateTxt}>{item.lastVerified}</Text>
           </View>
         </View>
-
       </View>
     </TouchableOpacity>
   );
@@ -131,9 +198,26 @@ function ListingCard({ item }: { item: typeof LISTINGS[0] }) {
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function HomeScreen() {
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    checkWelcome();
+  }, []);
+
+  const checkWelcome = async () => {
+    const seen = await AsyncStorage.getItem('seeker_welcome_seen');
+    if (!seen) {
+      setShowWelcome(true);
+      await AsyncStorage.setItem('seeker_welcome_seen', 'true');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
+      {/* Welcome Modal */}
+      <WelcomeModal visible={showWelcome} onClose={() => setShowWelcome(false)} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -224,13 +308,132 @@ export default function HomeScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+// ─── Welcome Modal Styles ─────────────────────────────────────────────────────
+const wm = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    overflow: 'hidden',
+    paddingBottom: 28,
+  },
+  topAccent: {
+    height: 6,
+    backgroundColor: PURPLE,
+    width: '100%',
+  },
+  iconWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: PURPLE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+    shadowColor: PURPLE,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111',
+    textAlign: 'center',
+    letterSpacing: -0.5,
+    paddingHorizontal: 24,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: PURPLE,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  body: {
+    fontSize: 13.5,
+    color: '#555',
+    lineHeight: 21,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    marginBottom: 20,
+  },
+  bold: {
+    fontWeight: '700',
+    color: '#222',
+  },
+  stepsWrap: {
+    marginHorizontal: 24,
+    backgroundColor: '#F8F7FF',
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    marginBottom: 24,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  stepIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepTxt: {
+    flex: 1,
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 24,
+    backgroundColor: PURPLE,
+    borderRadius: 16,
+    paddingVertical: 16,
+    shadowColor: PURPLE,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  btnTxt: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  skipTxt: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#A0A0A0',
+    marginTop: 14,
+    fontWeight: '500',
+  },
+});
 
+// ─── Screen Styles ────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
   scroll: { paddingBottom: 16 },
 
-  // ── Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -255,7 +458,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // ── Welcome
   welcomeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -291,7 +493,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
 
-  // ── Quick Actions
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingHorizontal: H_PAD,
+    marginBottom: 28,
+  },
+  actionCard: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 16,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    width: ACTION_SIZE,
+  },
   actionIcon: {
     width: 38, height: 38,
     borderRadius: 10,
@@ -312,7 +528,6 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
 
-  // ── AI Banner
   banner: {
     marginHorizontal: H_PAD,
     borderRadius: 20,
@@ -379,7 +594,6 @@ const styles = StyleSheet.create({
     top: -6,
   },
 
-  // ── Section Header
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -399,7 +613,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ── Listing Cards
   listingRow: {
     paddingLeft: H_PAD,
     paddingRight: H_PAD / 2,
@@ -488,7 +701,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
 
-  // ── NEW: Verification footer on listing card
   verifyFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -522,7 +734,6 @@ const styles = StyleSheet.create({
     color: '#A0A0A0',
   },
 
-  // ── Verified Strip
   verifiedStrip: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -546,19 +757,4 @@ const styles = StyleSheet.create({
     color: '#A0A0A0',
     lineHeight: 17,
   },
-  actionsGrid: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  gap: 12,
-  paddingHorizontal: H_PAD,
-  marginBottom: 28,
-},
-actionCard: {
-  backgroundColor: '#FAFAFA',
-  borderRadius: 16,
-  padding: 15,
-  borderWidth: 1,
-  borderColor: '#EFEFEF',
-  width: ACTION_SIZE,  // ← make sure width is here, not just in the component
-},
 });
