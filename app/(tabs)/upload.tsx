@@ -401,7 +401,7 @@ export default function NewListing() {
   const [bathrooms, setBathrooms] = useState(1);
   const [toilets, setToilets] = useState(2);
   const [parlors, setParlors] = useState(1);
-  const [verandas, setVerandas] = useState(1);
+  const [kitchens, setKitchens] = useState(1);
   const [area, setArea] = useState('');
   const [amenities, setAmenities] = useState<string[]>(['Wifi', 'Electricity']);
   const [nearbyNames, setNearbyNames] = useState<NearbyNames>({
@@ -435,7 +435,7 @@ export default function NewListing() {
     setTitle(''); setPropType('Apartment'); setCountry('Cameroon');
     setRegion(''); setCity(''); setNeighborhood(''); setPrice('');
     setPayFreq('Monthly'); setBedrooms(2); setBathrooms(1);
-    setToilets(2); setParlors(1); setVerandas(1); setArea('');
+    setToilets(2); setParlors(1); setKitchens(1); setArea('');
     setAmenities(['Wifi', 'Electricity']);
     setNearbyNames({
       nearbySchoolName: '', nearbyBankName: '', nearbyRestaurantName: '',
@@ -481,7 +481,7 @@ export default function NewListing() {
       formData.append('bathrooms', String(bathrooms));
       formData.append('toilets', String(toilets));
       formData.append('parlors', String(parlors));
-      formData.append('verandas', String(verandas));
+      formData.append('kitchens', String(kitchens));
       if (area.trim()) formData.append('areaSqm', area.trim());
       formData.append('paymentFrequency', payFreq);
       formData.append('visitHours', visitHours.trim());
@@ -642,7 +642,7 @@ export default function NewListing() {
             { label: 'Bathrooms', value: bathrooms, setValue: setBathrooms },
             { label: 'Toilets',   value: toilets,   setValue: setToilets },
             { label: 'Parlors',   value: parlors,   setValue: setParlors },
-            { label: 'Verandas',  value: verandas,  setValue: setVerandas },
+            { label: 'Kitchens',  value: kitchens,  setValue: setKitchens },
           ].map((item) => (
             <View key={item.label} style={s.detailRow}>
               <Text style={s.detailLabel}>{item.label}</Text>

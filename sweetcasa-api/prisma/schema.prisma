@@ -44,7 +44,7 @@ model Listing {
   bathrooms           Int            @default(0)
   toilets             Int            @default(0)
   parlors             Int            @default(0)
-  verandas            Int            @default(0)
+  kitchens            Int            @default(0)
   areaSqm             Decimal?       @map("area_sqm") @db.Decimal(10, 2)
   paymentFrequency    String?        @map("payment_frequency") @db.VarChar(20)
   visitHours          String?        @map("visit_hours") @db.VarChar(120)

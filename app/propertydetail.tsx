@@ -1,11 +1,11 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { ResizeMode, Video } from 'expo-av';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
   Image,
-  Linking,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -54,7 +54,9 @@ interface ListingDetail {
   bathrooms: number | null;
   toilets: number | null;
   parlour: number | null;
+  parlors: number | null;
   kitchen: number | null;
+  kitchens: number | null;
   minRentalPeriod: string | null;
   videoUrl: string | null;
   videoThumbnailUrl: string | null;
@@ -62,12 +64,17 @@ interface ListingDetail {
   facilities: string[];
   images: ListingImage[];
   agent: Agent | null;
-  // Named nearby facility fields from the listings table
+  // Named nearby facility fields — support both camelCase (Prisma) and snake_case
   nearby_school_name: string | null;
   nearby_bank_name: string | null;
   nearby_restaurant_name: string | null;
   nearby_market_name: string | null;
   nearby_clinic_name: string | null;
+  nearbySchoolName: string | null;
+  nearbyBankName: string | null;
+  nearbyRestaurantName: string | null;
+  nearbyMarketName: string | null;
+  nearbyClinicName: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -116,26 +123,39 @@ async function fetchVideoForListing(
   id: string
 ): Promise<{ videoUrl: string; videoThumbnailUrl: string | null } | null> {
   try {
-    // Primary: dedicated video endpoint
-    const res = await fetch(`${BASE_URL}/listings/${id}/video`);
-    if (res.ok) {
-      const data = await res.json();
-      // Handle both snake_case and camelCase responses
-      const videoUrl =
-        data?.video_url ?? data?.videoUrl ?? null;
-      const rawThumb =
-        data?.thumbnail_url ?? data?.thumbnailUrl ?? null;
+    const url = `${BASE_URL}/listings/${id}/video`;
+    console.log('[VIDEO] fetching:', url);
+    const res = await fetch(url);
+    console.log('[VIDEO] status:', res.status);
 
-      if (!videoUrl) return null;
+    const text = await res.text();
+    console.log('[VIDEO] raw response:', text);
 
-      // If thumbnail_url is NULL in DB, generate it from the Cloudinary video URL
-      const videoThumbnailUrl =
-        rawThumb || getCloudinaryVideoThumbnail(videoUrl);
+    if (!res.ok) return null;
 
-      return { videoUrl, videoThumbnailUrl };
-    }
-    return null;
-  } catch {
+    let data: any;
+    try { data = JSON.parse(text); } catch { return null; }
+
+    // Handle both snake_case and camelCase, and various nesting shapes
+    const videoUrl =
+      data?.video_url        ?? data?.videoUrl        ??
+      data?.data?.video_url  ?? data?.data?.videoUrl  ??
+      null;
+
+    const rawThumb =
+      data?.thumbnail_url       ?? data?.thumbnailUrl       ??
+      data?.data?.thumbnail_url ?? data?.data?.thumbnailUrl ??
+      null;
+
+    console.log('[VIDEO] videoUrl:', videoUrl, '| rawThumb:', rawThumb);
+
+    if (!videoUrl) return null;
+
+    const videoThumbnailUrl = rawThumb || getCloudinaryVideoThumbnail(videoUrl);
+    console.log('[VIDEO] final thumbnail:', videoThumbnailUrl);
+    return { videoUrl, videoThumbnailUrl };
+  } catch (e) {
+    console.log('[VIDEO] fetch error:', e);
     return null;
   }
 }
@@ -148,34 +168,21 @@ interface NearbyPlace {
 }
 
 function buildNearbyPlaces(listing: ListingDetail): NearbyPlace[] {
+  // Support both camelCase (direct Prisma response) and snake_case (mapped API response)
+  const school     = listing.nearbySchoolName     ?? listing.nearby_school_name     ?? null;
+  const bank       = listing.nearbyBankName       ?? listing.nearby_bank_name       ?? null;
+  const restaurant = listing.nearbyRestaurantName ?? listing.nearby_restaurant_name ?? null;
+  const market     = listing.nearbyMarketName     ?? listing.nearby_market_name     ?? null;
+  const clinic     = listing.nearbyClinicName     ?? listing.nearby_clinic_name     ?? null;
+
   const places: NearbyPlace[] = [
-    {
-      label: 'Nearby School',
-      example: listing.nearby_school_name ?? null,
-      icon: 'book',
-    },
-    {
-      label: 'Nearby Bank',
-      example: listing.nearby_bank_name ?? null,
-      icon: 'credit-card',
-    },
-    {
-      label: 'Nearby Restaurant',
-      example: listing.nearby_restaurant_name ?? null,
-      icon: 'coffee',
-    },
-    {
-      label: 'Nearby Market',
-      example: listing.nearby_market_name ?? null,
-      icon: 'shopping-bag',
-    },
-    {
-      label: 'Nearby Clinic',
-      example: listing.nearby_clinic_name ?? null,
-      icon: 'activity',
-    },
+    { label: 'Nearby School',     example: school,     icon: 'book'         },
+    { label: 'Nearby Bank',       example: bank,       icon: 'credit-card'  },
+    { label: 'Nearby Restaurant', example: restaurant, icon: 'coffee'       },
+    { label: 'Nearby Market',     example: market,     icon: 'shopping-bag' },
+    { label: 'Nearby Clinic',     example: clinic,     icon: 'activity'     },
   ];
-  // Only return places that have a name stored
+  // Only show facilities that have a name stored
   return places.filter(p => p.example !== null && p.example.trim() !== '');
 }
 
@@ -323,59 +330,89 @@ function VideoWalkthrough({
   fallbackImage: string | null;
 }) {
   const thumb = thumbnailUrl || fallbackImage;
+  const [playing, setPlaying] = useState(false);
+  const videoRef = React.useRef<any>(null);
 
-  const handlePlay = () => {
-    if (videoUrl) {
-      Linking.openURL(videoUrl).catch(() => {});
-    }
-  };
-
-  return (
-    <View style={styles.sectionBlock}>
-      <View style={styles.sectionRow}>
+  // If no video is available, show "coming soon" placeholder
+  if (!videoUrl) {
+    return (
+      <View style={styles.sectionBlock}>
         <View style={styles.sectionTitleRow}>
           <View style={styles.sectionDot} />
           <Text style={styles.sectionTitle}>Video Walkthrough</Text>
         </View>
-        {videoUrl ? (
-          <TouchableOpacity onPress={handlePlay}>
-            <Text style={styles.linkTxt}>Open Video</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      <TouchableOpacity
-        style={styles.videoWrap}
-        activeOpacity={0.9}
-        onPress={handlePlay}
-        disabled={!videoUrl}
-      >
-        {thumb ? (
-          <Image source={{ uri: thumb }} style={styles.videoThumb} resizeMode="cover" />
-        ) : (
-          <View style={styles.videoThumbPlaceholder} />
-        )}
-
-        {/* Gradient overlay */}
-        <View style={styles.videoOverlay} />
-
-        {/* Play button */}
-        <View style={[styles.playBtn, !videoUrl && styles.playBtnDisabled]}>
-          <Ionicons name="play" size={26} color="#fff" style={{ marginLeft: 3 }} />
-        </View>
-
-        {videoUrl ? (
-          <View style={styles.videoPill}>
-            <Feather name="film" size={11} color="#fff" />
-            <Text style={styles.videoPillTxt}>Full Tour Available</Text>
+        <View style={styles.videoWrap}>
+          {thumb ? (
+            <Image source={{ uri: thumb }} style={styles.videoThumb} resizeMode="cover" />
+          ) : (
+            <View style={styles.videoThumbPlaceholder} />
+          )}
+          <View style={styles.videoOverlay} />
+          <View style={styles.playBtnDisabled}>
+            <Ionicons name="play" size={26} color="#fff" style={{ marginLeft: 3 }} />
           </View>
-        ) : (
           <View style={styles.videoPill}>
             <Feather name="clock" size={11} color="#fff" />
             <Text style={styles.videoPillTxt}>Video Tour Coming Soon</Text>
           </View>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.sectionBlock}>
+      <View style={styles.sectionTitleRow}>
+        <View style={styles.sectionDot} />
+        <Text style={styles.sectionTitle}>Video Walkthrough</Text>
+      </View>
+
+      <View style={styles.videoWrap}>
+        {playing ? (
+          // ── Inline video player ──
+          <Video
+            ref={videoRef}
+            source={{ uri: videoUrl }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode={ResizeMode.COVER}
+            useNativeControls
+            shouldPlay
+            onError={() => setPlaying(false)}
+          />
+        ) : (
+          // ── Thumbnail + play button ──
+          <TouchableOpacity
+            style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
+            activeOpacity={0.9}
+            onPress={() => setPlaying(true)}
+          >
+            {thumb ? (
+              <Image source={{ uri: thumb }} style={styles.videoThumb} resizeMode="cover" />
+            ) : (
+              <View style={styles.videoThumbPlaceholder} />
+            )}
+            <View style={styles.videoOverlay} />
+            <View style={styles.playBtn}>
+              <Ionicons name="play" size={26} color="#fff" style={{ marginLeft: 3 }} />
+            </View>
+            <View style={styles.videoPill}>
+              <Feather name="film" size={11} color="#fff" />
+              <Text style={styles.videoPillTxt}>Tap to Play Tour</Text>
+            </View>
+          </TouchableOpacity>
         )}
-      </TouchableOpacity>
+      </View>
+
+      {/* Stop button shown while playing */}
+      {playing && (
+        <TouchableOpacity
+          style={styles.videoStopBtn}
+          onPress={() => setPlaying(false)}
+        >
+          <Ionicons name="stop-circle-outline" size={15} color={PURPLE} />
+          <Text style={styles.videoStopBtnTxt}>Stop Video</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -541,10 +578,11 @@ export default function PropertyDetailScreen() {
   const primaryImageUrl = sortedImages[0]?.imageUrl ?? null;
 
   const stats = [
-    { icon: 'home',   label: 'PARLOUR',  val: listing.parlour  ?? 1 },
-    { icon: 'book',   label: 'BEDROOMS', val: listing.bedrooms ?? '—' },
-    { icon: 'coffee', label: 'KITCHEN',  val: listing.kitchen  ?? 1 },
-    { icon: 'wind',   label: 'TOILETS',  val: listing.toilets  ?? '—' },
+    { icon: 'home',    label: 'PARLORS', val: listing.parlors  ?? listing.parlour  ?? '—' },
+    { icon: 'book',    label: 'BEDROOMS',    val: listing.bedrooms ?? '—' },
+    { icon: 'droplet', label: 'BATHROOMS',   val: listing.bathrooms ?? '—' },
+    { icon: 'wind',    label: 'TOILETS', val: listing.toilets  ?? '—' },
+    { icon: 'coffee',  label: 'KITCHENS', val: listing.kitchens ?? listing.kitchen ?? '—' },
   ] as const;
 
   // Build nearby places from named listing fields; only show populated ones
@@ -965,13 +1003,13 @@ const styles = StyleSheet.create({
   typeChipTxt: { fontSize: 11.5, fontWeight: '700', color: PURPLE },
 
   statsRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    backgroundColor: '#FAFAFA', borderRadius: 18, padding: 16,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: '#FAFAFA', borderRadius: 18, paddingVertical: 14, paddingHorizontal: 8,
     borderWidth: 1, borderColor: '#EFEFEF', marginBottom: 16,
   },
-  statItem: { alignItems: 'center', gap: 5, flex: 1 },
-  statVal: { fontSize: 18, fontWeight: '800', color: '#111' },
-  statLabel: { fontSize: 9, color: '#B0B0B0', fontWeight: '700', letterSpacing: 0.6 },
+  statItem: { alignItems: 'center', gap: 3, flex: 1 },
+  statVal: { fontSize: 15, fontWeight: '800', color: '#111' },
+  statLabel: { fontSize: 8, color: '#B0B0B0', fontWeight: '700', letterSpacing: 0.2, textAlign: 'center' },
 
   rentalCard: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -1149,4 +1187,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 }, elevation: 6,
   },
   bookBtnTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
+
+  // ── Video stop button ──
+  videoStopBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginTop: 10, paddingVertical: 8,
+  },
+  videoStopBtnTxt: { fontSize: 12.5, color: PURPLE, fontWeight: '600' },
 });
