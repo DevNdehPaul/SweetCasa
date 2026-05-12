@@ -4,6 +4,7 @@ const {
   getMyListings,
   getListings,
   getListingById,
+  getListingVideo,
   submitListingReview,
 } = require('../controllers/listing.controller')
 const requireRole = require('../middleware/requireRole')
@@ -11,11 +12,12 @@ const upload = require('../middleware/upload')
 
 const router = express.Router()
 
-// Public
+// ── Public ────────────────────────────────────────────────────────────────────
 router.get('/', getListings)
+router.get('/:id/video', getListingVideo)   // MUST be before /:id
 router.get('/:id', getListingById)
 
-// Agent only
+// ── Agent only ────────────────────────────────────────────────────────────────
 router.get('/mine', requireRole('SELLER'), getMyListings)
 router.post(
   '/',
@@ -29,30 +31,7 @@ router.post(
   createListing
 )
 
-// Listing experience review (authenticated sellers)
+// ── Listing experience review (authenticated sellers) ─────────────────────────
 router.post('/reviews', requireRole('SELLER'), submitListingReview)
-// ── GET LISTING VIDEO ─────────────────────────────────────────────────────────
-exports.getListingVideo = async (req, res) => {
-  try {
-    const id = Number.parseInt(req.params.id, 10)
-    if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
 
-    const video = await getPrisma().listingVideo.findFirst({
-      where: { listingId: id },
-      select: { videoUrl: true, thumbnailUrl: true },
-    })
-
-    if (!video || !video.videoUrl) {
-      return res.status(404).json({ error: 'No video found for this listing.' })
-    }
-
-    res.json({
-      video_url: video.videoUrl,
-      thumbnail_url: video.thumbnailUrl ?? null,
-    })
-  } catch (err) {
-    console.error('Get listing video error:', err)
-    res.status(500).json({ error: 'Failed to load video.' })
-  }
-}
 module.exports = router
