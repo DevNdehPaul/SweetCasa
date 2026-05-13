@@ -30,27 +30,12 @@ function parseJsonArray(value) {
 }
 
 function serializeListing(listing) {
-  // Map owner → agent so the frontend agent card works
-  const owner = listing.owner ?? null
-  const agent = owner
-    ? {
-        id:          owner.id,
-        name:        owner.name ?? owner.companyName ?? 'Property Agent',
-        avatarUrl:   owner.avatarUrl ?? null,
-        rating:      owner.rating ?? 0,
-        reviewCount: owner.reviewCount ?? 0,
-        city:        owner.city    ?? null,
-        country:     owner.country ?? null,
-        region:      owner.region  ?? null,
-        street:      owner.street  ?? null,
-      }
-    : null
-
   return {
     ...listing,
     price:   listing.price?.toString?.()   ?? listing.price,
     areaSqm: listing.areaSqm?.toString?.() ?? listing.areaSqm,
-    agent,   // expose as 'agent' for the frontend
+    // agent is passed in directly from getListingById — just preserve it
+    agent:   listing.agent ?? null,
     videos: Array.isArray(listing.videos)
       ? listing.videos.map((video) => ({
           ...video,
@@ -306,23 +291,43 @@ exports.getListingById = async (req, res) => {
       include: {
         images: true,
         videos: true,
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            companyName: true,
-            phone: true,
-            city: true,
-            country: true,
-            region: true,
-            street: true,
-          },
-        },
       },
     })
 
     if (!listing) return res.status(404).json({ error: 'Listing not found.' })
-    res.json({ listing: serializeListing(listing) })
+
+    // ── Fetch agent directly using owner_id → users.id (your theory) ──
+    let agent = null
+    if (listing.ownerId) {
+      const user = await getPrisma().user.findUnique({
+        where: { id: listing.ownerId },
+        select: {
+          id:          true,
+          name:        true,
+          companyName: true,
+          phone:       true,
+          city:        true,
+          country:     true,
+          region:      true,
+          street:      true,
+        },
+      })
+      if (user) {
+        agent = {
+          id:          user.id,
+          name:        user.name ?? user.companyName ?? 'Property Agent',
+          avatarUrl:   null,
+          rating:      0,
+          reviewCount: 0,
+          city:        user.city    ?? null,
+          country:     user.country ?? null,
+          region:      user.region  ?? null,
+          street:      user.street  ?? null,
+        }
+      }
+    }
+
+    res.json({ listing: serializeListing({ ...listing, agent }) })
   } catch (err) {
     console.error('Get listing by id error:', err)
     res.status(500).json({ error: 'Failed to load listing.' })
