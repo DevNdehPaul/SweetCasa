@@ -1,6 +1,13 @@
 const { getPrisma } = require('../lib/prisma')
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
-
+const {
+  createListing,
+  getMyListings,
+  getListings,
+  getListingById,
+  getListingVideo,        // ← add
+  submitListingReview,
+} = require('../controllers/listing.controller')
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
@@ -32,10 +39,8 @@ function parseJsonArray(value) {
 function serializeListing(listing) {
   return {
     ...listing,
-    price:   listing.price?.toString?.()   ?? listing.price,
+    price: listing.price?.toString?.() ?? listing.price,
     areaSqm: listing.areaSqm?.toString?.() ?? listing.areaSqm,
-    // agent is passed in directly from getListingById — just preserve it
-    agent:   listing.agent ?? null,
     videos: Array.isArray(listing.videos)
       ? listing.videos.map((video) => ({
           ...video,
@@ -110,10 +115,12 @@ exports.createListing = async (req, res) => {
       neighborhood, description, bedrooms, bathrooms, toilets,
       parlors, verandas, areaSqm, paymentFrequency,
       visitHours, facilities,
+      // Nearby facility names (optional)
       nearbySchoolName, nearbyBankName, nearbyRestaurantName,
       nearbyMarketName, nearbyClinicName,
     } = req.body
 
+    // status is NOT taken from body — always defaults to 'Pending'
     if (!title || !price || !type || !country || !city || !region || !description) {
       return res.status(400).json({ error: 'Please fill in the required listing fields.' })
     }
@@ -159,7 +166,7 @@ exports.createListing = async (req, res) => {
         title: String(title).trim(),
         price: Number.parseFloat(String(price)),
         type: String(type).trim(),
-        status: 'Pending',
+        status: 'Pending',          // always Pending — admin approves later
         country: String(country).trim(),
         city: String(city).trim(),
         region: String(region).trim(),
@@ -174,6 +181,7 @@ exports.createListing = async (req, res) => {
         paymentFrequency: normalizeString(paymentFrequency),
         visitHours: normalizeString(visitHours),
         facilities: parseJsonArray(facilities),
+        // Nearby facility names
         nearbySchoolName: normalizeString(nearbySchoolName),
         nearbyBankName: normalizeString(nearbyBankName),
         nearbyRestaurantName: normalizeString(nearbyRestaurantName),
@@ -203,7 +211,9 @@ exports.createListing = async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to create listing.' })
   }
 }
-
+router.get('/', getListings)
+router.get('/:id/video', getListingVideo)  // ← add BEFORE /:id
+router.get('/:id', getListingById)
 // ── GET MY LISTINGS (seller) ──────────────────────────────────────────────────
 exports.getMyListings = async (req, res) => {
   try {
@@ -232,14 +242,15 @@ exports.getListings = async (req, res) => {
       limit = '20',
     } = req.query
 
+    // Always only show approved listings to the public
     const where = { status: 'Approved' }
 
-    if (region)           where.region           = { equals: region,         mode: 'insensitive' }
-    if (city)             where.city             = { equals: city,           mode: 'insensitive' }
-    if (neighborhood)     where.neighborhood     = { contains: neighborhood, mode: 'insensitive' }
-    if (type)             where.type             = { equals: type,           mode: 'insensitive' }
-    if (state)            where.state            = { equals: state,          mode: 'insensitive' }
-    if (paymentFrequency) where.paymentFrequency = { equals: paymentFrequency, mode: 'insensitive' }
+    if (region)           where.region            = { equals: region,        mode: 'insensitive' }
+    if (city)             where.city              = { equals: city,          mode: 'insensitive' }
+    if (neighborhood)     where.neighborhood      = { contains: neighborhood, mode: 'insensitive' }
+    if (type)             where.type              = { equals: type,          mode: 'insensitive' }
+    if (state)            where.state             = { equals: state,         mode: 'insensitive' }
+    if (paymentFrequency) where.paymentFrequency  = { equals: paymentFrequency, mode: 'insensitive' }
 
     if (minBudget || maxBudget) {
       where.price = {}
@@ -291,71 +302,17 @@ exports.getListingById = async (req, res) => {
       include: {
         images: true,
         videos: true,
+        owner: {
+          select: { id: true, name: true, companyName: true, phone: true },
+        },
       },
     })
 
     if (!listing) return res.status(404).json({ error: 'Listing not found.' })
-
-    // ── Fetch agent directly using owner_id → users.id (your theory) ──
-    let agent = null
-    if (listing.ownerId) {
-      const user = await getPrisma().user.findUnique({
-        where: { id: listing.ownerId },
-        select: {
-          id:          true,
-          name:        true,
-          companyName: true,
-          phone:       true,
-          city:        true,
-          country:     true,
-          region:      true,
-          street:      true,
-        },
-      })
-      if (user) {
-        agent = {
-          id:          user.id,
-          name:        user.name ?? user.companyName ?? 'Property Agent',
-          avatarUrl:   null,
-          rating:      0,
-          reviewCount: 0,
-          city:        user.city    ?? null,
-          country:     user.country ?? null,
-          region:      user.region  ?? null,
-          street:      user.street  ?? null,
-        }
-      }
-    }
-
-    res.json({ listing: serializeListing({ ...listing, agent }) })
+    res.json({ listing: serializeListing(listing) })
   } catch (err) {
     console.error('Get listing by id error:', err)
     res.status(500).json({ error: 'Failed to load listing.' })
-  }
-}
-
-// ── GET LISTING VIDEO ─────────────────────────────────────────────────────────
-exports.getListingVideo = async (req, res) => {
-  try {
-    const id = Number.parseInt(req.params.id, 10)
-    if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
-
-    const video = await getPrisma().listingVideo.findFirst({
-      where: { listingId: id },
-      select: { videoUrl: true, thumbnailUrl: true },
-    })
-
-    if (!video || !video.videoUrl) {
-      return res.status(404).json({ error: 'No video found for this listing.' })
-    }
-
-    res.json({
-      video_url: video.videoUrl,
-      thumbnail_url: video.thumbnailUrl ?? null,
-    })
-  } catch (err) {
-    console.error('Get listing video error:', err)
-    res.status(500).json({ error: 'Failed to load video.' })
   }
 }
 
