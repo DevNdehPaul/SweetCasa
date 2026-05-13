@@ -14,11 +14,13 @@ const router = express.Router()
 
 // ── Public ────────────────────────────────────────────────────────────────────
 router.get('/', getListings)
-router.get('/:id/video', getListingVideo)   // MUST be before /:id
-router.get('/:id', getListingById)
 
-// ── Agent only ────────────────────────────────────────────────────────────────
+// ── Agent only — MUST be before /:id or Express matches /mine as an id ───────
 router.get('/mine', requireRole('SELLER'), getMyListings)
+
+// ── Public dynamic routes — always after named routes ─────────────────────────
+router.get('/:id/video', getListingVideo)
+router.get('/:id', getListingById)
 router.post(
   '/',
   requireRole('SELLER'),
