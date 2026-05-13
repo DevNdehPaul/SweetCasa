@@ -30,23 +30,12 @@ function parseJsonArray(value) {
 }
 
 function serializeListing(listing) {
-  // Map owner → agent so the frontend agent card works
-  const owner = listing.owner ?? null
-  const agent = owner
-    ? {
-        id:          owner.id,
-        name:        owner.name ?? owner.companyName ?? 'Property Agent',
-        avatarUrl:   owner.avatarUrl ?? null,
-        rating:      owner.rating ?? 0,
-        reviewCount: owner.reviewCount ?? 0,
-      }
-    : null
-
   return {
     ...listing,
     price:   listing.price?.toString?.()   ?? listing.price,
     areaSqm: listing.areaSqm?.toString?.() ?? listing.areaSqm,
-    agent,   // expose as 'agent' for the frontend
+    // agent is passed in directly from getListingById — just preserve it
+    agent:   listing.agent ?? null,
     videos: Array.isArray(listing.videos)
       ? listing.videos.map((video) => ({
           ...video,
@@ -302,14 +291,43 @@ exports.getListingById = async (req, res) => {
       include: {
         images: true,
         videos: true,
-        owner: {
-          select: { id: true, name: true, companyName: true, phone: true },
-        },
       },
     })
 
     if (!listing) return res.status(404).json({ error: 'Listing not found.' })
-    res.json({ listing: serializeListing(listing) })
+
+    // ── Fetch agent directly using owner_id → users.id (your theory) ──
+    let agent = null
+    if (listing.ownerId) {
+      const user = await getPrisma().user.findUnique({
+        where: { id: listing.ownerId },
+        select: {
+          id:          true,
+          name:        true,
+          companyName: true,
+          phone:       true,
+          city:        true,
+          country:     true,
+          region:      true,
+          street:      true,
+        },
+      })
+      if (user) {
+        agent = {
+          id:          user.id,
+          name:        user.name ?? user.companyName ?? 'Property Agent',
+          avatarUrl:   null,
+          rating:      0,
+          reviewCount: 0,
+          city:        user.city    ?? null,
+          country:     user.country ?? null,
+          region:      user.region  ?? null,
+          street:      user.street  ?? null,
+        }
+      }
+    }
+
+    res.json({ listing: serializeListing({ ...listing, agent }) })
   } catch (err) {
     console.error('Get listing by id error:', err)
     res.status(500).json({ error: 'Failed to load listing.' })
@@ -361,5 +379,152 @@ exports.submitListingReview = async (req, res) => {
   } catch (err) {
     console.error('Submit listing review error:', err)
     res.status(500).json({ error: 'Failed to save review.' })
+  }
+}
+
+// ── DELETE LISTING ────────────────────────────────────────────────────────────
+exports.deleteListing = async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
+
+    // Verify ownership
+    const listing = await getPrisma().listing.findFirst({
+      where: { id, ownerId: req.user.id },
+    })
+    if (!listing) return res.status(404).json({ error: 'Listing not found or access denied.' })
+
+    // Delete related records first (cascade order)
+    await getPrisma().listingVideo.deleteMany({ where: { listingId: id } })
+    await getPrisma().listingImage.deleteMany({ where: { listingId: id } })
+    await getPrisma().listing.delete({ where: { id } })
+
+    res.json({ success: true, message: 'Listing deleted successfully.' })
+  } catch (err) {
+    console.error('Delete listing error:', err)
+    res.status(500).json({ error: 'Failed to delete listing.' })
+  }
+}
+
+// ── EDIT LISTING ──────────────────────────────────────────────────────────────
+exports.editListing = async (req, res) => {
+  try {
+    ensureCloudinaryConfigured()
+    const id = Number.parseInt(req.params.id, 10)
+    if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
+
+    // Verify ownership
+    const existing = await getPrisma().listing.findFirst({
+      where: { id, ownerId: req.user.id },
+      include: { images: true, videos: true },
+    })
+    if (!existing) return res.status(404).json({ error: 'Listing not found or access denied.' })
+
+    const {
+      title, price, type, city, region, neighborhood,
+      description, bedrooms, bathrooms, toilets,
+      parlors, verandas, areaSqm, paymentFrequency,
+      visitHours, facilities,
+      nearbySchoolName, nearbyBankName, nearbyRestaurantName,
+      nearbyMarketName, nearbyClinicName,
+    } = req.body
+
+    const filesByField = groupFilesByField(req.files || [])
+    const photoFiles = filesByField.photos || []
+    const videoFile = filesByField.video?.[0] || null
+    const floorPlanFile = filesByField.floorPlan?.[0] || null
+
+    // Upload new photos if provided
+    let newImages = []
+    if (photoFiles.length) {
+      newImages = await Promise.all(
+        photoFiles.map((file, index) =>
+          uploadFileToCloudinary(file, 'sweetcasa/listings/photos').then((uploaded) => ({
+            imageUrl: uploaded.url,
+            cloudinaryPublicId: uploaded.publicId,
+            isPrimary: index === 0,
+            sortOrder: index,
+          }))
+        )
+      )
+    }
+
+    // Upload new video if provided
+    let uploadedVideo = null
+    if (videoFile) {
+      uploadedVideo = await uploadFileToCloudinary(videoFile, 'sweetcasa/listings/videos', 'video')
+    }
+
+    // Upload new floor plan if provided
+    let uploadedFloorPlan = null
+    if (floorPlanFile) {
+      uploadedFloorPlan = await uploadFileToCloudinary(floorPlanFile, 'sweetcasa/listings/floor-plans', 'raw')
+    }
+
+    // Build update data — only update fields that were sent
+    const updateData = {
+      status: 'Pending', // always reset to Pending after edit
+    }
+    if (title)            updateData.title            = String(title).trim()
+    if (price)            updateData.price            = Number.parseFloat(String(price))
+    if (type)             updateData.type             = String(type).trim()
+    if (city)             updateData.city             = String(city).trim()
+    if (region)           updateData.region           = String(region).trim()
+    if (neighborhood !== undefined) updateData.neighborhood = normalizeString(neighborhood)
+    if (description)      updateData.description      = String(description).trim()
+    if (bedrooms !== undefined)   updateData.bedrooms   = parseNumber(bedrooms)
+    if (bathrooms !== undefined)  updateData.bathrooms  = parseNumber(bathrooms)
+    if (toilets !== undefined)    updateData.toilets    = parseNumber(toilets)
+    if (parlors !== undefined)    updateData.parlors    = parseNumber(parlors)
+    if (verandas !== undefined)   updateData.verandas   = parseNumber(verandas)
+    if (areaSqm !== undefined)    updateData.areaSqm    = parseOptionalDecimal(areaSqm)
+    if (paymentFrequency !== undefined) updateData.paymentFrequency = normalizeString(paymentFrequency)
+    if (visitHours !== undefined) updateData.visitHours = normalizeString(visitHours)
+    if (facilities)       updateData.facilities       = parseJsonArray(facilities)
+    if (nearbySchoolName !== undefined)     updateData.nearbySchoolName     = normalizeString(nearbySchoolName)
+    if (nearbyBankName !== undefined)       updateData.nearbyBankName       = normalizeString(nearbyBankName)
+    if (nearbyRestaurantName !== undefined) updateData.nearbyRestaurantName = normalizeString(nearbyRestaurantName)
+    if (nearbyMarketName !== undefined)     updateData.nearbyMarketName     = normalizeString(nearbyMarketName)
+    if (nearbyClinicName !== undefined)     updateData.nearbyClinicName     = normalizeString(nearbyClinicName)
+    if (uploadedFloorPlan) updateData.floorPlanUrl = uploadedFloorPlan.url
+
+    // Update listing
+    const updated = await getPrisma().listing.update({
+      where: { id },
+      data: updateData,
+    })
+
+    // Replace images if new ones were uploaded
+    if (newImages.length) {
+      await getPrisma().listingImage.deleteMany({ where: { listingId: id } })
+      await getPrisma().listingImage.createMany({
+        data: newImages.map((img) => ({ ...img, listingId: id })),
+      })
+    }
+
+    // Replace video if new one was uploaded
+    if (uploadedVideo) {
+      await getPrisma().listingVideo.deleteMany({ where: { listingId: id } })
+      await getPrisma().listingVideo.create({
+        data: {
+          listingId:           id,
+          videoUrl:            uploadedVideo.url,
+          thumbnailUrl:        uploadedVideo.thumbnailUrl,
+          cloudinaryPublicId:  uploadedVideo.publicId,
+          durationSecond:      uploadedVideo.duration,
+          fileSize:            uploadedVideo.bytes ? BigInt(uploadedVideo.bytes) : null,
+        },
+      })
+    }
+
+    const final = await getPrisma().listing.findFirst({
+      where: { id },
+      include: { images: true, videos: true },
+    })
+
+    res.json({ listing: serializeListing(final) })
+  } catch (err) {
+    console.error('Edit listing error:', err)
+    res.status(500).json({ error: err.message || 'Failed to update listing.' })
   }
 }

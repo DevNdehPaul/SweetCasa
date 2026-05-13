@@ -5,6 +5,8 @@ const {
   getListings,
   getListingById,
   getListingVideo,
+  deleteListing,
+  editListing,
   submitListingReview,
 } = require('../controllers/listing.controller')
 const requireRole = require('../middleware/requireRole')
@@ -31,6 +33,19 @@ router.post(
     { name: 'legalDocuments', maxCount: 10 },
   ]),
   createListing
+)
+
+// ── Agent only — delete and edit ─────────────────────────────────────────────
+router.delete('/:id', requireRole('SELLER'), deleteListing)
+router.patch(
+  '/:id',
+  requireRole('SELLER'),
+  upload.fields([
+    { name: 'photos',    maxCount: 15 },
+    { name: 'video',     maxCount: 1  },
+    { name: 'floorPlan', maxCount: 1  },
+  ]),
+  editListing
 )
 
 // ── Listing experience review (authenticated sellers) ─────────────────────────
