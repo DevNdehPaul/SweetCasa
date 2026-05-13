@@ -46,15 +46,10 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
       <View style={wm.overlay}>
         <Animated.View style={[wm.card, { transform: [{ scale: scaleAnim }], opacity: opacityAnim }]}>
-          {/* Top accent */}
           <View style={wm.topAccent} />
-
-          {/* Icon */}
           <View style={wm.iconWrap}>
             <Ionicons name="home" size={32} color="#fff" />
           </View>
-
-          {/* Text */}
           <Text style={wm.title}>Welcome to SweetCasa! 🏠</Text>
           <Text style={wm.subtitle}>You're logged in as a House Owner</Text>
           <Text style={wm.body}>
@@ -64,8 +59,6 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
             <Text style={wm.bold}>Purchase or Rent</Text>. House Seekers across Cameroon will
             discover and connect with your listings directly through our platform.
           </Text>
-
-          {/* Steps */}
           <View style={wm.stepsWrap}>
             {[
               { icon: 'upload-cloud', text: 'Upload your property with photos & video' },
@@ -80,15 +73,11 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
               </View>
             ))}
           </View>
-
-          {/* CTA */}
           <TouchableOpacity style={wm.btn} onPress={onClose} activeOpacity={0.88}>
             <Text style={wm.btnTxt}>Get Started</Text>
             <Feather name="arrow-right" size={16} color="#fff" />
           </TouchableOpacity>
-          <Text style={wm.skipTxt} onPress={onClose}>
-            I'll explore on my own
-          </Text>
+          <Text style={wm.skipTxt} onPress={onClose}>I'll explore on my own</Text>
         </Animated.View>
       </View>
     </Modal>
@@ -140,7 +129,6 @@ export default function AgentHubScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F3FF" />
 
-      {/* Welcome Modal */}
       <WelcomeModal visible={showWelcome} onClose={() => setShowWelcome(false)} />
 
       {/* ── Header ── */}
@@ -201,12 +189,14 @@ export default function AgentHubScreen() {
               <Feather name="message-circle" size={18} color={PURPLE} />
             </View>
             <Text style={styles.statNum}>12</Text>
-            <Text style={styles.statLabel}>Unread Leads</Text>
+            <Text style={styles.statLabel}>Unread Messages</Text>
           </View>
         </View>
 
         {/* ── Quick Actions ── */}
         <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
+
+        {/* Upload Property */}
         <TouchableOpacity
           style={styles.actionCard}
           activeOpacity={0.85}
@@ -218,6 +208,22 @@ export default function AgentHubScreen() {
           <View style={styles.actionText}>
             <Text style={styles.actionTitle}>Upload New Property</Text>
             <Text style={styles.actionSub}>List your apartment, studio or villa in minutes.</Text>
+          </View>
+          <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
+        </TouchableOpacity>
+
+        {/* Messages */}
+        <TouchableOpacity
+          style={[styles.actionCard, styles.actionCardMessages]}
+          activeOpacity={0.85}
+          onPress={() => router.push('/messages')}
+        >
+          <View style={[styles.actionIconWrap, styles.actionIconMessages]}>
+            <Feather name="message-circle" size={22} color="#fff" />
+          </View>
+          <View style={styles.actionText}>
+            <Text style={styles.actionTitle}>Messages</Text>
+            <Text style={styles.actionSub}>Reply to enquiries from house seekers.</Text>
           </View>
           <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
         </TouchableOpacity>
@@ -288,121 +294,55 @@ export default function AgentHubScreen() {
 // ─── Welcome Modal Styles ─────────────────────────────────────────────────────
 const wm = StyleSheet.create({
   overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24,
   },
   card: {
-    width: '100%',
-    backgroundColor: '#fff',
-    borderRadius: 28,
-    overflow: 'hidden',
-    paddingBottom: 28,
+    width: '100%', backgroundColor: '#fff',
+    borderRadius: 28, overflow: 'hidden', paddingBottom: 28,
   },
-  topAccent: {
-    height: 6,
-    backgroundColor: PURPLE,
-    width: '100%',
-  },
+  topAccent: { height: 6, backgroundColor: PURPLE, width: '100%' },
   iconWrap: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: PURPLE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-    shadowColor: PURPLE,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    width: 68, height: 68, borderRadius: 34, backgroundColor: PURPLE,
+    alignItems: 'center', justifyContent: 'center', alignSelf: 'center',
+    marginTop: 24, marginBottom: 16,
+    shadowColor: PURPLE, shadowOpacity: 0.4, shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 }, elevation: 8,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111',
-    textAlign: 'center',
-    letterSpacing: -0.5,
-    paddingHorizontal: 24,
+    fontSize: 22, fontWeight: '800', color: '#111',
+    textAlign: 'center', letterSpacing: -0.5, paddingHorizontal: 24,
   },
   subtitle: {
-    fontSize: 13,
-    color: PURPLE,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 14,
+    fontSize: 13, color: PURPLE, fontWeight: '600',
+    textAlign: 'center', marginTop: 4, marginBottom: 14,
   },
   body: {
-    fontSize: 13.5,
-    color: '#555',
-    lineHeight: 21,
-    textAlign: 'center',
-    paddingHorizontal: 24,
-    marginBottom: 20,
+    fontSize: 13.5, color: '#555', lineHeight: 21,
+    textAlign: 'center', paddingHorizontal: 24, marginBottom: 20,
   },
-  bold: {
-    fontWeight: '700',
-    color: '#222',
-  },
+  bold: { fontWeight: '700', color: '#222' },
   stepsWrap: {
-    marginHorizontal: 24,
-    backgroundColor: '#F8F7FF',
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
-    marginBottom: 24,
+    marginHorizontal: 24, backgroundColor: '#F8F7FF',
+    borderRadius: 16, padding: 16, gap: 12, marginBottom: 24,
   },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
+  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   stepIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#EDE9FE',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 32, height: 32, borderRadius: 10, backgroundColor: '#EDE9FE',
+    alignItems: 'center', justifyContent: 'center',
   },
-  stepTxt: {
-    flex: 1,
-    fontSize: 13,
-    color: '#333',
-    fontWeight: '500',
-  },
+  stepTxt: { flex: 1, fontSize: 13, color: '#333', fontWeight: '500' },
   btn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginHorizontal: 24,
-    backgroundColor: PURPLE,
-    borderRadius: 16,
-    paddingVertical: 16,
-    shadowColor: PURPLE,
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, marginHorizontal: 24, backgroundColor: PURPLE,
+    borderRadius: 16, paddingVertical: 16,
+    shadowColor: PURPLE, shadowOpacity: 0.35, shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 }, elevation: 6,
   },
-  btnTxt: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fff',
-  },
+  btnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
   skipTxt: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: '#A0A0A0',
-    marginTop: 14,
-    fontWeight: '500',
+    textAlign: 'center', fontSize: 12,
+    color: '#A0A0A0', marginTop: 14, fontWeight: '500',
   },
 });
 
@@ -417,14 +357,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F3FF',
   },
   headerTitle: { fontSize: 26, fontWeight: '800', color: '#111', letterSpacing: -0.6 },
-  bellBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  bellBtn: {
+    width: 42, height: 42, alignItems: 'center',
+    justifyContent: 'center', position: 'relative',
+  },
   bellDot: {
     position: 'absolute', top: 6, right: 6,
     width: 9, height: 9, borderRadius: 5,
     backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#F4F3FF',
   },
 
-  userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 20, gap: 12 },
+  userRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: H_PAD, marginBottom: 20, gap: 12,
+  },
   avatarWrap: { position: 'relative' },
   avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: '#fff' },
   onlineDot: {
@@ -437,7 +383,10 @@ const styles = StyleSheet.create({
   verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   verifiedTxt: { fontSize: 12, color: PURPLE, fontWeight: '600' },
 
-  walletCard: { marginHorizontal: H_PAD, backgroundColor: '#EDE9FE', borderRadius: 22, padding: 22, marginBottom: 16 },
+  walletCard: {
+    marginHorizontal: H_PAD, backgroundColor: '#EDE9FE',
+    borderRadius: 22, padding: 22, marginBottom: 16,
+  },
   walletLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   walletLabel: { fontSize: 13, fontWeight: '600', color: PURPLE },
   walletAmount: { fontSize: 34, fontWeight: '800', color: '#6D28D9', letterSpacing: -1, marginBottom: 6 },
@@ -468,18 +417,27 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2, paddingHorizontal: H_PAD, marginBottom: 10,
   },
 
+  // ── Action cards ──
   actionCard: {
     flexDirection: 'row', alignItems: 'center', gap: 16,
     marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18,
-    padding: 18, marginBottom: 24,
+    padding: 18, marginBottom: 12,                      // ← 12 gap between cards
     shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 }, elevation: 2,
+  },
+  actionCardMessages: {
+    marginBottom: 24,                                   // restore bottom gap after last card
   },
   actionIconWrap: {
     width: 50, height: 50, borderRadius: 25, backgroundColor: PURPLE,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#5B21B6', shadowOpacity: 0.3, shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 }, elevation: 4,
+  },
+  // Teal icon circle for messages
+  actionIconMessages: {
+    backgroundColor: '#0891B2',
+    shadowColor: '#0891B2',
   },
   actionText: { flex: 1 },
   actionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2, marginBottom: 3 },

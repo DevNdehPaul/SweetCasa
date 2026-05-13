@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   },
 
   bottomBar: {
-    paddingHorizontal: 28, paddingBottom: 16, paddingTop: 12, // ✅ moved up
+    paddingHorizontal: 28, paddingBottom: 46, paddingTop: 12, // ✅ moved up
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#FAFAFA',
   },

@@ -54,12 +54,12 @@ export default function TabLayout() {
           options={{ title: 'Upload', tabBarIcon: ({ color }) => <IconSymbol size={26} name="plus.circle.fill" color={color} /> }}
         />
         <Tabs.Screen
-          name="messages"
-          options={{ title: 'Messages', tabBarIcon: ({ color }) => <IconSymbol size={26} name="envelope.fill" color={color} /> }}
-        />
-        <Tabs.Screen
           name="wallet"
           options={{ title: 'Wallet', tabBarIcon: ({ color }) => <IconSymbol size={26} name="creditcard.fill" color={color} /> }}
+        />
+        <Tabs.Screen
+          name="report"
+          options={{ title: 'Reports', tabBarIcon: ({ color }) => <IconSymbol size={26} name="flag.fill" color={color} /> }}
         />
         <Tabs.Screen
           name="profile"
@@ -84,13 +84,13 @@ export default function TabLayout() {
         options={{ title: 'Search', tabBarIcon: ({ color }) => <IconSymbol size={26} name="magnifyingglass" color={color} /> }}
       />
       <Tabs.Screen
-        name="messages"
-        options={{ title: 'Messages', tabBarIcon: ({ color }) => <IconSymbol size={26} name="envelope.fill" color={color} /> }}
-      />
-      <Tabs.Screen
         name="wallet"
         options={{ title: 'Wallet', tabBarIcon: ({ color }) => <IconSymbol size={26} name="creditcard.fill" color={color} /> }}
       />
+      <Tabs.Screen
+          name="report"
+          options={{ title: 'Reports', tabBarIcon: ({ color }) => <IconSymbol size={26} name="flag.fill" color={color} /> }}
+        />
       <Tabs.Screen
         name="profile"
         options={{ title: 'Profile', tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.circle" color={color} /> }}

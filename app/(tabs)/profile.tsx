@@ -99,14 +99,21 @@ export default function ProfileScreen() {
   // Build menu groups with logout wired up
   const MENU_GROUP_1: MenuItem[] = [
     { id: 'account', icon: 'user', label: 'Account Information', sub: 'Personal details & verification', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-    { id: 'wallet', icon: 'credit-card', label: 'Escrow Wallet', sub: 'Manage funds & payments', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
     { id: 'history', icon: 'rotate-ccw', label: 'Transaction History', sub: 'Past rentals & escrow logs', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
   ];
 
   const MENU_GROUP_2: MenuItem[] = [
-    { id: 'security', icon: 'shield', label: 'Security & 2FA', sub: 'Two-factor authentication active', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-    { id: 'language', icon: 'globe', label: 'App Language', sub: 'English (Cameroon)', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-  ];
+  {
+    id: 'terms',
+    icon: 'file-text',
+    label: 'Terms & Conditions',
+    sub: 'Read our terms of service',
+    iconBg: '#F3F0FF',
+    iconColor: '#7C3AED',
+    onPress: () => router.push(isSeller ? '/TermsOwnerRead' : '/TermsSeekerRead'),  // 👈 add this
+  },
+  { id: 'language', icon: 'globe', label: 'App Language', sub: 'English (Cameroon)', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
+];
 
   const MENU_GROUP_3: MenuItem[] = [
     {

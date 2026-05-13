@@ -25,10 +25,10 @@ const PURPLE = '#7C3AED';
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
-  { id: '1', icon: 'search',      label: 'Find House',    sub: 'Explore verified listings', iconColor: '#7C3AED', bg: '#F3F0FF', link: '/search' },
-  { id: '2', icon: 'plus-circle', label: 'Favourites',   sub: 'Manage your favourite listings', iconColor: '#7C3AED', bg: '#F3F0FF', link: '/favourites' },
-  { id: '3', icon: 'map',         label: 'Neighborhood',  sub: 'Explore safe areas',        iconColor: '#059669', bg: '#ECFDF5', link: '/neighborhood' },
-  { id: '4', icon: 'credit-card', label: 'Secure Wallet', sub: 'Safe escrow payments',      iconColor: '#D97706', bg: '#FFFBEB', link: '/wallet' },
+  { id: '1', icon: 'search',        label: 'Find House',    sub: 'Explore verified listings',      iconColor: '#7C3AED', bg: '#F3F0FF', link: '/search' },
+  { id: '2', icon: 'plus-circle',   label: 'Favourites',   sub: 'Manage your favourite listings', iconColor: '#7C3AED', bg: '#F3F0FF', link: '/favourites' },
+  { id: '3', icon: 'message-circle', label: 'Messages',    sub: 'Chat with landlords & agents',   iconColor: '#0891B2', bg: '#ECFEFF', link: '/messages' },  // 👈 changed
+  { id: '4', icon: 'credit-card',   label: 'Secure Wallet', sub: 'Safe escrow payments',          iconColor: '#D97706', bg: '#FFFBEB', link: '/wallet' },
 ];
 
 const LISTINGS = [

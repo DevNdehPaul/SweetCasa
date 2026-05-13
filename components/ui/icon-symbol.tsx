@@ -13,12 +13,11 @@ const MAPPING = {
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
   'plus.circle.fill': 'upload',
-
-  // ✅ your added icons (corrected)
   'magnifyingglass': 'search',
   'creditcard.fill': 'credit-card',
   'envelope.fill': 'email',
   'person.circle': 'person',
+  'flag.fill': 'flag',        // 👈 add this line
 } as const;
 
 // ✅ derive type from mapping (this fixes your error)

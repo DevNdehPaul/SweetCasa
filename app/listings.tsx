@@ -21,8 +21,12 @@ import { BASE_URL } from '../constants/api';
 
 const PURPLE = '#7C5CFC';
 const PURPLE_LIGHT = '#F0EBFF';
+const GREEN = '#22C55E';
+const GREEN_LIGHT = '#DCFCE7';
+const GRAY_BORDER = '#E5E7EB';
 const TEXT_DARK = '#111827';
 const TEXT_MID = '#6B7280';
+const TEXT_LIGHT = '#9CA3AF';
 const BG = '#F5F6FA';
 
 type Status = 'Approved' | 'Pending' | 'Rejected';
@@ -39,6 +43,7 @@ interface Listing {
   title: string;
   type: string;
   price: string;
+  country: string;
   city: string;
   region: string;
   neighborhood: string | null;
@@ -49,6 +54,15 @@ interface Listing {
   bathrooms: number | null;
   toilets: number | null;
   parlors: number | null;
+  kitchens: number | null;
+  areaSqm: string | null;
+  visitHours: string | null;
+  facilities: string[];
+  nearbySchoolName: string | null;
+  nearbyBankName: string | null;
+  nearbyRestaurantName: string | null;
+  nearbyMarketName: string | null;
+  nearbyClinicName: string | null;
   images: ListingImage[];
 }
 
@@ -57,6 +71,33 @@ const STATUS_CONFIG: Record<Status, { bg: string; color: string; icon: string }>
   Pending:  { bg: '#FEF3C7', color: '#D97706', icon: '⏱' },
   Rejected: { bg: '#FEE2E2', color: '#DC2626', icon: '✕' },
 };
+
+const propTypes = [
+  'Apartment', 'Studio', 'Villa', 'Office',
+  'Room', 'Duplex', 'Guest House', 'Hotel',
+];
+
+const facilityList = [
+  'Wifi', 'Electricity', 'Water Supply', 'Gated',
+  'Parking', 'Green Area', 'Generator', 'Nearby School',
+  'Bank', 'Restaurant', 'Market', 'Clinic',
+];
+
+const paymentFrequencies = ['Monthly', 'Yearly', 'For Sale'];
+
+type NearbyFields = {
+  facility: string;
+  key: 'nearbySchoolName' | 'nearbyBankName' | 'nearbyRestaurantName' | 'nearbyMarketName' | 'nearbyClinicName';
+  placeholder: string;
+};
+
+const NEARBY_FACILITY_FIELDS: NearbyFields[] = [
+  { facility: 'Nearby School', key: 'nearbySchoolName',    placeholder: 'e.g. Government Bilingual High School' },
+  { facility: 'Bank',          key: 'nearbyBankName',       placeholder: 'e.g. Ecobank Bonanjo' },
+  { facility: 'Restaurant',    key: 'nearbyRestaurantName', placeholder: 'e.g. La Falaise Restaurant' },
+  { facility: 'Market',        key: 'nearbyMarketName',     placeholder: 'e.g. Marché Central de Douala' },
+  { facility: 'Clinic',        key: 'nearbyClinicName',     placeholder: 'e.g. Polyclinique de la Paix' },
+];
 
 function formatPrice(price: string, freq: string | null) {
   const num = Number(price);
@@ -74,6 +115,42 @@ function getPrimaryImage(images: ListingImage[]) {
   );
 }
 
+// ─── Reusable sub-components ──────────────────────────────────────────────────
+
+const SectionLabel = ({ title }: { title: string }) => (
+  <Text style={s.sectionLabel}>{title}</Text>
+);
+
+const Chip = ({
+  label, selected, onPress, color = PURPLE,
+}: {
+  label: string; selected: boolean; onPress: () => void; color?: string;
+}) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={[
+      s.chip,
+      { borderColor: selected ? color : GRAY_BORDER },
+      selected && { backgroundColor: color === GREEN ? GREEN_LIGHT : PURPLE_LIGHT },
+    ]}>
+    <Text style={[s.chipTxt, { color: selected ? color : TEXT_MID }]}>{label}</Text>
+  </TouchableOpacity>
+);
+
+const Stepper = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
+  <View style={s.stepperRow}>
+    <TouchableOpacity onPress={() => onChange(Math.max(0, value - 1))} style={s.stepBtn}>
+      <Text style={s.stepBtnText}>-</Text>
+    </TouchableOpacity>
+    <Text style={s.stepperValue}>{value}</Text>
+    <TouchableOpacity
+      onPress={() => onChange(value + 1)}
+      style={[s.stepBtn, { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT }]}>
+      <Text style={[s.stepBtnText, { color: PURPLE }]}>+</Text>
+    </TouchableOpacity>
+  </View>
+);
+
 const StatusBadge = ({ status }: { status: Status }) => {
   const cfg = STATUS_CONFIG[status];
   return (
@@ -86,11 +163,7 @@ const StatusBadge = ({ status }: { status: Status }) => {
 
 // ─── Delete Confirmation Modal ────────────────────────────────────────────────
 function DeleteModal({
-  visible,
-  listing,
-  onCancel,
-  onConfirm,
-  deleting,
+  visible, listing, onCancel, onConfirm, deleting,
 }: {
   visible: boolean;
   listing: Listing | null;
@@ -108,9 +181,7 @@ function DeleteModal({
           <Text style={s.modalTitle}>Delete Listing?</Text>
           <Text style={s.modalDesc}>
             Are you sure you want to delete{' '}
-            <Text style={{ fontWeight: '700', color: TEXT_DARK }}>
-              "{listing?.title}"
-            </Text>
+            <Text style={{ fontWeight: '700', color: TEXT_DARK }}>"{listing?.title}"</Text>
             ?{'\n'}This will permanently remove the listing, all photos and videos. This cannot be undone.
           </Text>
           <View style={s.modalBtns}>
@@ -131,60 +202,132 @@ function DeleteModal({
   );
 }
 
-// ─── Edit Modal ───────────────────────────────────────────────────────────────
+// ─── Edit Modal (full) ────────────────────────────────────────────────────────
 function EditModal({
-  visible,
-  listing,
-  onCancel,
-  onSave,
-  saving,
+  visible, listing, onCancel, onSave, saving,
 }: {
   visible: boolean;
   listing: Listing | null;
   onCancel: () => void;
-  onSave: (data: Partial<Listing>) => void;
+  onSave: (data: Record<string, any>) => void;
   saving: boolean;
 }) {
-  const [title, setTitle]             = useState('');
-  const [price, setPrice]             = useState('');
-  const [description, setDescription] = useState('');
-  const [city, setCity]               = useState('');
-  const [region, setRegion]           = useState('');
-  const [neighborhood, setNeighborhood] = useState('');
-  const [bedrooms, setBedrooms]       = useState('');
-  const [bathrooms, setBathrooms]     = useState('');
-  const [toilets, setToilets]         = useState('');
-  const [parlors, setParlors]         = useState('');
+  // ── Basic info ──
+  const [title, setTitle]     = useState('');
+  const [propType, setPropType] = useState('Apartment');
 
-  // Populate fields when listing changes
+  // ── Location ──
+  const [country, setCountry]           = useState('Cameroon');
+  const [region, setRegion]             = useState('');
+  const [city, setCity]                 = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+
+  // ── Pricing ──
+  const [price, setPrice]     = useState('');
+  const [payFreq, setPayFreq] = useState('Monthly');
+
+  // ── Property details ──
+  const [bedrooms, setBedrooms]   = useState(0);
+  const [bathrooms, setBathrooms] = useState(0);
+  const [toilets, setToilets]     = useState(0);
+  const [parlors, setParlors]     = useState(0);
+  const [kitchens, setKitchens]   = useState(0);
+  const [area, setArea]           = useState('');
+
+  // ── Facilities ──
+  const [amenities, setAmenities] = useState<string[]>([]);
+  const [nearbySchoolName, setNearbySchoolName]       = useState('');
+  const [nearbyBankName, setNearbyBankName]           = useState('');
+  const [nearbyRestaurantName, setNearbyRestaurantName] = useState('');
+  const [nearbyMarketName, setNearbyMarketName]       = useState('');
+  const [nearbyClinicName, setNearbyClinicName]       = useState('');
+
+  // ── Description / availability ──
+  const [description, setDescription] = useState('');
+  const [visitHours, setVisitHours]   = useState('');
+
+  // Populate all fields when the target listing changes
   useEffect(() => {
-    if (listing) {
-      setTitle(listing.title ?? '');
-      setPrice(listing.price ?? '');
-      setDescription(listing.description ?? '');
-      setCity(listing.city ?? '');
-      setRegion(listing.region ?? '');
-      setNeighborhood(listing.neighborhood ?? '');
-      setBedrooms(String(listing.bedrooms ?? ''));
-      setBathrooms(String(listing.bathrooms ?? ''));
-      setToilets(String(listing.toilets ?? ''));
-      setParlors(String(listing.parlors ?? ''));
-    }
+    if (!listing) return;
+    setTitle(listing.title ?? '');
+    setPropType(listing.type ?? 'Apartment');
+    setCountry(listing.country ?? 'Cameroon');
+    setRegion(listing.region ?? '');
+    setCity(listing.city ?? '');
+    setNeighborhood(listing.neighborhood ?? '');
+    setPrice(listing.price ?? '');
+    setPayFreq(listing.paymentFrequency ?? 'Monthly');
+    setBedrooms(listing.bedrooms ?? 0);
+    setBathrooms(listing.bathrooms ?? 0);
+    setToilets(listing.toilets ?? 0);
+    setParlors(listing.parlors ?? 0);
+    setKitchens(listing.kitchens ?? 0);
+    setArea(listing.areaSqm ?? '');
+    setAmenities(listing.facilities ?? []);
+    setNearbySchoolName(listing.nearbySchoolName ?? '');
+    setNearbyBankName(listing.nearbyBankName ?? '');
+    setNearbyRestaurantName(listing.nearbyRestaurantName ?? '');
+    setNearbyMarketName(listing.nearbyMarketName ?? '');
+    setNearbyClinicName(listing.nearbyClinicName ?? '');
+    setDescription(listing.description ?? '');
+    setVisitHours(listing.visitHours ?? '');
   }, [listing]);
 
+  const toggleAmenity = (val: string) =>
+    setAmenities((prev) =>
+      prev.includes(val) ? prev.filter((x) => x !== val) : [...prev, val]
+    );
+
+  const nearbyValues: Record<NearbyFields['key'], string> = {
+    nearbySchoolName,
+    nearbyBankName,
+    nearbyRestaurantName,
+    nearbyMarketName,
+    nearbyClinicName,
+  };
+
+  const nearbySetters: Record<NearbyFields['key'], (v: string) => void> = {
+    nearbySchoolName:    setNearbySchoolName,
+    nearbyBankName:      setNearbyBankName,
+    nearbyRestaurantName: setNearbyRestaurantName,
+    nearbyMarketName:    setNearbyMarketName,
+    nearbyClinicName:    setNearbyClinicName,
+  };
+
+  const formatPrice = (val: string) => {
+    const num = val.replace(/[^0-9]/g, '');
+    return num.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
   const handleSave = () => {
+    if (!title.trim() || !region.trim() || !city.trim() || !price.trim() || !description.trim()) {
+      Alert.alert('Missing fields', 'Title, region, city, price and description are required.');
+      return;
+    }
     onSave({
-      title,
-      price,
-      description,
-      city,
-      region,
-      neighborhood,
-      bedrooms:  bedrooms  ? Number(bedrooms)  : undefined,
-      bathrooms: bathrooms ? Number(bathrooms) : undefined,
-      toilets:   toilets   ? Number(toilets)   : undefined,
-      parlors:   parlors   ? Number(parlors)   : undefined,
-    } as any);
+      title:            title.trim(),
+      type:             propType,
+      country:          country.trim(),
+      region:           region.trim(),
+      city:             city.trim(),
+      neighborhood:     neighborhood.trim(),
+      price:            String(Number(price.replace(/,/g, ''))),
+      paymentFrequency: payFreq,
+      bedrooms,
+      bathrooms,
+      toilets,
+      parlors,
+      kitchens,
+      areaSqm:          area.trim() || undefined,
+      facilities:       JSON.stringify(amenities),
+      nearbySchoolName:    nearbySchoolName.trim() || undefined,
+      nearbyBankName:      nearbyBankName.trim() || undefined,
+      nearbyRestaurantName: nearbyRestaurantName.trim() || undefined,
+      nearbyMarketName:    nearbyMarketName.trim() || undefined,
+      nearbyClinicName:    nearbyClinicName.trim() || undefined,
+      description:      description.trim(),
+      visitHours:       visitHours.trim(),
+    });
   };
 
   return (
@@ -200,125 +343,179 @@ function EditModal({
           </View>
 
           <Text style={s.editNote}>
-            ⚠️ After saving, status will reset to{' '}
+            ⚠️ After saving, status resets to{' '}
             <Text style={{ color: '#D97706', fontWeight: '700' }}>Pending</Text> for re-review.
           </Text>
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-            {/* Title */}
-            <Text style={s.fieldLabel}>Title</Text>
+
+            {/* ── 1. Basic Info ─────────────────────────────────── */}
+            <SectionLabel title="1 · Basic Info" />
+
+            <Text style={s.fieldLabel}>Property Title *</Text>
             <TextInput
-              style={s.input}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Property title"
-              placeholderTextColor="#9CA3AF"
+              style={s.input} value={title} onChangeText={setTitle}
+              placeholder="e.g. Modern Studio in Bastos"
+              placeholderTextColor={TEXT_LIGHT}
             />
 
-            {/* Price */}
-            <Text style={s.fieldLabel}>Price (XAF)</Text>
+            <Text style={s.fieldLabel}>Property Type</Text>
+            <View style={s.chipRow}>
+              {propTypes.map((t) => (
+                <Chip key={t} label={t} selected={propType === t} onPress={() => setPropType(t)} />
+              ))}
+            </View>
+
+            {/* ── 2. Location ───────────────────────────────────── */}
+            <SectionLabel title="2 · Location" />
+
+            <Text style={s.fieldLabel}>Country</Text>
             <TextInput
-              style={s.input}
-              value={price}
-              onChangeText={setPrice}
-              placeholder="e.g. 90000"
-              keyboardType="numeric"
-              placeholderTextColor="#9CA3AF"
+              style={s.input} value={country} onChangeText={setCountry}
+              placeholder="e.g. Cameroon" placeholderTextColor={TEXT_LIGHT}
             />
 
-            {/* Description */}
-            <Text style={s.fieldLabel}>Description</Text>
+            <View style={s.rowFields}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.fieldLabel}>Region *</Text>
+                <TextInput
+                  style={s.input} value={region} onChangeText={setRegion}
+                  placeholder="e.g. Littoral" placeholderTextColor={TEXT_LIGHT}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.fieldLabel}>City *</Text>
+                <TextInput
+                  style={s.input} value={city} onChangeText={setCity}
+                  placeholder="e.g. Douala" placeholderTextColor={TEXT_LIGHT}
+                />
+              </View>
+            </View>
+
+            <Text style={s.fieldLabel}>Neighborhood</Text>
+            <TextInput
+              style={s.input} value={neighborhood} onChangeText={setNeighborhood}
+              placeholder="e.g. Bastos" placeholderTextColor={TEXT_LIGHT}
+            />
+
+            {/* ── 3. Pricing ────────────────────────────────────── */}
+            <SectionLabel title="3 · Pricing" />
+
+            <Text style={s.fieldLabel}>Price (XAF) *</Text>
+            <View style={s.priceWrap}>
+              <TextInput
+                style={[s.input, s.priceInput]}
+                value={price}
+                onChangeText={(v) => setPrice(formatPrice(v))}
+                placeholder="0"
+                keyboardType="numeric"
+                placeholderTextColor={TEXT_LIGHT}
+              />
+              <Text style={s.priceSuffix}>XAF</Text>
+            </View>
+
+            <Text style={s.fieldLabel}>Payment Frequency</Text>
+            <View style={s.chipRow}>
+              {paymentFrequencies.map((f) => (
+                <Chip key={f} label={f} selected={payFreq === f} onPress={() => setPayFreq(f)} />
+              ))}
+            </View>
+
+            {/* ── 4. Property Details ───────────────────────────── */}
+            <SectionLabel title="4 · Property Details" />
+
+            {([
+              { label: 'Bedrooms',  value: bedrooms,  set: setBedrooms },
+              { label: 'Bathrooms', value: bathrooms, set: setBathrooms },
+              { label: 'Toilets',   value: toilets,   set: setToilets },
+              { label: 'Parlors',   value: parlors,   set: setParlors },
+              { label: 'Kitchens',  value: kitchens,  set: setKitchens },
+            ] as { label: string; value: number; set: (v: number) => void }[]).map((item) => (
+              <View key={item.label} style={s.detailRow}>
+                <Text style={s.detailLabel}>{item.label}</Text>
+                <Stepper value={item.value} onChange={item.set} />
+              </View>
+            ))}
+
+            <Text style={s.fieldLabel}>
+              Total Area (m²){' '}
+              <Text style={{ fontWeight: '400', color: TEXT_LIGHT }}>— optional</Text>
+            </Text>
+            <TextInput
+              style={s.input} value={area} onChangeText={setArea}
+              placeholder="e.g. 120" keyboardType="numeric"
+              placeholderTextColor={TEXT_LIGHT}
+            />
+
+            {/* ── 5. Facilities ─────────────────────────────────── */}
+            <SectionLabel title="5 · Facilities & Amenities" />
+
+            <View style={s.chipRow}>
+              {facilityList.map((f) => (
+                <Chip
+                  key={f} label={f}
+                  selected={amenities.includes(f)}
+                  color={GREEN}
+                  onPress={() => toggleAmenity(f)}
+                />
+              ))}
+            </View>
+
+            {/* Nearby place name inputs */}
+            {NEARBY_FACILITY_FIELDS.some((nf) => amenities.includes(nf.facility)) && (
+              <View style={s.nearbySection}>
+                <Text style={s.nearbyHeading}>
+                  Nearby Place Names{' '}
+                  <Text style={{ fontWeight: '400', color: TEXT_LIGHT }}>— optional</Text>
+                </Text>
+                <Text style={s.nearbySubtext}>
+                  Name the specific places nearby so tenants know what's around.
+                </Text>
+                {NEARBY_FACILITY_FIELDS.map((nf) => {
+                  if (!amenities.includes(nf.facility)) return null;
+                  return (
+                    <View key={nf.key} style={{ marginBottom: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <Text style={{ fontSize: 10, color: GREEN }}>●</Text>
+                        <Text style={s.fieldLabel}>{nf.facility}</Text>
+                      </View>
+                      <TextInput
+                        style={s.nearbyInput}
+                        placeholderTextColor={TEXT_LIGHT}
+                        placeholder={nf.placeholder}
+                        value={nearbyValues[nf.key]}
+                        onChangeText={nearbySetters[nf.key]}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* ── 6. Description ────────────────────────────────── */}
+            <SectionLabel title="6 · Description *" />
+
             <TextInput
               style={[s.input, s.inputMultiline]}
               value={description}
               onChangeText={setDescription}
-              placeholder="Describe the property..."
-              placeholderTextColor="#9CA3AF"
+              placeholder="Describe the property, access roads, condition, security…"
+              placeholderTextColor={TEXT_LIGHT}
               multiline
-              numberOfLines={4}
+              numberOfLines={5}
             />
 
-            {/* Location row */}
-            <View style={s.rowFields}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.fieldLabel}>City</Text>
-                <TextInput
-                  style={s.input}
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="City"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.fieldLabel}>Region</Text>
-                <TextInput
-                  style={s.input}
-                  value={region}
-                  onChangeText={setRegion}
-                  placeholder="Region"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-            </View>
+            {/* ── 7. Availability ───────────────────────────────── */}
+            <SectionLabel title="7 · Availability" />
 
-            {/* Neighborhood */}
-            <Text style={s.fieldLabel}>Neighborhood</Text>
+            <Text style={s.fieldLabel}>Available Visiting Hours</Text>
             <TextInput
-              style={s.input}
-              value={neighborhood}
-              onChangeText={setNeighborhood}
-              placeholder="Neighborhood / Street"
-              placeholderTextColor="#9CA3AF"
+              style={s.input} value={visitHours} onChangeText={setVisitHours}
+              placeholder="e.g. Weekends 10AM – 2PM"
+              placeholderTextColor={TEXT_LIGHT}
             />
 
-            {/* Room counts */}
-            <View style={s.rowFields}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.fieldLabel}>Parlours</Text>
-                <TextInput
-                  style={s.input}
-                  value={parlors}
-                  onChangeText={setParlors}
-                  keyboardType="numeric"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.fieldLabel}>Bedrooms</Text>
-                <TextInput
-                  style={s.input}
-                  value={bedrooms}
-                  onChangeText={setBedrooms}
-                  keyboardType="numeric"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-            </View>
-            <View style={s.rowFields}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.fieldLabel}>Bathrooms</Text>
-                <TextInput
-                  style={s.input}
-                  value={bathrooms}
-                  onChangeText={setBathrooms}
-                  keyboardType="numeric"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.fieldLabel}>Toilets</Text>
-                <TextInput
-                  style={s.input}
-                  value={toilets}
-                  onChangeText={setToilets}
-                  keyboardType="numeric"
-                  placeholderTextColor="#9CA3AF"
-                />
-              </View>
-            </View>
-
-            <View style={{ height: 16 }} />
+            <View style={{ height: 20 }} />
           </ScrollView>
 
           {/* Save button */}
@@ -340,9 +537,7 @@ function EditModal({
 
 // ─── Listing Card ─────────────────────────────────────────────────────────────
 const ListingCard = ({
-  item,
-  onDelete,
-  onEdit,
+  item, onDelete, onEdit,
 }: {
   item: Listing;
   onDelete: (item: Listing) => void;
@@ -365,8 +560,6 @@ const ListingCard = ({
         <Text style={s.cardSub}>{item.type} • {formatPrice(item.price, item.paymentFrequency)}</Text>
         <Text style={s.cardLocation} numberOfLines={1}>📍 {location}</Text>
         <StatusBadge status={item.status} />
-
-        {/* Action buttons */}
         <View style={s.cardActions}>
           <TouchableOpacity style={s.editBtn} onPress={() => onEdit(item)}>
             <Feather name="edit-2" size={13} color={PURPLE} />
@@ -392,11 +585,9 @@ export default function MyListings() {
   const [error, setError]               = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<Filter>('All');
 
-  // Delete state
   const [deleteTarget, setDeleteTarget] = useState<Listing | null>(null);
   const [deleting, setDeleting]         = useState(false);
 
-  // Edit state
   const [editTarget, setEditTarget] = useState<Listing | null>(null);
   const [saving, setSaving]         = useState(false);
 
@@ -434,7 +625,7 @@ export default function MyListings() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to delete.');
-      setListings(prev => prev.filter(l => l.id !== deleteTarget.id));
+      setListings((prev) => prev.filter((l) => l.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Could not delete listing.');
@@ -443,8 +634,8 @@ export default function MyListings() {
     }
   };
 
-  // ── Edit ──
-  const handleSaveEdit = async (formData: any) => {
+  // ── Edit / Save ──
+  const handleSaveEdit = async (formData: Record<string, any>) => {
     if (!editTarget) return;
     setSaving(true);
     try {
@@ -464,9 +655,8 @@ export default function MyListings() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to update.');
 
-      // Update listing in local state
-      setListings(prev =>
-        prev.map(l => l.id === editTarget.id ? { ...l, ...data.listing } : l)
+      setListings((prev) =>
+        prev.map((l) => (l.id === editTarget.id ? { ...l, ...data.listing } : l))
       );
       setEditTarget(null);
       Alert.alert('Success', 'Listing updated! It has been sent for re-review.');
@@ -484,13 +674,11 @@ export default function MyListings() {
     rejected: listings.filter((l) => l.status === 'Rejected').length,
   };
 
-  const filtered = activeFilter === 'All'
-    ? listings
-    : listings.filter((l) => l.status === activeFilter);
+  const filtered =
+    activeFilter === 'All' ? listings : listings.filter((l) => l.status === activeFilter);
 
   return (
     <SafeAreaView style={s.safe}>
-      {/* Delete confirmation modal */}
       <DeleteModal
         visible={!!deleteTarget}
         listing={deleteTarget}
@@ -498,8 +686,6 @@ export default function MyListings() {
         onConfirm={handleDeleteConfirm}
         deleting={deleting}
       />
-
-      {/* Edit modal */}
       <EditModal
         visible={!!editTarget}
         listing={editTarget}
@@ -541,7 +727,7 @@ export default function MyListings() {
             />
           }
         >
-          {/* Summary row */}
+          {/* Summary */}
           <View style={s.summaryRow}>
             <Text style={s.summaryTotal}>{counts.total} Total</Text>
             <Text style={s.dot}>•</Text>
@@ -644,8 +830,7 @@ const s = StyleSheet.create({
   card: {
     flexDirection: 'row', backgroundColor: '#fff',
     borderRadius: 16, overflow: 'hidden',
-    shadowColor: '#000', shadowOpacity: 0.06,
-    shadowRadius: 6, elevation: 2, marginBottom: 4,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 2, marginBottom: 4,
   },
   cardImg: { width: 110, height: 140 },
   cardImgPlaceholder: { backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center' },
@@ -663,7 +848,6 @@ const s = StyleSheet.create({
   badgeIcon: { fontSize: 11, fontWeight: '700' },
   badgeTxt: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
 
-  // ── Action buttons ──
   cardActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
   editBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -706,13 +890,10 @@ const s = StyleSheet.create({
   modalDeleteTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
   // ── Edit modal ──
-  editOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
+  editOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   editBox: {
     backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 24, maxHeight: '90%',
+    padding: 24, maxHeight: '92%',
   },
   editHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
@@ -723,14 +904,68 @@ const s = StyleSheet.create({
     fontSize: 12.5, color: TEXT_MID, backgroundColor: '#FEF3C7',
     borderRadius: 10, padding: 10, marginBottom: 14, lineHeight: 18,
   },
+
+  // Section label inside edit modal
+  sectionLabel: {
+    fontSize: 13, fontWeight: '800', color: PURPLE,
+    backgroundColor: PURPLE_LIGHT, borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 5,
+    marginTop: 18, marginBottom: 4, alignSelf: 'flex-start',
+  },
+
   fieldLabel: { fontSize: 12, fontWeight: '700', color: TEXT_MID, marginBottom: 4, marginTop: 10 },
   input: {
-    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: GRAY_BORDER,
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 14, color: TEXT_DARK,
   },
-  inputMultiline: { height: 90, textAlignVertical: 'top' },
+  inputMultiline: { height: 110, textAlignVertical: 'top' },
   rowFields: { flexDirection: 'row', gap: 10 },
+
+  // Chips inside edit modal
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  chip: {
+    paddingHorizontal: 13, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1.5, backgroundColor: '#fff',
+  },
+  chipTxt: { fontSize: 13, fontWeight: '500' },
+
+  // Stepper
+  detailRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 12, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: GRAY_BORDER,
+  },
+  detailLabel: { fontSize: 14, color: TEXT_DARK },
+  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stepBtn: {
+    width: 32, height: 32, borderRadius: 16, borderWidth: 1.5,
+    borderColor: GRAY_BORDER, backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepBtnText: { fontSize: 18, color: TEXT_MID },
+  stepperValue: { fontSize: 15, fontWeight: '700', width: 24, textAlign: 'center' },
+
+  // Price field
+  priceWrap: { position: 'relative' },
+  priceInput: { paddingRight: 52 },
+  priceSuffix: {
+    position: 'absolute', right: 14, top: 13,
+    fontSize: 13, fontWeight: '700', color: PURPLE,
+  },
+
+  // Nearby names
+  nearbySection: {
+    marginTop: 14, backgroundColor: '#F9FAFB', borderRadius: 12,
+    padding: 14, borderWidth: 1, borderColor: GRAY_BORDER,
+  },
+  nearbyHeading: { fontSize: 13, fontWeight: '700', color: TEXT_DARK, marginBottom: 4 },
+  nearbySubtext: { fontSize: 12, color: TEXT_MID, marginBottom: 10, lineHeight: 17 },
+  nearbyInput: {
+    borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 10,
+    padding: 10, fontSize: 13, color: TEXT_DARK, backgroundColor: '#fff',
+  },
+
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: PURPLE, borderRadius: 16,
@@ -746,8 +981,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: PURPLE, paddingVertical: 16,
     paddingHorizontal: 24, borderRadius: 32,
-    shadowColor: PURPLE, shadowOpacity: 0.4,
-    shadowRadius: 12, elevation: 8,
+    shadowColor: PURPLE, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },
   fabIcon: { fontSize: 20, color: '#fff', fontWeight: '700' },
   fabTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
