@@ -1,8 +1,5 @@
 const jwt = require('jsonwebtoken')
-const { updateProfile } = require('../controllers/auth.controller') // or wherever you put it
-const requireAuth = require('../middleware/requireAuth') // your JWT auth middleware
-// PUT /auth/profile — update logged-in user's profile
-router.put('/profile', requireAuth, updateProfile)
+
 const requireRole = (...roles) => (req, res, next) => {
   const authHeader = req.headers.authorization
   if (!authHeader?.startsWith('Bearer '))
