@@ -5,6 +5,7 @@ const requireRole = require('../middleware/requireRole')
 
 router.post('/register', register)
 router.post('/login',    login)
+router.put('/profile', requireAuth, updateProfile)
 router.post('/logout',   requireRole(), logout)
 
 // Test routes for each role

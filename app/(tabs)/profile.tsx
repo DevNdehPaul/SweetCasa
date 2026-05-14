@@ -96,38 +96,6 @@ export default function ProfileScreen() {
     router.replace('/portal');
   };
 
-  // Build menu groups with logout wired up
-  const MENU_GROUP_1: MenuItem[] = [
-    { id: 'account', icon: 'user', label: 'Account Information', sub: 'Personal details & verification', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-    { id: 'history', icon: 'rotate-ccw', label: 'Transaction History', sub: 'Past rentals & escrow logs', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-  ];
-
-  const MENU_GROUP_2: MenuItem[] = [
-  {
-    id: 'terms',
-    icon: 'file-text',
-    label: 'Terms & Conditions',
-    sub: 'Read our terms of service',
-    iconBg: '#F3F0FF',
-    iconColor: '#7C3AED',
-    onPress: () => router.push(isSeller ? '/TermsOwnerRead' : '/TermsSeekerRead'),  // 👈 add this
-  },
-  { id: 'language', icon: 'globe', label: 'App Language', sub: 'English (Cameroon)', iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-];
-
-  const MENU_GROUP_3: MenuItem[] = [
-    {
-      id: 'logout',
-      icon: 'log-out',
-      label: 'Log Out',
-      sub: 'Safely exit your account',
-      danger: true,
-      iconBg: '#FFF1F1',
-      iconColor: '#EF4444',
-      onPress: handleLogout,   // ← wired up
-    },
-  ];
-
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -140,13 +108,67 @@ export default function ProfileScreen() {
   const fullName = role === 'SELLER'
     ? profile?.companyName || profile?.name || 'SweetCasa User'
     : profile?.fullName || profile?.name || 'SweetCasa User';
-  const city = profile?.city || '';
-  const region = profile?.region || '';
+  const city    = profile?.city    || '';
+  const region  = profile?.region  || '';
   const country = profile?.country || '';
   const isSeller = role === 'SELLER';
 
   // Build location string from real data
   const locationStr = [city, region, country].filter(Boolean).join(', ') || 'Location not set';
+
+  // Build menu groups — Account Information wired to /AccountInformation
+  const MENU_GROUP_1: MenuItem[] = [
+    {
+      id: 'account',
+      icon: 'user',
+      label: 'Account Information',
+      sub: 'View & edit your personal details',
+      iconBg: '#F3F0FF',
+      iconColor: '#7C3AED',
+      onPress: () => router.push('/AccountInformation'),   // ← wired up
+    },
+    {
+      id: 'history',
+      icon: 'rotate-ccw',
+      label: 'Transaction History',
+      sub: 'Past rentals & escrow logs',
+      iconBg: '#F3F0FF',
+      iconColor: '#7C3AED',
+    },
+  ];
+
+  const MENU_GROUP_2: MenuItem[] = [
+    {
+      id: 'terms',
+      icon: 'file-text',
+      label: 'Terms & Conditions',
+      sub: 'Read our terms of service',
+      iconBg: '#F3F0FF',
+      iconColor: '#7C3AED',
+      onPress: () => router.push(isSeller ? '/TermsOwnerRead' : '/TermsSeekerRead'),
+    },
+    {
+      id: 'language',
+      icon: 'globe',
+      label: 'App Language',
+      sub: 'English (Cameroon)',
+      iconBg: '#F3F0FF',
+      iconColor: '#7C3AED',
+    },
+  ];
+
+  const MENU_GROUP_3: MenuItem[] = [
+    {
+      id: 'logout',
+      icon: 'log-out',
+      label: 'Log Out',
+      sub: 'Safely exit your account',
+      danger: true,
+      iconBg: '#FFF1F1',
+      iconColor: '#EF4444',
+      onPress: handleLogout,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -156,7 +178,9 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <View style={{ width: 38 }} />
         <Text style={styles.headerTitle}>My Profile</Text>
-        <TouchableOpacity style={styles.iconBtn}>
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => router.push('/AccountInformation')}>
           <Feather name="settings" size={20} color="#111" />
         </TouchableOpacity>
       </View>
@@ -180,6 +204,7 @@ export default function ProfileScreen() {
             <Text style={styles.userName}>{profile?.name}</Text>
           )}
           <Text style={styles.profileName}>{fullName}</Text>
+
           {/* Real location from DB */}
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={13} color="#A0A0A0" />
@@ -193,26 +218,15 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.editBtn} activeOpacity={0.8}>
+          {/* Edit profile shortcut */}
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={() => router.push('/AccountInformation')}
+            activeOpacity={0.8}>
+            <Feather name="edit-2" size={13} color="#7C3AED" />
             <Text style={styles.editBtnTxt}>Edit Profile</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Feather name="bookmark" size={20} color="#7C3AED" />
-            <Text style={styles.statNum}>08</Text>
-            <Text style={styles.statLabel}>SAVED</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Feather name="heart" size={20} color="#7C3AED" />
-            <Text style={styles.statNum}>14</Text>
-            <Text style={styles.statLabel}>FAVORITES</Text>
-          </View>
-        </View>
-
 
         {/* Agent Mode Banner — only show for buyers */}
         {!isSeller && (
@@ -266,46 +280,29 @@ const styles = StyleSheet.create({
   },
   avatarWrap: { position: 'relative', marginBottom: 12 },
   avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#fff' },
-  verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 12, padding: 1 },
+  verifiedBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    backgroundColor: '#fff', borderRadius: 12, padding: 1,
+  },
   profileName: { fontSize: 18, fontWeight: '700', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
-  userName: { fontSize: 25, fontWeight: '800', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
+  userName:    { fontSize: 25, fontWeight: '800', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 10 },
   locationTxt: { fontSize: 12.5, color: '#A0A0A0' },
 
-  badgeChip: { backgroundColor: '#EDE9FE', borderRadius: 30, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 16 },
-  badgeChipTxt: { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
+  badgeChip: {
+    backgroundColor: '#EDE9FE', borderRadius: 30,
+    paddingHorizontal: 14, paddingVertical: 5, marginBottom: 12,
+  },
+  badgeChipTxt:    { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
   badgeChipSeller: { backgroundColor: '#FFF3E0' },
   badgeChipTxtSeller: { color: '#D97706' },
 
-  editBtn: { borderWidth: 1.5, borderColor: '#7C3AED', borderRadius: 30, paddingHorizontal: 36, paddingVertical: 10 },
-  editBtnTxt: { fontSize: 13.5, fontWeight: '700', color: '#7C3AED' },
-
-  statsRow: {
-    flexDirection: 'row', alignItems: 'center', paddingVertical: 20,
-    marginHorizontal: H_PAD, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+  editBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderWidth: 1.5, borderColor: '#7C3AED', borderRadius: 30,
+    paddingHorizontal: 20, paddingVertical: 8,
   },
-  statItem: { flex: 1, alignItems: 'center', gap: 4 },
-  statNum: { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.5 },
-  statLabel: { fontSize: 10, color: '#B0B0B0', fontWeight: '600', letterSpacing: 0.8 },
-  statDivider: { width: 1, height: 40, backgroundColor: '#EFEFEF' },
-
-  sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: H_PAD, paddingTop: 22, paddingBottom: 14,
-  },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
-  seeAll: { fontSize: 12.5, color: '#7C3AED', fontWeight: '600' },
-
-  recentList: { paddingLeft: H_PAD, paddingRight: H_PAD / 2, gap: 10, paddingBottom: 4 },
-  recentCard: { width: RECENT_CARD_W, gap: 6 },
-  recentImgWrap: { width: '100%', height: RECENT_CARD_W, borderRadius: 12, overflow: 'hidden', position: 'relative' },
-  recentImg: { width: '100%', height: '100%' },
-  recentPricePill: {
-    position: 'absolute', top: 7, left: 7,
-    backgroundColor: 'rgba(0,0,0,0.52)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3,
-  },
-  recentPriceTxt: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  recentTitle: { fontSize: 11.5, fontWeight: '600', color: '#333', paddingHorizontal: 2 },
+  editBtnTxt: { fontSize: 13, fontWeight: '700', color: '#7C3AED' },
 
   agentBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
@@ -313,24 +310,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F0FF', borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: '#EDE9FE',
   },
-  agentIconWrap: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
+  agentIconWrap: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center',
+  },
   agentBannerTitle: { fontSize: 14, fontWeight: '700', color: '#7C3AED', marginBottom: 2 },
-  agentBannerSub: { fontSize: 11.5, color: '#A78BFA' },
+  agentBannerSub:   { fontSize: 11.5, color: '#A78BFA' },
 
   menuGroup: {
     marginHorizontal: H_PAD, marginTop: 14,
     backgroundColor: '#FAFAFA', borderRadius: 16,
     borderWidth: 1, borderColor: '#EFEFEF', overflow: 'hidden',
   },
-  menuRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
-  menuIconBox: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  menuText: { flex: 1 },
+  menuRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  menuIconBox: {
+    width: 38, height: 38, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  menuText:  { flex: 1 },
   menuLabel: { fontSize: 13.5, fontWeight: '600', color: '#111', marginBottom: 1 },
-  menuSub: { fontSize: 11.5, color: '#B0B0B0' },
+  menuSub:   { fontSize: 11.5, color: '#B0B0B0' },
   menuDivider: { height: 1, backgroundColor: '#F0F0F0', marginLeft: 68 },
 
-  footer: { alignItems: 'center', paddingTop: 28, gap: 8 },
+  footer:        { alignItems: 'center', paddingTop: 28, gap: 8 },
   footerVersion: { fontSize: 11.5, color: '#C0C0C0' },
-  footerLinks: { flexDirection: 'row', gap: 20 },
-  footerLink: { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
+  footerLinks:   { flexDirection: 'row', gap: 20 },
+  footerLink:    { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
 });

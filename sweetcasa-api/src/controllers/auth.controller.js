@@ -165,3 +165,71 @@ exports.login = async (req, res) => {
 exports.logout = (_req, res) => {
   res.json({ message: 'Logged out. Discard your token on the client.' })
 }
+
+// ── UPDATE PROFILE ────────────────────────────────────────────────────────────
+// PUT /auth/profile  (requires auth middleware)
+exports.updateProfile = async (req, res) => {
+  try {
+    const { getPrisma } = require('../lib/prisma')
+    const userId = req.user.id
+ 
+    const {
+      name,
+      companyName,
+      phone,
+      country,
+      region,
+      city,
+      street,
+    } = req.body
+ 
+    // Build update payload — only include fields that were actually sent
+    const data = {}
+ 
+    if (name        !== undefined) data.name        = String(name).trim()
+    if (companyName !== undefined) data.companyName = String(companyName).trim()
+    if (country     !== undefined) data.country     = String(country).trim()
+    if (region      !== undefined) data.region      = String(region).trim()
+    if (city        !== undefined) data.city        = String(city).trim()
+    if (street      !== undefined) data.street      = String(street).trim()
+ 
+    // Phone: stored as BigInt in DB — parse carefully
+    if (phone !== undefined && phone !== null && String(phone).trim() !== '') {
+      const cleaned = String(phone).replace(/\D/g, '') // strip non-digits
+      if (cleaned) data.phone = BigInt(cleaned)
+    }
+ 
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'No fields provided to update.' })
+    }
+ 
+    const updated = await getPrisma().user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id:          true,
+        name:        true,
+        companyName: true,
+        email:       true,
+        phone:       true,
+        role:        true,
+        country:     true,
+        region:      true,
+        city:        true,
+        street:      true,
+        createdAt:   true,
+      },
+    })
+ 
+    // Serialize BigInt phone before sending JSON
+    const profile = {
+      ...updated,
+      phone: updated.phone !== null ? updated.phone.toString() : null,
+    }
+ 
+    res.json({ profile })
+  } catch (err) {
+    console.error('Update profile error:', err)
+    res.status(500).json({ error: err.message || 'Failed to update profile.' })
+  }
+}
