@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
 import { BASE_URL } from '../../constants/api';
 
 const PURPLE = '#7C5CFC';
@@ -29,34 +30,43 @@ const TEXT_DARK = '#111827';
 const TEXT_MID = '#6B7280';
 const TEXT_LIGHT = '#9CA3AF';
 
-// AsyncStorage key for tracking successful upload count
 const UPLOAD_COUNT_KEY = 'sweetcasa_successful_uploads';
 
-const propTypes = [
+// ─── Static IDs (never translated — values sent to API) ───────────────────────
+
+const PROP_TYPE_IDS = [
   'Apartment', 'Studio', 'Villa', 'Office',
   'Room', 'Duplex', 'Guest House', 'Hotel',
 ];
 
-const facilityList = [
+const FACILITY_IDS = [
   'Wifi', 'Electricity', 'Water Supply', 'Gated',
   'Parking', 'Green Area', 'Generator', 'Nearby School',
   'Bank', 'Restaurant', 'Market', 'Clinic',
 ];
 
-// Facilities that support an optional nearby name
+// Nearby name fields: facility ID + form key + i18n placeholder key
 const NEARBY_FACILITY_FIELDS: {
   facility: string;
-  key: string;
-  placeholder: string;
+  key: keyof NearbyNames;
+  placeholderKey: string;
 }[] = [
-  { facility: 'Nearby School', key: 'nearbySchoolName',    placeholder: 'e.g. Government Bilingual High School' },
-  { facility: 'Bank',          key: 'nearbyBankName',       placeholder: 'e.g. Ecobank Bonanjo' },
-  { facility: 'Restaurant',    key: 'nearbyRestaurantName', placeholder: 'e.g. La Falaise Restaurant' },
-  { facility: 'Market',        key: 'nearbyMarketName',     placeholder: 'e.g. Marché Central de Douala' },
-  { facility: 'Clinic',        key: 'nearbyClinicName',     placeholder: 'e.g. Polyclinique de la Paix' },
+  { facility: 'Nearby School', key: 'nearbySchoolName',    placeholderKey: 'listing.nearbySchool'     },
+  { facility: 'Bank',          key: 'nearbyBankName',       placeholderKey: 'listing.nearbyBank'       },
+  { facility: 'Restaurant',    key: 'nearbyRestaurantName', placeholderKey: 'listing.nearbyRestaurant' },
+  { facility: 'Market',        key: 'nearbyMarketName',     placeholderKey: 'listing.nearbyMarket'     },
+  { facility: 'Clinic',        key: 'nearbyClinicName',     placeholderKey: 'listing.nearbyClinic'     },
 ];
 
-const paymentFrequencies = ['Monthly', 'Yearly', 'For Sale'];
+// Payment frequency IDs → translation keys
+const PAYMENT_FREQ_IDS = ['Monthly', 'Yearly', 'For Sale'] as const;
+const PAYMENT_FREQ_KEYS: Record<string, string> = {
+  Monthly:   'listing.monthly',
+  Yearly:    'listing.yearly',
+  'For Sale': 'listing.forSale',
+};
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type SelectedMedia = {
   uri: string;
@@ -89,32 +99,20 @@ function inferMimeType(uri: string, fallback: string) {
 
 async function uploadListing(formData: FormData): Promise<any> {
   const token = await AsyncStorage.getItem('token');
-
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${BASE_URL}/listings`);
-
-    if (token) {
-      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    }
-
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.onload = () => {
       try {
         const data = JSON.parse(xhr.responseText);
-        if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(data);
-        } else {
-          reject({ response: { data, status: xhr.status } });
-        }
-      } catch {
-        reject(new Error('Invalid server response'));
-      }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject({ response: { data, status: xhr.status } });
+      } catch { reject(new Error('Invalid server response')); }
     };
-
-    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.onerror   = () => reject(new Error('Network error'));
     xhr.ontimeout = () => reject(new Error('Request timed out'));
-    xhr.timeout = 300_000;
-
+    xhr.timeout   = 300_000;
     xhr.send(formData);
   });
 }
@@ -135,38 +133,26 @@ async function submitReview(review: string): Promise<void> {
   }
 }
 
-/**
- * Returns true if a review modal should be shown after a successful upload.
- * Rule: show on 1st upload, then every 5th thereafter (1, 6, 11, 16 …).
- */
 async function shouldShowReview(): Promise<boolean> {
   try {
     const raw = await AsyncStorage.getItem(UPLOAD_COUNT_KEY);
     const count = raw ? Number.parseInt(raw, 10) : 0;
     const newCount = count + 1;
     await AsyncStorage.setItem(UPLOAD_COUNT_KEY, String(newCount));
-    // Show on 1st upload (newCount === 1) or every 5th thereafter
     return newCount === 1 || newCount % 5 === 0;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 // ─── Review Modal ─────────────────────────────────────────────────────────────
 
-const ReviewModal = ({
-  visible,
-  onClose,
-}: {
-  visible: boolean;
-  onClose: () => void;
-}) => {
+const ReviewModal = ({ visible, onClose }: { visible: boolean; onClose: () => void }) => {
+  const { t } = useTranslation();
   const [reviewText, setReviewText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (!reviewText.trim()) {
-      Alert.alert('Please write something', 'Share a brief experience before submitting.');
+      Alert.alert(t('review.emptyTitle'), t('review.emptyDesc'));
       return;
     }
     setSubmitting(true);
@@ -175,16 +161,13 @@ const ReviewModal = ({
       setReviewText('');
       onClose();
     } catch (err: any) {
-      Alert.alert('Could not submit', err?.message || 'Please try again.');
+      Alert.alert(t('review.failTitle'), err?.message || t('common.error'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSkip = () => {
-    setReviewText('');
-    onClose();
-  };
+  const handleSkip = () => { setReviewText(''); onClose(); };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleSkip}>
@@ -195,15 +178,12 @@ const ReviewModal = ({
           <View style={s.modalIconRow}>
             <Text style={s.modalIcon}>🏠</Text>
           </View>
-          <Text style={s.modalTitle}>How was your experience?</Text>
-          <Text style={s.modalSubtitle}>
-            Tell us what went well or what we can improve in the listing upload process. Your
-            feedback helps us make SweetCasa better for everyone.
-          </Text>
+          <Text style={s.modalTitle}>{t('review.title')}</Text>
+          <Text style={s.modalSubtitle}>{t('review.subtitle')}</Text>
 
           <TextInput
             style={s.modalInput}
-            placeholder="Describe your experience, any difficulties, or suggestions for improvement…"
+            placeholder={t('review.placeholder')}
             placeholderTextColor={TEXT_LIGHT}
             multiline
             value={reviewText}
@@ -215,11 +195,13 @@ const ReviewModal = ({
             style={[s.modalSubmitBtn, submitting && { opacity: 0.6 }]}
             onPress={handleSubmit}
             disabled={submitting}>
-            <Text style={s.modalSubmitTxt}>{submitting ? 'Submitting…' : 'Submit Feedback'}</Text>
+            <Text style={s.modalSubmitTxt}>
+              {submitting ? t('common.submitting') : t('review.submit')}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleSkip} style={s.modalSkipBtn} disabled={submitting}>
-            <Text style={s.modalSkipTxt}>Skip for now</Text>
+            <Text style={s.modalSkipTxt}>{t('review.skip')}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -238,9 +220,7 @@ const SectionHeader = ({ num, title }: { num: number | string; title: string }) 
   </View>
 );
 
-const Chip = ({
-  label, selected, onPress, color = PURPLE,
-}: {
+const Chip = ({ label, selected, onPress, color = PURPLE }: {
   label: string; selected: boolean; onPress: () => void; color?: string;
 }) => (
   <TouchableOpacity
@@ -277,10 +257,12 @@ const MediaUploadBox = ({
   pickerMode: 'image' | 'video';
   max?: number;
 }) => {
+  const { t } = useTranslation();
+
   const handleAdd = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow access to your media library.');
+      Alert.alert(t('report.permissionNeeded'), t('report.permissionDesc'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -320,7 +302,7 @@ const MediaUploadBox = ({
         {canAddMore && (
           <TouchableOpacity onPress={handleAdd} style={s.uploadBtn}>
             <Text style={s.uploadPlus}>+</Text>
-            <Text style={s.uploadLabel}>Add</Text>
+            <Text style={s.uploadLabel}>{t('listing.add')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -336,6 +318,8 @@ const DocumentUploadBox = ({
   setFiles: React.Dispatch<React.SetStateAction<SelectedMedia[]>>;
   max?: number;
 }) => {
+  const { t } = useTranslation();
+
   const handleAdd = async () => {
     const result = await DocumentPicker.getDocumentAsync({
       type: [
@@ -347,7 +331,6 @@ const DocumentUploadBox = ({
       multiple: max !== 1,
       copyToCacheDirectory: true,
     });
-
     if (!result.canceled && result.assets) {
       const newFiles = result.assets.map((a: DocumentPicker.DocumentPickerAsset) => ({
         uri: a.uri,
@@ -378,7 +361,7 @@ const DocumentUploadBox = ({
         ))}
         {canAddMore && (
           <TouchableOpacity onPress={handleAdd} style={s.docUploadBtn}>
-            <Text style={s.docUploadTxt}>+ Add File (PDF, DOCX, JPG, PNG…)</Text>
+            <Text style={s.docUploadTxt}>{t('listing.addFile')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -389,35 +372,34 @@ const DocumentUploadBox = ({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function NewListing() {
-  const [title, setTitle] = useState('');
-  const [propType, setPropType] = useState('Apartment');
-  const [country, setCountry] = useState('Cameroon');
-  const [region, setRegion] = useState('');
-  const [city, setCity] = useState('');
+  const { t } = useTranslation();
+
+  const [title, setTitle]           = useState('');
+  const [propType, setPropType]     = useState('Apartment');
+  const [country, setCountry]       = useState('Cameroon');
+  const [region, setRegion]         = useState('');
+  const [city, setCity]             = useState('');
   const [neighborhood, setNeighborhood] = useState('');
-  const [price, setPrice] = useState('');
-  const [payFreq, setPayFreq] = useState('Monthly');
-  const [bedrooms, setBedrooms] = useState(2);
-  const [bathrooms, setBathrooms] = useState(1);
-  const [toilets, setToilets] = useState(2);
-  const [parlors, setParlors] = useState(1);
-  const [kitchens, setKitchens] = useState(1);
-  const [area, setArea] = useState('');
-  const [amenities, setAmenities] = useState<string[]>(['Wifi', 'Electricity']);
+  const [price, setPrice]           = useState('');
+  const [payFreq, setPayFreq]       = useState('Monthly');
+  const [bedrooms, setBedrooms]     = useState(2);
+  const [bathrooms, setBathrooms]   = useState(1);
+  const [toilets, setToilets]       = useState(2);
+  const [parlors, setParlors]       = useState(1);
+  const [kitchens, setKitchens]     = useState(1);
+  const [area, setArea]             = useState('');
+  const [amenities, setAmenities]   = useState<string[]>(['Wifi', 'Electricity']);
   const [nearbyNames, setNearbyNames] = useState<NearbyNames>({
-    nearbySchoolName: '',
-    nearbyBankName: '',
-    nearbyRestaurantName: '',
-    nearbyMarketName: '',
-    nearbyClinicName: '',
+    nearbySchoolName: '', nearbyBankName: '', nearbyRestaurantName: '',
+    nearbyMarketName: '', nearbyClinicName: '',
   });
   const [description, setDescription] = useState('');
-  const [visitHours, setVisitHours] = useState('Weekends 10AM - 2PM');
+  const [visitHours, setVisitHours] = useState('');
   const [photoFiles, setPhotoFiles] = useState<SelectedMedia[]>([]);
   const [videoFiles, setVideoFiles] = useState<SelectedMedia[]>([]);
   const [floorPlans, setFloorPlans] = useState<SelectedMedia[]>([]);
-  const [legalDocs, setLegalDocs] = useState<SelectedMedia[]>([]);
-  const [posting, setPosting] = useState(false);
+  const [legalDocs, setLegalDocs]   = useState<SelectedMedia[]>([]);
+  const [posting, setPosting]       = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
   const toggle = (arr: string[], setArr: (v: string[]) => void, val: string) =>
@@ -441,53 +423,50 @@ export default function NewListing() {
       nearbySchoolName: '', nearbyBankName: '', nearbyRestaurantName: '',
       nearbyMarketName: '', nearbyClinicName: '',
     });
-    setDescription(''); setVisitHours('Weekends 10AM - 2PM');
+    setDescription(''); setVisitHours('');
     setPhotoFiles([]); setVideoFiles([]); setFloorPlans([]); setLegalDocs([]);
   };
 
   const handlePostListing = async () => {
     if (!title.trim() || !region.trim() || !city.trim() || !price.trim() || !description.trim()) {
-      Alert.alert('Missing fields', 'Please complete all required fields (title, region, city, price, description).');
+      Alert.alert(t('errors.fillRequired'), t('errors.fillRequired'));
       return;
     }
     if (!photoFiles.length) {
-      Alert.alert('Photos required', 'Please add at least one property photo.');
+      Alert.alert(t('listing.photosRequired'), t('listing.photosRequiredDesc'));
       return;
     }
     if (!videoFiles.length) {
-      Alert.alert('Video required', 'Please add a video walkthrough of the property.');
+      Alert.alert(t('listing.videoRequired'), t('listing.videoRequiredDesc'));
       return;
     }
     if (!legalDocs.length) {
-      Alert.alert('Legal documents required', 'Please upload at least one legal document (proof of ownership).');
+      Alert.alert(t('listing.legalRequired'), t('listing.legalRequiredDesc'));
       return;
     }
 
     setPosting(true);
     try {
       const formData = new FormData();
-
-      // Text fields
-      formData.append('title', title.trim());
-      formData.append('price', String(Number(price.replace(/,/g, ''))));
-      formData.append('type', propType);
-      formData.append('status', 'Pending');
-      formData.append('country', country.trim() || 'Cameroon');
-      formData.append('region', region.trim());
-      formData.append('city', city.trim());
-      formData.append('neighborhood', neighborhood.trim());
-      formData.append('description', description.trim());
-      formData.append('bedrooms', String(bedrooms));
-      formData.append('bathrooms', String(bathrooms));
-      formData.append('toilets', String(toilets));
-      formData.append('parlors', String(parlors));
-      formData.append('kitchens', String(kitchens));
+      formData.append('title',            title.trim());
+      formData.append('price',            String(Number(price.replace(/,/g, ''))));
+      formData.append('type',             propType);
+      formData.append('status',           'Pending');
+      formData.append('country',          country.trim() || 'Cameroon');
+      formData.append('region',           region.trim());
+      formData.append('city',             city.trim());
+      formData.append('neighborhood',     neighborhood.trim());
+      formData.append('description',      description.trim());
+      formData.append('bedrooms',         String(bedrooms));
+      formData.append('bathrooms',        String(bathrooms));
+      formData.append('toilets',          String(toilets));
+      formData.append('parlors',          String(parlors));
+      formData.append('kitchens',         String(kitchens));
       if (area.trim()) formData.append('areaSqm', area.trim());
       formData.append('paymentFrequency', payFreq);
-      formData.append('visitHours', visitHours.trim());
-      formData.append('facilities', JSON.stringify(amenities));
+      formData.append('visitHours',       visitHours.trim());
+      formData.append('facilities',       JSON.stringify(amenities));
 
-      // Nearby facility names (optional — only append if user filled them in)
       if (nearbyNames.nearbySchoolName.trim())
         formData.append('nearbySchoolName', nearbyNames.nearbySchoolName.trim());
       if (nearbyNames.nearbyBankName.trim())
@@ -499,65 +478,51 @@ export default function NewListing() {
       if (nearbyNames.nearbyClinicName.trim())
         formData.append('nearbyClinicName', nearbyNames.nearbyClinicName.trim());
 
-      // Photos
       photoFiles.forEach((photo, i) => {
         formData.append('photos', {
-          uri: photo.uri,
-          name: photo.fileName || `photo-${i + 1}.jpg`,
+          uri: photo.uri, name: photo.fileName || `photo-${i + 1}.jpg`,
           type: photo.mimeType || inferMimeType(photo.uri, 'image/jpeg'),
         } as any);
       });
 
-      // Video (required, first only)
       formData.append('video', {
-        uri: videoFiles[0].uri,
-        name: videoFiles[0].fileName || 'walkthrough.mp4',
+        uri: videoFiles[0].uri, name: videoFiles[0].fileName || 'walkthrough.mp4',
         type: videoFiles[0].mimeType || inferMimeType(videoFiles[0].uri, 'video/mp4'),
       } as any);
 
-      // Floor plan (optional)
       if (floorPlans[0]) {
         formData.append('floorPlan', {
-          uri: floorPlans[0].uri,
-          name: floorPlans[0].fileName || 'floor-plan',
+          uri: floorPlans[0].uri, name: floorPlans[0].fileName || 'floor-plan',
           type: floorPlans[0].mimeType || inferMimeType(floorPlans[0].uri, 'application/octet-stream'),
         } as any);
       }
 
-      // Legal documents
       legalDocs.forEach((doc, i) => {
         formData.append('legalDocuments', {
-          uri: doc.uri,
-          name: doc.fileName || `legal-doc-${i + 1}`,
+          uri: doc.uri, name: doc.fileName || `legal-doc-${i + 1}`,
           type: doc.mimeType || inferMimeType(doc.uri, 'application/octet-stream'),
         } as any);
       });
 
       await uploadListing(formData);
 
-      // Check if we should show the review modal
       const showReview = await shouldShowReview();
 
       Alert.alert(
-        'Submitted! 🎉',
-        'Your listing has been submitted for review. It will appear on the platform once approved by the SweetCasa team.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              resetForm();
-              if (showReview) {
-                setShowReviewModal(true);
-              } else {
-                router.replace('/agent-dashboard');
-              }
-            },
+        t('listing.submittedTitle'),
+        t('listing.submittedDesc'),
+        [{
+          text: t('common.ok'),
+          onPress: () => {
+            resetForm();
+            if (showReview) setShowReviewModal(true);
+            else router.replace('/agent-dashboard');
           },
-        ]
+        }],
       );
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Failed to upload listing.';
-      Alert.alert('Upload failed', msg);
+      const msg = err?.response?.data?.error || err?.message || t('listing.uploadFailed');
+      Alert.alert(t('listing.uploadFailed'), msg);
     } finally {
       setPosting(false);
     }
@@ -568,28 +533,38 @@ export default function NewListing() {
     router.replace('/agent-dashboard');
   };
 
+  // Stepper rows — labels are proper room-type nouns, same in EN & FR
+  const stepperRows = [
+    { label: t('listing.bedrooms'),  value: bedrooms,  setValue: setBedrooms  },
+    { label: t('listing.bathrooms'), value: bathrooms, setValue: setBathrooms },
+    { label: t('listing.toilets'),   value: toilets,   setValue: setToilets   },
+    { label: t('listing.parlors'),   value: parlors,   setValue: setParlors   },
+    { label: 'Kitchens',             value: kitchens,  setValue: setKitchens  },
+  ];
+
   return (
     <SafeAreaView style={s.safe}>
       <ReviewModal visible={showReviewModal} onClose={handleReviewClose} />
 
+      {/* ── Header ── */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>New Listing</Text>
+        <Text style={s.headerTitle}>{t('listing.newListing')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={s.scrollContent}>
 
         {/* 1. Basic Info */}
         <View style={s.section}>
-          <SectionHeader num="1" title="Basic Info" />
-          <Text style={s.label}>Property Title *</Text>
+          <SectionHeader num="1" title={t('listing.basicInfo')} />
+          <Text style={s.label}>{t('listing.propertyTitle')}</Text>
           <TextInput
             style={s.input} placeholderTextColor={TEXT_LIGHT}
-            placeholder="e.g. Modern Studio in Bastos"
+            placeholder={t('listing.propertyTitlePlaceholder')}
             value={title} onChangeText={setTitle}
           />
-          <Text style={s.label}>Property Type</Text>
+          <Text style={s.label}>{t('listing.propertyType')}</Text>
           <View style={s.chipRow}>
-            {propTypes.map((type) => (
+            {PROP_TYPE_IDS.map((type) => (
               <Chip key={type} label={type} selected={propType === type}
                 onPress={() => setPropType(type)} />
             ))}
@@ -598,59 +573,54 @@ export default function NewListing() {
 
         {/* 2. Location */}
         <View style={s.section}>
-          <SectionHeader num="2" title="Location" />
-          <Text style={s.label}>Country</Text>
+          <SectionHeader num="2" title={t('listing.location')} />
+          <Text style={s.label}>{t('listing.country')}</Text>
           <TextInput style={s.input} placeholderTextColor={TEXT_LIGHT}
-            placeholder="e.g. Cameroon" value={country} onChangeText={setCountry} />
-          <Text style={s.label}>Region *</Text>
+            placeholder="Cameroon" value={country} onChangeText={setCountry} />
+          <Text style={s.label}>{t('listing.region')}</Text>
           <TextInput style={s.input} placeholderTextColor={TEXT_LIGHT}
             placeholder="e.g. Littoral" value={region} onChangeText={setRegion} />
-          <Text style={s.label}>City *</Text>
+          <Text style={s.label}>{t('listing.city')}</Text>
           <TextInput style={s.input} placeholderTextColor={TEXT_LIGHT}
             placeholder="e.g. Douala" value={city} onChangeText={setCity} />
-          <Text style={s.label}>Neighborhood</Text>
+          <Text style={s.label}>{t('listing.neighborhood')}</Text>
           <TextInput style={s.input} placeholderTextColor={TEXT_LIGHT}
             placeholder="e.g. Bastos" value={neighborhood} onChangeText={setNeighborhood} />
         </View>
 
         {/* 3. Pricing */}
         <View style={s.section}>
-          <SectionHeader num="3" title="Pricing" />
-          <Text style={s.label}>Price (XAF) *</Text>
+          <SectionHeader num="3" title={t('listing.pricing')} />
+          <Text style={s.label}>{t('listing.price')}</Text>
           <View style={s.priceWrap}>
             <TextInput
               style={[s.input, s.priceInput]} placeholderTextColor={TEXT_LIGHT}
-              placeholder="0" keyboardType="numeric"
+              placeholder={t('listing.pricePlaceholder')} keyboardType="numeric"
               value={price} onChangeText={(v) => setPrice(formatPrice(v))}
             />
             <Text style={s.priceSuffix}>XAF</Text>
           </View>
-          <Text style={s.hint}>Max: 2,000,000,000 XAF</Text>
-          <Text style={s.label}>Payment Frequency</Text>
+          <Text style={s.hint}>{t('listing.priceMax')}</Text>
+          <Text style={s.label}>{t('listing.paymentFrequency')}</Text>
           <View style={s.chipRow}>
-            {paymentFrequencies.map((f) => (
-              <Chip key={f} label={f} selected={payFreq === f} onPress={() => setPayFreq(f)} />
+            {PAYMENT_FREQ_IDS.map((f) => (
+              <Chip key={f} label={t(PAYMENT_FREQ_KEYS[f])} selected={payFreq === f}
+                onPress={() => setPayFreq(f)} />
             ))}
           </View>
         </View>
 
         {/* 4. Property Details */}
         <View style={s.section}>
-          <SectionHeader num="4" title="Property Details" />
-          {[
-            { label: 'Bedrooms',  value: bedrooms,  setValue: setBedrooms },
-            { label: 'Bathrooms', value: bathrooms, setValue: setBathrooms },
-            { label: 'Toilets',   value: toilets,   setValue: setToilets },
-            { label: 'Parlors',   value: parlors,   setValue: setParlors },
-            { label: 'Kitchens',  value: kitchens,  setValue: setKitchens },
-          ].map((item) => (
+          <SectionHeader num="4" title={t('listing.propertyDetails')} />
+          {stepperRows.map((item) => (
             <View key={item.label} style={s.detailRow}>
               <Text style={s.detailLabel}>{item.label}</Text>
               <Stepper value={item.value} onChange={item.setValue} />
             </View>
           ))}
           <Text style={s.label}>
-            Total Area (m²) <Text style={s.optional}>— optional</Text>
+            {t('listing.totalArea')} <Text style={s.optional}>— {t('common.optional')}</Text>
           </Text>
           <TextInput
             style={s.input} placeholderTextColor={TEXT_LIGHT}
@@ -661,27 +631,23 @@ export default function NewListing() {
 
         {/* 5. Facilities */}
         <View style={s.section}>
-          <SectionHeader num="5" title="Facilities & Amenities" />
+          <SectionHeader num="5" title={t('listing.facilities')} />
           <View style={s.chipRow}>
-            {facilityList.map((f) => (
+            {FACILITY_IDS.map((f) => (
               <Chip key={f} label={f} selected={amenities.includes(f)} color={GREEN}
                 onPress={() => toggle(amenities, setAmenities, f)} />
             ))}
           </View>
 
-          {/* Nearby facility name inputs — only shown when that facility is selected */}
           {NEARBY_FACILITY_FIELDS.some((nf) => amenities.includes(nf.facility)) && (
             <View style={s.nearbySection}>
               <Text style={s.nearbyHeading}>
-                Nearby Place Names <Text style={s.optional}>— optional</Text>
+                {t('listing.nearbyPlaces')} <Text style={s.optional}>— {t('common.optional')}</Text>
               </Text>
-              <Text style={s.nearbySubtext}>
-                Name the specific places nearby so tenants know exactly what's around.
-              </Text>
+              <Text style={s.nearbySubtext}>{t('listing.nearbyPlacesDesc')}</Text>
 
               {NEARBY_FACILITY_FIELDS.map((nf) => {
                 if (!amenities.includes(nf.facility)) return null;
-                const key = nf.key as keyof NearbyNames;
                 return (
                   <View key={nf.key} style={s.nearbyRow}>
                     <View style={s.nearbyLabelRow}>
@@ -691,9 +657,9 @@ export default function NewListing() {
                     <TextInput
                       style={s.nearbyInput}
                       placeholderTextColor={TEXT_LIGHT}
-                      placeholder={nf.placeholder}
-                      value={nearbyNames[key]}
-                      onChangeText={(val) => updateNearby(key, val)}
+                      placeholder={t(nf.placeholderKey)}
+                      value={nearbyNames[nf.key]}
+                      onChangeText={(val) => updateNearby(nf.key, val)}
                     />
                   </View>
                 );
@@ -704,64 +670,55 @@ export default function NewListing() {
 
         {/* 6. Photos & Video */}
         <View style={s.section}>
-          <SectionHeader num="6" title="Photos & Video" />
+          <SectionHeader num="6" title={t('listing.photosVideo')} />
           <MediaUploadBox
-            label="Photos *"
-            files={photoFiles}
-            setFiles={setPhotoFiles}
-            pickerMode="image"
+            label={t('listing.photos')}
+            files={photoFiles} setFiles={setPhotoFiles} pickerMode="image"
           />
           <MediaUploadBox
-            label="Video Walkthrough *"
-            files={videoFiles}
-            setFiles={setVideoFiles}
-            pickerMode="video"
-            max={1}
+            label={t('listing.videoWalkthrough')}
+            files={videoFiles} setFiles={setVideoFiles} pickerMode="video" max={1}
           />
         </View>
 
         {/* 7. Documents */}
         <View style={s.section}>
-          <SectionHeader num="7" title="House Documents" />
+          <SectionHeader num="7" title={t('listing.documents')} />
           <View style={s.docInfoBox}>
             <Text style={s.docInfoTitle}>
-              Floor Plan <Text style={s.optional}>(optional)</Text>
+              {t('listing.floorPlan')} <Text style={s.optional}>({t('common.optional')})</Text>
             </Text>
-            <Text style={s.docInfoDesc}>
-              Upload a floor plan so tenants can understand the layout. Accepted: PDF, DOCX, JPG, PNG.
-            </Text>
+            <Text style={s.docInfoDesc}>{t('listing.floorPlanDesc')}</Text>
           </View>
           <DocumentUploadBox
-            label="Upload Floor Plan" files={floorPlans} setFiles={setFloorPlans} max={1}
+            label={t('listing.floorPlan')} files={floorPlans} setFiles={setFloorPlans} max={1}
           />
           <View style={[s.docInfoBox, { marginTop: 12 }]}>
-            <Text style={s.docInfoTitle}>Legal Property Documents *</Text>
-            <Text style={s.docInfoDesc}>
-              Proof of ownership required for SweetCasa review. Accepted: PDF, DOCX, JPG, PNG.
-            </Text>
+            <Text style={s.docInfoTitle}>{t('listing.legalDocuments')}</Text>
+            <Text style={s.docInfoDesc}>{t('listing.legalDocumentsDesc')}</Text>
           </View>
           <DocumentUploadBox
-            label="Upload Legal Property Documents" files={legalDocs} setFiles={setLegalDocs}
+            label={t('listing.legalDocuments')} files={legalDocs} setFiles={setLegalDocs}
           />
         </View>
 
         {/* 8. Description */}
         <View style={s.section}>
-          <SectionHeader num="8" title="Description *" />
+          <SectionHeader num="8" title={t('listing.description')} />
           <TextInput
             style={[s.input, s.multilineInput]} placeholderTextColor={TEXT_LIGHT}
-            placeholder="Describe the property, access roads, condition, security, and anything else a tenant should know."
+            placeholder={t('listing.descriptionPlaceholder')}
             multiline value={description} onChangeText={setDescription}
           />
         </View>
 
         {/* 9. Availability */}
         <View style={s.section}>
-          <SectionHeader num="9" title="Availability" />
-          <Text style={s.label}>Available Visiting Hours</Text>
+          <SectionHeader num="9" title={t('listing.availability')} />
+          <Text style={s.label}>{t('listing.visitingHours')}</Text>
           <TextInput
             style={s.input} placeholderTextColor={TEXT_LIGHT}
-            placeholder="e.g. Weekends 10AM - 2PM"
+            placeholder={t('listing.visitingHoursPlaceholder')}
             value={visitHours} onChangeText={setVisitHours}
           />
         </View>
@@ -769,21 +726,21 @@ export default function NewListing() {
         {/* Pending notice */}
         <View style={s.pendingNotice}>
           <Text style={s.pendingIcon}>⏳</Text>
-          <Text style={s.pendingTxt}>
-            Your listing will be reviewed by the SweetCasa team before going live on the platform.
-          </Text>
+          <Text style={s.pendingTxt}>{t('listing.pendingNotice')}</Text>
         </View>
 
         {/* Bottom bar */}
         <View style={s.bottomBar}>
           <TouchableOpacity style={s.draftBtn} onPress={resetForm} disabled={posting}>
-            <Text style={s.draftBtnTxt}>Clear Form</Text>
+            <Text style={s.draftBtnTxt}>{t('listing.clearForm')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.postBtn, posting && s.postBtnDisabled]}
             onPress={handlePostListing}
             disabled={posting}>
-            <Text style={s.postBtnTxt}>{posting ? 'Uploading…' : 'Submit Listing'}</Text>
+            <Text style={s.postBtnTxt}>
+              {posting ? t('common.uploading') : t('listing.submitListing')}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -847,7 +804,6 @@ const s = StyleSheet.create({
     position: 'absolute', right: 14, top: 13,
     fontSize: 13, fontWeight: '700', color: PURPLE,
   },
-  // Nearby facility names
   nearbySection: {
     marginTop: 16, backgroundColor: '#F9FAFB', borderRadius: 12,
     padding: 14, borderWidth: 1, borderColor: GRAY_BORDER,
@@ -862,7 +818,6 @@ const s = StyleSheet.create({
     borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 10,
     padding: 10, fontSize: 13, color: TEXT_DARK, backgroundColor: '#fff',
   },
-  // Media
   mediaSection: { marginBottom: 18 },
   mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   previewWrap: { position: 'relative' },
@@ -890,8 +845,7 @@ const s = StyleSheet.create({
   docRemove: { fontSize: 14, color: '#EF4444', fontWeight: '700' },
   docUploadBtn: {
     borderWidth: 1.5, borderStyle: 'dashed', borderColor: PURPLE,
-    borderRadius: 10, padding: 12, alignItems: 'center',
-    backgroundColor: PURPLE_LIGHT,
+    borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: PURPLE_LIGHT,
   },
   docUploadTxt: { color: PURPLE, fontSize: 13, fontWeight: '600' },
   docInfoBox: {
@@ -919,8 +873,6 @@ const s = StyleSheet.create({
   },
   postBtnDisabled: { opacity: 0.55 },
   postBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
-
-  // Review Modal
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center', alignItems: 'center', padding: 20,

@@ -2,6 +2,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { ResizeMode, Video } from 'expo-av';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next'; // adjust path as needed
 import {
   ActivityIndicator,
   Dimensions,
@@ -68,7 +69,6 @@ interface ListingDetail {
   facilities: string[];
   images: ListingImage[];
   agent: Agent | null;
-  // Named nearby facility fields — support both camelCase (Prisma) and snake_case
   nearby_school_name: string | null;
   nearby_bank_name: string | null;
   nearby_restaurant_name: string | null;
@@ -82,15 +82,15 @@ interface ListingDetail {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function formatPrice(price: string, freq: string | null) {
+function formatPrice(price: string, freq: string | null, t: (key: string) => string) {
   const n = Number(price);
   const f =
     n >= 1_000_000
       ? `${(n / 1_000_000).toFixed(1).replace('.0', '')}M`
       : n.toLocaleString('fr-CM');
-  if (freq === 'For Sale') return { amount: `${f} XAF`, period: 'For Sale' };
-  if (freq === 'Yearly')   return { amount: `${f} XAF`, period: '/ Year' };
-  return { amount: `${f} XAF`, period: '/ Month' };
+  if (freq === 'For Sale') return { amount: `${f} XAF`, period: t('listing.forSale') };
+  if (freq === 'Yearly')   return { amount: `${f} XAF`, period: t('propertyDetail.yearlyPeriod') };
+  return { amount: `${f} XAF`, period: t('propertyDetail.monthlyPeriod') };
 }
 
 function getSortedImages(images: ListingImage[]): ListingImage[] {
@@ -102,19 +102,14 @@ function getSortedImages(images: ListingImage[]): ListingImage[] {
   });
 }
 
-// ─── Generate Cloudinary video thumbnail from video URL ───────────────────────
-// Cloudinary video URLs look like: https://res.cloudinary.com/<cloud>/video/upload/<public_id>.mp4
-// Thumbnail: replace /video/upload/ with /video/upload/so_0/ and change extension to .jpg
 function getCloudinaryVideoThumbnail(videoUrl: string): string | null {
   try {
-    // Match Cloudinary video URL pattern
     const match = videoUrl.match(
       /^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(.+)$/
     );
     if (!match) return null;
     const base = match[1];
     const rest = match[2];
-    // Replace extension with .jpg and add transformation so_0 (first frame)
     const withoutExt = rest.replace(/\.[^.]+$/, '');
     return `${base}so_0/${withoutExt}.jpg`;
   } catch {
@@ -122,57 +117,39 @@ function getCloudinaryVideoThumbnail(videoUrl: string): string | null {
   }
 }
 
-// ─── Fetch Video from listings_videos table via API ───────────────────────────
 async function fetchVideoForListing(
   id: string
 ): Promise<{ videoUrl: string; videoThumbnailUrl: string | null } | null> {
   try {
     const url = `${BASE_URL}/listings/${id}/video`;
-    console.log('[VIDEO] fetching:', url);
     const res = await fetch(url);
-    console.log('[VIDEO] status:', res.status);
-
     const text = await res.text();
-    console.log('[VIDEO] raw response:', text);
-
     if (!res.ok) return null;
-
     let data: any;
     try { data = JSON.parse(text); } catch { return null; }
-
-    // Handle both snake_case and camelCase, and various nesting shapes
     const videoUrl =
       data?.video_url        ?? data?.videoUrl        ??
       data?.data?.video_url  ?? data?.data?.videoUrl  ??
       null;
-
     const rawThumb =
       data?.thumbnail_url       ?? data?.thumbnailUrl       ??
       data?.data?.thumbnail_url ?? data?.data?.thumbnailUrl ??
       null;
-
-    console.log('[VIDEO] videoUrl:', videoUrl, '| rawThumb:', rawThumb);
-
     if (!videoUrl) return null;
-
     const videoThumbnailUrl = rawThumb || getCloudinaryVideoThumbnail(videoUrl);
-    console.log('[VIDEO] final thumbnail:', videoThumbnailUrl);
     return { videoUrl, videoThumbnailUrl };
-  } catch (e) {
-    console.log('[VIDEO] fetch error:', e);
+  } catch {
     return null;
   }
 }
 
-// ─── Build nearby places list from named fields ───────────────────────────────
 interface NearbyPlace {
   label: string;
   example: string | null;
   icon: string;
 }
 
-function buildNearbyPlaces(listing: ListingDetail): NearbyPlace[] {
-  // Support both camelCase (direct Prisma response) and snake_case (mapped API response)
+function buildNearbyPlaces(listing: ListingDetail, t: (key: string) => string): NearbyPlace[] {
   const school     = listing.nearbySchoolName     ?? listing.nearby_school_name     ?? null;
   const bank       = listing.nearbyBankName       ?? listing.nearby_bank_name       ?? null;
   const restaurant = listing.nearbyRestaurantName ?? listing.nearby_restaurant_name ?? null;
@@ -180,13 +157,12 @@ function buildNearbyPlaces(listing: ListingDetail): NearbyPlace[] {
   const clinic     = listing.nearbyClinicName     ?? listing.nearby_clinic_name     ?? null;
 
   const places: NearbyPlace[] = [
-    { label: 'Nearby School',     example: school,     icon: 'book'         },
-    { label: 'Nearby Bank',       example: bank,       icon: 'credit-card'  },
-    { label: 'Nearby Restaurant', example: restaurant, icon: 'coffee'       },
-    { label: 'Nearby Market',     example: market,     icon: 'shopping-bag' },
-    { label: 'Nearby Clinic',     example: clinic,     icon: 'activity'     },
+    { label: t('propertyDetail.nearbySchool'),     example: school,     icon: 'book'         },
+    { label: t('propertyDetail.nearbyBank'),       example: bank,       icon: 'credit-card'  },
+    { label: t('propertyDetail.nearbyRestaurant'), example: restaurant, icon: 'coffee'       },
+    { label: t('propertyDetail.nearbyMarket'),     example: market,     icon: 'shopping-bag' },
+    { label: t('propertyDetail.nearbyClinic'),     example: clinic,     icon: 'activity'     },
   ];
-  // Only show facilities that have a name stored
   return places.filter(p => p.example !== null && p.example.trim() !== '');
 }
 
@@ -194,9 +170,11 @@ function buildNearbyPlaces(listing: ListingDetail): NearbyPlace[] {
 function PhotoCarousel({
   images,
   onFullscreen,
+  t,
 }: {
   images: ListingImage[];
   onFullscreen: (index: number) => void;
+  t: (key: string) => string;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const sorted = getSortedImages(images);
@@ -205,7 +183,9 @@ function PhotoCarousel({
     return (
       <View style={[styles.heroWrap, styles.heroPlaceholder]}>
         <Text style={{ fontSize: 48 }}>🏠</Text>
-        <Text style={{ color: '#9CA3AF', marginTop: 8, fontSize: 13 }}>No photos available</Text>
+        <Text style={{ color: '#9CA3AF', marginTop: 8, fontSize: 13 }}>
+          {t('propertyDetail.noPhotos')}
+        </Text>
       </View>
     );
   }
@@ -236,14 +216,12 @@ function PhotoCarousel({
         ))}
       </ScrollView>
 
-      {/* Dot indicators */}
       <View style={styles.dotRow}>
         {sorted.map((_, i) => (
           <View key={i} style={[styles.dot, i === activeIndex && styles.dotActive]} />
         ))}
       </View>
 
-      {/* Photo count badge */}
       <View style={styles.photoBadge}>
         <Ionicons name="images-outline" size={11} color="#fff" />
         <Text style={styles.photoBadgeTxt}>
@@ -302,7 +280,6 @@ function FullscreenGallery({
             />
           ))}
         </ScrollView>
-        {/* Thumbnail strip */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -328,22 +305,23 @@ function VideoWalkthrough({
   videoUrl,
   thumbnailUrl,
   fallbackImage,
+  t,
 }: {
   videoUrl: string | null;
   thumbnailUrl: string | null;
   fallbackImage: string | null;
+  t: (key: string) => string;
 }) {
   const thumb = thumbnailUrl || fallbackImage;
   const [playing, setPlaying] = useState(false);
   const videoRef = React.useRef<any>(null);
 
-  // If no video is available, show "coming soon" placeholder
   if (!videoUrl) {
     return (
       <View style={styles.sectionBlock}>
         <View style={styles.sectionTitleRow}>
           <View style={styles.sectionDot} />
-          <Text style={styles.sectionTitle}>Video Walkthrough</Text>
+          <Text style={styles.sectionTitle}>{t('propertyDetail.videoWalkthrough')}</Text>
         </View>
         <View style={styles.videoWrap}>
           {thumb ? (
@@ -357,7 +335,7 @@ function VideoWalkthrough({
           </View>
           <View style={styles.videoPill}>
             <Feather name="clock" size={11} color="#fff" />
-            <Text style={styles.videoPillTxt}>Video Tour Coming Soon</Text>
+            <Text style={styles.videoPillTxt}>{t('propertyDetail.videoComingSoon')}</Text>
           </View>
         </View>
       </View>
@@ -368,12 +346,11 @@ function VideoWalkthrough({
     <View style={styles.sectionBlock}>
       <View style={styles.sectionTitleRow}>
         <View style={styles.sectionDot} />
-        <Text style={styles.sectionTitle}>Video Walkthrough</Text>
+        <Text style={styles.sectionTitle}>{t('propertyDetail.videoWalkthrough')}</Text>
       </View>
 
       <View style={styles.videoWrap}>
         {playing ? (
-          // ── Inline video player ──
           <Video
             ref={videoRef}
             source={{ uri: videoUrl }}
@@ -384,7 +361,6 @@ function VideoWalkthrough({
             onError={() => setPlaying(false)}
           />
         ) : (
-          // ── Thumbnail + play button ──
           <TouchableOpacity
             style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
             activeOpacity={0.9}
@@ -401,20 +377,19 @@ function VideoWalkthrough({
             </View>
             <View style={styles.videoPill}>
               <Feather name="film" size={11} color="#fff" />
-              <Text style={styles.videoPillTxt}>Tap to Play Tour</Text>
+              <Text style={styles.videoPillTxt}>{t('propertyDetail.tapToPlay')}</Text>
             </View>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Stop button shown while playing */}
       {playing && (
         <TouchableOpacity
           style={styles.videoStopBtn}
           onPress={() => setPlaying(false)}
         >
           <Ionicons name="stop-circle-outline" size={15} color={PURPLE} />
-          <Text style={styles.videoStopBtnTxt}>Stop Video</Text>
+          <Text style={styles.videoStopBtnTxt}>{t('propertyDetail.stopVideo')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -422,7 +397,7 @@ function VideoWalkthrough({
 }
 
 // ─── Floor Plan ───────────────────────────────────────────────────────────────
-function FloorPlan({ floorPlanUrl }: { floorPlanUrl: string }) {
+function FloorPlan({ floorPlanUrl, t }: { floorPlanUrl: string; t: (key: string) => string }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -430,10 +405,10 @@ function FloorPlan({ floorPlanUrl }: { floorPlanUrl: string }) {
       <View style={styles.sectionRow}>
         <View style={styles.sectionTitleRow}>
           <View style={styles.sectionDot} />
-          <Text style={styles.sectionTitle}>Floor Plan</Text>
+          <Text style={styles.sectionTitle}>{t('propertyDetail.floorPlan')}</Text>
         </View>
         <TouchableOpacity onPress={() => setExpanded(true)}>
-          <Text style={styles.linkTxt}>Full Screen</Text>
+          <Text style={styles.linkTxt}>{t('propertyDetail.fullScreen')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -449,7 +424,7 @@ function FloorPlan({ floorPlanUrl }: { floorPlanUrl: string }) {
         />
         <View style={styles.floorPlanBadge}>
           <Feather name="maximize-2" size={12} color={PURPLE} />
-          <Text style={styles.floorPlanBadgeTxt}>Tap to expand</Text>
+          <Text style={styles.floorPlanBadgeTxt}>{t('propertyDetail.tapToExpand')}</Text>
         </View>
       </TouchableOpacity>
 
@@ -459,7 +434,9 @@ function FloorPlan({ floorPlanUrl }: { floorPlanUrl: string }) {
           <TouchableOpacity style={styles.fsClose} onPress={() => setExpanded(false)}>
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={[styles.fsCounter, { top: 22, left: width / 2 - 50 }]}>Floor Plan</Text>
+          <Text style={[styles.fsCounter, { top: 22, left: width / 2 - 50 }]}>
+            {t('propertyDetail.floorPlan')}
+          </Text>
           <Image
             source={{ uri: floorPlanUrl }}
             style={{ flex: 1, width: '100%' }}
@@ -473,6 +450,7 @@ function FloorPlan({ floorPlanUrl }: { floorPlanUrl: string }) {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function PropertyDetailScreen() {
+  const { t } = useTranslation();
   const { id, listingData } = useLocalSearchParams<{ id: string; listingData?: string }>();
 
   const [listing, setListing]     = useState<ListingDetail | null>(null);
@@ -486,31 +464,22 @@ export default function PropertyDetailScreen() {
     setLoading(true);
     setError(null);
     try {
-      // ── Step 1: Use data passed from search results (instant, no network) ──
       if (listingData) {
         const parsed: ListingDetail = JSON.parse(listingData as string);
         setListing(parsed);
         setLoading(false);
 
-        // ── Step 2: Silently enrich with full detail from API ──
         try {
           const res = await fetch(`${BASE_URL}/listings/${id}`);
           if (res.ok) {
             const data = await res.json();
             const full: ListingDetail = data?.listing ?? data;
-            if (full?.id) {
-              // Merge full listing but don't overwrite anything yet — video comes next
-              setListing(full);
-            }
+            if (full?.id) setListing(full);
           }
         } catch {
-          // Silently ignore — base data from params is sufficient
+          // silently ignore
         }
 
-        // ── Step 3: Fetch video from listings_videos table — ALWAYS runs last ──
-        // so it is never overwritten by the full listing response (which has no videoUrl).
-        // thumbnail_url may be NULL in the DB, so we auto-generate it from the
-        // Cloudinary video URL using the so_0 transformation (first-frame still).
         const video = await fetchVideoForListing(id);
         if (video) {
           setListing(prev => prev ? { ...prev, ...video } : prev);
@@ -518,7 +487,6 @@ export default function PropertyDetailScreen() {
         return;
       }
 
-      // ── Fallback: Fetch directly if no param data (e.g. deep link) ──
       const res = await fetch(`${BASE_URL}/listings/${id}`);
       const contentType = res.headers.get('content-type') || '';
       if (!contentType.includes('application/json')) {
@@ -528,17 +496,16 @@ export default function PropertyDetailScreen() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || data?.message || `HTTP ${res.status}`);
       const full: ListingDetail = data?.listing ?? data;
-      if (!full?.id) throw new Error('Listing data missing from response.');
+      if (!full?.id) throw new Error(t('propertyDetail.notFound'));
       setListing(full);
 
-      // Also fetch video for deep-link case
       const video = await fetchVideoForListing(id);
       if (video) {
         setListing(prev => prev ? { ...prev, ...video } : prev);
       }
 
     } catch (err: any) {
-      setError(err.message || 'Something went wrong.');
+      setError(err.message || t('errors.error'));
     } finally {
       setLoading(false);
     }
@@ -553,7 +520,7 @@ export default function PropertyDetailScreen() {
     return (
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator size="large" color={PURPLE} />
-        <Text style={styles.loadingTxt}>Loading property…</Text>
+        <Text style={styles.loadingTxt}>{t('propertyDetail.loading')}</Text>
       </SafeAreaView>
     );
   }
@@ -563,40 +530,38 @@ export default function PropertyDetailScreen() {
     return (
       <SafeAreaView style={styles.centered}>
         <Text style={{ fontSize: 40, marginBottom: 12 }}>🏚️</Text>
-        <Text style={styles.errorTxt}>{error ?? 'Property not found.'}</Text>
+        <Text style={styles.errorTxt}>{error ?? t('propertyDetail.notFound')}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={fetchListing}>
-          <Text style={styles.retryTxt}>Try Again</Text>
+          <Text style={styles.retryTxt}>{t('propertyDetail.tryAgain')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
           <Feather name="arrow-left" size={14} color={PURPLE} />
-          <Text style={styles.backLinkTxt}>Go Back</Text>
+          <Text style={styles.backLinkTxt}>{t('propertyDetail.goBack')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
   // ── Data helpers ──
-  const { amount, period } = formatPrice(listing.price, listing.paymentFrequency);
+  const { amount, period } = formatPrice(listing.price, listing.paymentFrequency, t);
   const location = [listing.neighborhood, listing.city, listing.region].filter(Boolean).join(', ');
   const sortedImages = getSortedImages(listing.images);
   const primaryImageUrl = sortedImages[0]?.imageUrl ?? null;
 
   const stats = [
-    { icon: 'home',    label: 'PARLOUR', val: listing.parlors  ?? listing.parlour  ?? '—' },
-    { icon: 'book',    label: 'BEDS',    val: listing.bedrooms ?? '—' },
-    { icon: 'droplet', label: 'BATHS',   val: listing.bathrooms ?? '—' },
-    { icon: 'wind',    label: 'TOILETS', val: listing.toilets  ?? '—' },
-    { icon: 'coffee',  label: 'KITCHEN', val: listing.kitchens ?? listing.kitchen ?? '—' },
+    { icon: 'home',    label: t('propertyDetail.parlour'), val: listing.parlors  ?? listing.parlour  ?? '—' },
+    { icon: 'book',    label: t('propertyDetail.beds'),    val: listing.bedrooms ?? '—' },
+    { icon: 'droplet', label: t('propertyDetail.baths'),   val: listing.bathrooms ?? '—' },
+    { icon: 'wind',    label: t('propertyDetail.toilets'), val: listing.toilets  ?? '—' },
+    { icon: 'coffee',  label: t('propertyDetail.kitchen'), val: listing.kitchens ?? listing.kitchen ?? '—' },
   ] as const;
 
-  // Build nearby places from named listing fields; only show populated ones
-  const nearbyPlaces = buildNearbyPlaces(listing);
+  const nearbyPlaces = buildNearbyPlaces(listing, t);
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      {/* Fullscreen gallery modal */}
       {sortedImages.length > 0 && (
         <FullscreenGallery
           images={listing.images}
@@ -614,6 +579,7 @@ export default function PropertyDetailScreen() {
         <PhotoCarousel
           images={listing.images}
           onFullscreen={idx => { setFsIndex(idx); setFsVisible(true); }}
+          t={t}
         />
 
         {/* ── Floating header overlay ── */}
@@ -639,7 +605,7 @@ export default function PropertyDetailScreen() {
         {listing.status === 'Approved' && (
           <View style={styles.verifiedBadge}>
             <Ionicons name="shield-checkmark" size={11} color="#fff" />
-            <Text style={styles.verifiedTxt}>Verified Property</Text>
+            <Text style={styles.verifiedTxt}>{t('propertyDetail.verifiedProperty')}</Text>
           </View>
         )}
 
@@ -668,11 +634,15 @@ export default function PropertyDetailScreen() {
             </View>
             {listing.paymentFrequency === 'For Sale' ? (
               <View style={[styles.typeChip, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
-                <Text style={[styles.typeChipTxt, { color: '#059669' }]}>For Sale</Text>
+                <Text style={[styles.typeChipTxt, { color: '#059669' }]}>
+                  {t('propertyDetail.forSale')}
+                </Text>
               </View>
             ) : (
               <View style={[styles.typeChip, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-                <Text style={[styles.typeChipTxt, { color: '#2563EB' }]}>For Rent</Text>
+                <Text style={[styles.typeChipTxt, { color: '#2563EB' }]}>
+                  {t('propertyDetail.forRent')}
+                </Text>
               </View>
             )}
           </View>
@@ -694,14 +664,14 @@ export default function PropertyDetailScreen() {
               <View style={styles.rentalLeft}>
                 <Ionicons name="time-outline" size={16} color={PURPLE} />
                 <View>
-                  <Text style={styles.rentalLabel}>Min. Rental Period</Text>
+                  <Text style={styles.rentalLabel}>{t('propertyDetail.minRentalPeriod')}</Text>
                   <Text style={styles.rentalVal}>
-                    {listing.minRentalPeriod ?? '12 Months (Negotiable)'}
+                    {listing.minRentalPeriod ?? t('propertyDetail.minRentalDefault')}
                   </Text>
                 </View>
               </View>
               <TouchableOpacity style={styles.applyBtn}>
-                <Text style={styles.applyBtnTxt}>Apply Now</Text>
+                <Text style={styles.applyBtnTxt}>{t('propertyDetail.applyNow')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -710,11 +680,10 @@ export default function PropertyDetailScreen() {
           <View style={styles.sectionBlock}>
             <View style={styles.sectionTitleRow}>
               <View style={styles.sectionDot} />
-              <Text style={styles.sectionTitle}>Property Description</Text>
+              <Text style={styles.sectionTitle}>{t('propertyDetail.propertyDescription')}</Text>
             </View>
             <Text style={styles.description}>
-              {listing.description?.trim() ||
-                'No description provided for this property yet. Please contact the agent for more information.'}
+              {listing.description?.trim() || t('propertyDetail.noDescription')}
             </Text>
           </View>
 
@@ -723,7 +692,7 @@ export default function PropertyDetailScreen() {
             <View style={styles.sectionBlock}>
               <View style={styles.sectionTitleRow}>
                 <View style={styles.sectionDot} />
-                <Text style={styles.sectionTitle}>Facilities & Amenities</Text>
+                <Text style={styles.sectionTitle}>{t('propertyDetail.facilitiesAmenities')}</Text>
               </View>
               <View style={styles.facilitiesGrid}>
                 {listing.facilities.map((f, i) => (
@@ -743,11 +712,11 @@ export default function PropertyDetailScreen() {
                 <View style={styles.sectionTitleRow}>
                   <View style={styles.sectionDot} />
                   <Text style={styles.sectionTitle}>
-                    All Photos ({sortedImages.length})
+                    {t('propertyDetail.allPhotos')} ({sortedImages.length})
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => { setFsIndex(0); setFsVisible(true); }}>
-                  <Text style={styles.linkTxt}>See All</Text>
+                  <Text style={styles.linkTxt}>{t('propertyDetail.seeAll')}</Text>
                 </TouchableOpacity>
               </View>
               <ScrollView
@@ -768,7 +737,7 @@ export default function PropertyDetailScreen() {
                     />
                     {img.isPrimary && (
                       <View style={styles.primaryBadge}>
-                        <Text style={styles.primaryBadgeTxt}>Main</Text>
+                        <Text style={styles.primaryBadgeTxt}>{t('propertyDetail.main')}</Text>
                       </View>
                     )}
                   </TouchableOpacity>
@@ -777,16 +746,17 @@ export default function PropertyDetailScreen() {
             </View>
           )}
 
-          {/* ── Video Walkthrough — always visible ── */}
+          {/* ── Video Walkthrough ── */}
           <VideoWalkthrough
             videoUrl={listing.videoUrl}
             thumbnailUrl={listing.videoThumbnailUrl}
             fallbackImage={primaryImageUrl}
+            t={t}
           />
 
-          {/* ── Floor Plan — only shown when a floor plan image exists ── */}
+          {/* ── Floor Plan ── */}
           {!!listing.floorPlanUrl && (
-            <FloorPlan floorPlanUrl={listing.floorPlanUrl} />
+            <FloorPlan floorPlanUrl={listing.floorPlanUrl} t={t} />
           )}
 
           {/* ── Escrow Protection ── */}
@@ -795,32 +765,29 @@ export default function PropertyDetailScreen() {
               <Ionicons name="shield-checkmark-outline" size={22} color={PURPLE} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.escrowTitle}>Secure Escrow Protection</Text>
-              <Text style={styles.escrowDesc}>
-                Your deposit is held by SweetCasa Escrow and only released to the
-                landlord after you verify the property upon move-in.
-              </Text>
+              <Text style={styles.escrowTitle}>{t('propertyDetail.escrowTitle')}</Text>
+              <Text style={styles.escrowDesc}>{t('propertyDetail.escrowDesc')}</Text>
             </View>
             <Feather name="chevron-right" size={16} color="#C0C0C0" />
           </TouchableOpacity>
 
-          {/* ── Neighborhood — only shown if at least one nearby place exists ── */}
+          {/* ── Neighborhood ── */}
           {nearbyPlaces.length > 0 && (
             <View style={styles.sectionBlock}>
               <View style={styles.sectionRow}>
                 <View style={styles.sectionTitleRow}>
                   <View style={styles.sectionDot} />
-                  <Text style={styles.sectionTitle}>Neighborhood</Text>
+                  <Text style={styles.sectionTitle}>{t('propertyDetail.neighborhood')}</Text>
                 </View>
                 <TouchableOpacity onPress={() => router.push('/neighborhoodmap' as any)}>
-                  <Text style={styles.linkTxt}>View Map</Text>
+                  <Text style={styles.linkTxt}>{t('propertyDetail.viewMap')}</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.mapPlaceholder}>
                 <View style={styles.mapPill}>
                   <Ionicons name="location-outline" size={14} color={PURPLE} />
-                  <Text style={styles.mapPillTxt}>Interactive Map</Text>
+                  <Text style={styles.mapPillTxt}>{t('propertyDetail.interactiveMap')}</Text>
                 </View>
               </View>
 
@@ -840,14 +807,13 @@ export default function PropertyDetailScreen() {
             </View>
           )}
 
-          {/* ── Agent — always visible ── */}
+          {/* ── Agent ── */}
           <View style={styles.sectionBlock}>
             <View style={styles.sectionTitleRow}>
               <View style={styles.sectionDot} />
-              <Text style={styles.sectionTitle}>Listed By</Text>
+              <Text style={styles.sectionTitle}>{t('propertyDetail.listedBy')}</Text>
             </View>
             <View style={styles.agentCard}>
-              {/* Avatar */}
               <View style={styles.agentAvatarWrap}>
                 {listing.agent?.avatarUrl ? (
                   <Image source={{ uri: listing.agent.avatarUrl }} style={styles.agentAvatar} />
@@ -863,10 +829,9 @@ export default function PropertyDetailScreen() {
                 )}
               </View>
 
-              {/* Info */}
               <View style={styles.agentInfo}>
                 <Text style={styles.agentName} numberOfLines={1}>
-                  {listing.agent?.name ?? 'Property Agent'}
+                  {listing.agent?.name ?? t('propertyDetail.propertyAgent')}
                 </Text>
                 <View style={styles.agentLocationRow}>
                   <Ionicons name="location-outline" size={13} color="#9CA3AF" />
@@ -893,11 +858,11 @@ export default function PropertyDetailScreen() {
           onPress={() => router.push('/messages' as any)}
         >
           <Feather name="message-square" size={16} color={PURPLE} />
-          <Text style={styles.contactBtnTxt}>Message</Text>
+          <Text style={styles.contactBtnTxt}>{t('propertyDetail.message')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bookBtn} activeOpacity={0.88}>
           <Ionicons name="call-outline" size={16} color="#fff" />
-          <Text style={styles.bookBtnTxt}>Apply & Book View</Text>
+          <Text style={styles.bookBtnTxt}>{t('propertyDetail.applyAndBook')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -915,7 +880,6 @@ const styles = StyleSheet.create({
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
   backLinkTxt: { fontSize: 13, color: PURPLE, fontWeight: '600' },
 
-  // ── Hero ──
   heroWrap: { width, height: IMG_H, position: 'relative', backgroundColor: '#F3F4F6' },
   heroPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   heroImg: { width, height: IMG_H },
@@ -950,7 +914,6 @@ const styles = StyleSheet.create({
   },
   photoBadgeTxt: { fontSize: 10.5, fontWeight: '600', color: '#fff' },
 
-  // ── Fullscreen ──
   fsContainer: { flex: 1, backgroundColor: '#000', paddingTop: 48 },
   fsClose: {
     position: 'absolute', top: 52, right: 16, zIndex: 20,
@@ -965,7 +928,6 @@ const styles = StyleSheet.create({
   fsThumb: { width: 64, height: 64, borderRadius: 10, opacity: 0.6 },
   fsThumbActive: { opacity: 1, borderWidth: 2.5, borderColor: PURPLE },
 
-  // ── Body ──
   body: { paddingHorizontal: H_PAD, paddingTop: 20 },
 
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
@@ -1003,7 +965,6 @@ const styles = StyleSheet.create({
   applyBtn: { backgroundColor: PURPLE, borderRadius: 30, paddingHorizontal: 16, paddingVertical: 9 },
   applyBtnTxt: { fontSize: 12.5, fontWeight: '700', color: '#fff' },
 
-  // ── Sections ──
   sectionBlock: { marginBottom: 22 },
   sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionDot: { width: 4, height: 18, borderRadius: 2, backgroundColor: PURPLE },
@@ -1012,7 +973,6 @@ const styles = StyleSheet.create({
   linkTxt: { fontSize: 12.5, color: PURPLE, fontWeight: '600' },
   description: { fontSize: 13.5, color: '#6B7280', lineHeight: 22 },
 
-  // ── Facilities ──
   facilitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   facilityItem: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -1021,7 +981,6 @@ const styles = StyleSheet.create({
   },
   facilityTxt: { fontSize: 12, fontWeight: '600', color: '#374151' },
 
-  // ── Gallery strip ──
   galleryThumb: {
     width: 110, height: 78, borderRadius: 12,
     borderWidth: 1.5, borderColor: '#F0F0F0',
@@ -1033,7 +992,6 @@ const styles = StyleSheet.create({
   },
   primaryBadgeTxt: { fontSize: 9, fontWeight: '700', color: '#fff' },
 
-  // ── Video ──
   videoWrap: {
     width: '100%', height: 190, borderRadius: 18, overflow: 'hidden',
     backgroundColor: '#111', alignItems: 'center', justifyContent: 'center',
@@ -1058,7 +1016,6 @@ const styles = StyleSheet.create({
   },
   videoPillTxt: { fontSize: 11, color: '#fff', fontWeight: '600' },
 
-  // ── Floor plan ──
   floorPlanWrap: {
     width: '100%', backgroundColor: '#F9FAFB', borderRadius: 18,
     borderWidth: 1, borderColor: '#E5E7EB', overflow: 'hidden',
@@ -1072,7 +1029,6 @@ const styles = StyleSheet.create({
   },
   floorPlanBadgeTxt: { fontSize: 11.5, color: PURPLE, fontWeight: '600' },
 
-  // ── Escrow ──
   escrowCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     backgroundColor: '#fff', borderRadius: 16, padding: 16,
@@ -1087,7 +1043,6 @@ const styles = StyleSheet.create({
   escrowTitle: { fontSize: 13.5, fontWeight: '700', color: '#111', marginBottom: 4 },
   escrowDesc: { fontSize: 12, color: '#9CA3AF', lineHeight: 18 },
 
-  // ── Map ──
   mapPlaceholder: {
     width: '100%', height: 130, backgroundColor: '#F3F4F6',
     borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 14,
@@ -1100,7 +1055,6 @@ const styles = StyleSheet.create({
   },
   mapPillTxt: { fontSize: 13, fontWeight: '600', color: PURPLE },
 
-  // ── Nearby ──
   nearbyRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
@@ -1112,7 +1066,6 @@ const styles = StyleSheet.create({
   nearbyLabel: { fontSize: 13.5, fontWeight: '600', color: '#111' },
   nearbyExample: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
 
-  // ── Agent ──
   agentCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 14,
     backgroundColor: '#FAFAFA', borderRadius: 18,
@@ -1135,7 +1088,6 @@ const styles = StyleSheet.create({
   agentLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   agentLocationTxt: { fontSize: 12.5, color: '#9CA3AF', flex: 1 },
 
-  // ── Bottom bar ──
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', gap: 12,
@@ -1157,7 +1109,6 @@ const styles = StyleSheet.create({
   },
   bookBtnTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
-  // ── Video stop button ──
   videoStopBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     marginTop: 10, paddingVertical: 8,

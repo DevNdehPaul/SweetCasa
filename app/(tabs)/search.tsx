@@ -6,56 +6,76 @@ import {
   StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
+
 const { width, height } = Dimensions.get('window');
 const H_PAD = 20;
 const SLIDER_WIDTH = width - H_PAD * 2 - 8;
 const MIN_BUDGET = 50_000;
 const MAX_BUDGET = 2_000_000_000;
 
-const REGIONS: { label: string; city: string }[] = [
-  { label: 'Adamawa',    city: 'Ngaoundéré' },
-  { label: 'Centre',     city: 'Yaoundé'    },
-  { label: 'East',       city: 'Bertoua'    },
-  { label: 'Far North',  city: 'Maroua'     },
-  { label: 'Littoral',   city: 'Douala'     },
-  { label: 'North',      city: 'Garoua'     },
-  { label: 'North West', city: 'Bamenda'    },
-  { label: 'South',      city: 'Ebolowa'    },
-  { label: 'South West', city: 'Buea'       },
-  { label: 'West',       city: 'Bafoussam'  },
+// ─── Static data (IDs never translated; labels come from t()) ─────────────────
+
+const REGIONS: { id: string; city: string }[] = [
+  { id: 'Adamawa',    city: 'Ngaoundéré' },
+  { id: 'Centre',     city: 'Yaoundé'    },
+  { id: 'East',       city: 'Bertoua'    },
+  { id: 'Far North',  city: 'Maroua'     },
+  { id: 'Littoral',   city: 'Douala'     },
+  { id: 'North',      city: 'Garoua'     },
+  { id: 'North West', city: 'Bamenda'    },
+  { id: 'South',      city: 'Ebolowa'    },
+  { id: 'South West', city: 'Buea'       },
+  { id: 'West',       city: 'Bafoussam'  },
 ];
 
-const HOUSE_TYPES = [
-  { id: 'Apartment',   label: 'Apartment',   icon: 'grid'      },
-  { id: 'Studio',      label: 'Studio',      icon: 'home'      },
-  { id: 'Villa',       label: 'Villa',       icon: 'layers'    },
-  { id: 'Office',      label: 'Office',      icon: 'briefcase' },
-  { id: 'Room',        label: 'Room',        icon: 'square'    },
-  { id: 'Duplex',      label: 'Duplex',      icon: 'copy'      },
-  { id: 'Guest House', label: 'Guest House', icon: 'coffee'    },
-  { id: 'Hotel',       label: 'Hotel',       icon: 'star'      },
+// Region labels are proper nouns — they don't change between EN and FR.
+// City names are also kept as-is (official Cameroonian place names).
+
+const HOUSE_TYPES: { id: string; icon: string }[] = [
+  { id: 'Apartment',   icon: 'grid'      },
+  { id: 'Studio',      icon: 'home'      },
+  { id: 'Villa',       icon: 'layers'    },
+  { id: 'Office',      icon: 'briefcase' },
+  { id: 'Room',        icon: 'square'    },
+  { id: 'Duplex',      icon: 'copy'      },
+  { id: 'Guest House', icon: 'coffee'    },
+  { id: 'Hotel',       icon: 'star'      },
 ];
 
-const FACILITIES = [
-  { id: 'Nearby School', label: 'Nearby School', icon: 'book-open'    },
-  { id: 'Restaurant',    label: 'Restaurant',    icon: 'coffee'       },
-  { id: 'Bank',          label: 'Bank',          icon: 'credit-card'  },
-  { id: 'Water Supply',  label: 'Water Supply',  icon: 'droplet'      },
-  { id: 'Market',        label: 'Market',        icon: 'shopping-bag' },
-  { id: 'Generator',     label: 'Generator',     icon: 'zap'          },
-  { id: 'Gated',         label: 'Gated',         icon: 'shield'       },
-  { id: 'Wifi',          label: 'Wifi',          icon: 'wifi'         },
-  { id: 'Electricity',   label: 'Electricity',   icon: 'zap-off'      },
-  { id: 'Green Area',    label: 'Green Area',    icon: 'feather'      },
-  { id: 'Parking',       label: 'Parking',       icon: 'truck'        },
+// House type labels are proper nouns / loanwords used identically in both languages.
+// If you later add keys for them in the JSON, replace with t(`houseTypes.${id}`) etc.
+
+const FACILITIES: { id: string; icon: string }[] = [
+  { id: 'Nearby School', icon: 'book-open'    },
+  { id: 'Restaurant',    icon: 'coffee'       },
+  { id: 'Bank',          icon: 'credit-card'  },
+  { id: 'Water Supply',  icon: 'droplet'      },
+  { id: 'Market',        icon: 'shopping-bag' },
+  { id: 'Generator',     icon: 'zap'          },
+  { id: 'Gated',         icon: 'shield'       },
+  { id: 'Wifi',          icon: 'wifi'         },
+  { id: 'Electricity',   icon: 'zap-off'      },
+  { id: 'Green Area',    icon: 'feather'      },
+  { id: 'Parking',       icon: 'truck'        },
 ];
 
-// Property state — separate from listing status (Approved/Pending by admin)
-const PROPERTY_STATES = [
-  { id: 'Available',   label: 'Available',   subtitle: 'Ready to rent or buy',    icon: 'check-circle', color: '#059669', bg: '#ECFDF5', border: '#6EE7B7', activeBg: '#D1FAE5', activeBorder: '#059669' },
-  { id: 'Pending',     label: 'Pending',     subtitle: 'Transaction in progress', icon: 'clock',        color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', activeBg: '#FEF3C7', activeBorder: '#D97706' },
-  { id: 'Unavailable', label: 'Unavailable', subtitle: 'Off the market',          icon: 'x-circle',     color: '#9CA3AF', bg: '#F9FAFB', border: '#E5E7EB', activeBg: '#F3F4F6', activeBorder: '#6B7280' },
-];
+// Facility labels: same note as house types. Add JSON keys as your i18n grows.
+
+type PropertyStateId = 'Available' | 'Pending' | 'Unavailable';
+
+const PROPERTY_STATE_META: Record<PropertyStateId, {
+  labelKey: string; subtitleKey: string; icon: string;
+  color: string; bg: string; border: string; activeBg: string; activeBorder: string;
+}> = {
+  Available:   { labelKey: 'search.available',   subtitleKey: 'search.availableSub',   icon: 'check-circle', color: '#059669', bg: '#ECFDF5', border: '#6EE7B7', activeBg: '#D1FAE5', activeBorder: '#059669' },
+  Pending:     { labelKey: 'search.pending',     subtitleKey: 'search.pendingSub',     icon: 'clock',        color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', activeBg: '#FEF3C7', activeBorder: '#D97706' },
+  Unavailable: { labelKey: 'search.unavailable', subtitleKey: 'search.unavailableSub', icon: 'x-circle',     color: '#9CA3AF', bg: '#F9FAFB', border: '#E5E7EB', activeBg: '#F3F4F6', activeBorder: '#6B7280' },
+};
+
+const PROPERTY_STATE_IDS: PropertyStateId[] = ['Available', 'Pending', 'Unavailable'];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatBudget(val: number) {
   if (val >= 1_000_000_000) return (val / 1_000_000_000).toFixed(1).replace('.0', '') + 'B';
@@ -63,25 +83,27 @@ function formatBudget(val: number) {
   return (val / 1_000).toFixed(0) + 'k';
 }
 
-function RegionPicker({ visible, selected, onSelect, onClose }: {
-  visible: boolean; selected: string;
-  onSelect: (r: { label: string; city: string }) => void; onClose: () => void;
+// ─── Region Picker ────────────────────────────────────────────────────────────
+
+function RegionPicker({ visible, selected, onSelect, onClose, title }: {
+  visible: boolean; selected: string; title: string;
+  onSelect: (r: { id: string; city: string }) => void; onClose: () => void;
 }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={onClose} />
       <View style={s.modalSheet}>
         <View style={s.modalHandle} />
-        <Text style={s.modalTitle}>Select Region</Text>
+        <Text style={s.modalTitle}>{title}</Text>
         <ScrollView showsVerticalScrollIndicator={false}>
           {REGIONS.map(r => {
-            const active = selected === r.label;
+            const active = selected === r.id;
             return (
-              <TouchableOpacity key={r.label} style={[s.regionRow, active && s.regionRowActive]}
+              <TouchableOpacity key={r.id} style={[s.regionRow, active && s.regionRowActive]}
                 onPress={() => { onSelect(r); onClose(); }} activeOpacity={0.7}>
                 <View style={s.regionLeft}>
                   <Ionicons name="location-outline" size={16} color={active ? '#7C3AED' : '#888'} />
-                  <Text style={[s.regionLabel, active && s.regionLabelActive]}>{r.label}</Text>
+                  <Text style={[s.regionLabel, active && s.regionLabelActive]}>{r.id}</Text>
                 </View>
                 <Text style={[s.regionCity, active && s.regionCityActive]}>{r.city}</Text>
                 {active && <Feather name="check" size={14} color="#7C3AED" style={{ marginLeft: 8 }} />}
@@ -95,16 +117,20 @@ function RegionPicker({ visible, selected, onSelect, onClose }: {
   );
 }
 
+// ─── Main Screen ──────────────────────────────────────────────────────────────
+
 export default function SearchFiltersScreen() {
-  const [selectedRegion, setSelectedRegion] = useState<{ label: string; city: string } | null>(null);
-  const [neighborhood, setNeighborhood] = useState('');
+  const { t } = useTranslation();
+
+  const [selectedRegion, setSelectedRegion] = useState<{ id: string; city: string } | null>(null);
+  const [neighborhood, setNeighborhood]     = useState('');
   const [regionPickerVisible, setRegionPickerVisible] = useState(false);
-  const [selectedType, setSelectedType] = useState('');
-  const [selectedFacilities, setSelectedFacilities] = useState<string[]>([]);
-  const [selectedState, setSelectedState] = useState('Available'); // ← property state filter
-  const [budgetPct, setBudgetPct] = useState(1);
+  const [selectedType, setSelectedType]     = useState('');
+  const [selectedFacilities, setSelectedFacilities]   = useState<string[]>([]);
+  const [selectedState, setSelectedState]   = useState<PropertyStateId>('Available');
+  const [budgetPct, setBudgetPct]           = useState(1);
   const sliderRef = React.useRef<View>(null);
-  const sliderX = React.useRef(0);
+  const sliderX   = React.useRef(0);
 
   const budget = Math.round(MIN_BUDGET + budgetPct * (MAX_BUDGET - MIN_BUDGET));
 
@@ -115,7 +141,7 @@ export default function SearchFiltersScreen() {
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: (e) => setBudgetPct(Math.min(1, Math.max(0, (e.nativeEvent.pageX - sliderX.current) / SLIDER_WIDTH))),
-    onPanResponderMove: (e) => setBudgetPct(Math.min(1, Math.max(0, (e.nativeEvent.pageX - sliderX.current) / SLIDER_WIDTH))),
+    onPanResponderMove: (e)  => setBudgetPct(Math.min(1, Math.max(0, (e.nativeEvent.pageX - sliderX.current) / SLIDER_WIDTH))),
   });
 
   const thumbLeft = budgetPct * SLIDER_WIDTH;
@@ -129,10 +155,10 @@ export default function SearchFiltersScreen() {
   const handleSearch = () => {
     const params: Record<string, string> = {
       maxBudget: String(budget),
-      state: selectedState,       // ← property state (Available/Pending/Unavailable)
+      state: selectedState,
     };
     if (selectedRegion) {
-      params.region = selectedRegion.label;
+      params.region = selectedRegion.id;
       params.city   = selectedRegion.city;
     }
     if (neighborhood.trim())       params.neighborhood = neighborhood.trim();
@@ -146,11 +172,12 @@ export default function SearchFiltersScreen() {
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
+      {/* ── Header ── */}
       <View style={s.header}>
         <TouchableOpacity style={s.iconBtn} onPress={() => router.back()}>
           <Feather name="chevron-left" size={22} color="#111" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Search Filters</Text>
+        <Text style={s.headerTitle}>{t('search.title')}</Text>
         <TouchableOpacity style={s.iconBtn} onPress={handleReset}>
           <Feather name="rotate-ccw" size={18} color="#111" />
         </TouchableOpacity>
@@ -158,31 +185,45 @@ export default function SearchFiltersScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
-        {/* Location */}
-        <Text style={s.sectionTitle}>Location</Text>
+        {/* ── Location ── */}
+        <Text style={s.sectionTitle}>{t('search.location')}</Text>
+
+        {/* Country — fixed */}
         <View style={s.lockedField}>
           <Ionicons name="flag-outline" size={16} color="#7C3AED" />
-          <Text style={s.lockedFieldTxt}>Cameroon</Text>
-          <View style={s.lockedBadge}><Text style={s.lockedBadgeTxt}>Fixed</Text></View>
+          <Text style={s.lockedFieldTxt}>{t('search.country')}</Text>
+          <View style={s.lockedBadge}><Text style={s.lockedBadgeTxt}>{t('search.fixed')}</Text></View>
         </View>
+
+        {/* Region picker */}
         <TouchableOpacity style={s.dropdownField} activeOpacity={0.7} onPress={() => setRegionPickerVisible(true)}>
           <Ionicons name="location-outline" size={16} color="#7C3AED" />
           <Text style={[s.dropdownTxt, !selectedRegion && s.dropdownPlaceholder]}>
-            {selectedRegion ? selectedRegion.label : 'Select Region'}
+            {selectedRegion ? selectedRegion.id : t('search.selectRegion')}
           </Text>
           <Feather name="chevron-down" size={16} color="#888" />
         </TouchableOpacity>
+
+        {/* City — auto-filled */}
         <View style={[s.lockedField, !selectedRegion && s.lockedFieldDim]}>
           <Ionicons name="business-outline" size={16} color={selectedRegion ? '#7C3AED' : '#C0C0C0'} />
           <Text style={[s.lockedFieldTxt, !selectedRegion && { color: '#C0C0C0' }]}>
-            {selectedRegion ? selectedRegion.city : 'Auto-filled from region'}
+            {selectedRegion ? selectedRegion.city : t('search.autoFilledCity')}
           </Text>
-          {selectedRegion && <View style={s.autoBadge}><Text style={s.autoBadgeTxt}>Auto</Text></View>}
+          {selectedRegion && <View style={s.autoBadge}><Text style={s.autoBadgeTxt}>{t('search.auto')}</Text></View>}
         </View>
+
+        {/* Neighborhood */}
         <View style={s.inputField}>
           <Ionicons name="map-outline" size={16} color="#7C3AED" />
-          <TextInput style={s.inputTxt} placeholder="Neighborhood (optional)" placeholderTextColor="#C0C0C0"
-            value={neighborhood} onChangeText={setNeighborhood} returnKeyType="done" />
+          <TextInput
+            style={s.inputTxt}
+            placeholder={t('search.neighborhoodPlaceholder')}
+            placeholderTextColor="#C0C0C0"
+            value={neighborhood}
+            onChangeText={setNeighborhood}
+            returnKeyType="done"
+          />
           {neighborhood.length > 0 && (
             <TouchableOpacity onPress={() => setNeighborhood('')}>
               <Feather name="x" size={14} color="#888" />
@@ -190,20 +231,21 @@ export default function SearchFiltersScreen() {
           )}
         </View>
 
-        {/* Property State */}
-        <Text style={[s.sectionTitle, { marginTop: 26 }]}>Property State</Text>
-        <Text style={s.sectionSubtitle}>Filter by whether the property is currently available.</Text>
+        {/* ── Property State ── */}
+        <Text style={[s.sectionTitle, { marginTop: 26 }]}>{t('search.propertyState')}</Text>
+        <Text style={s.sectionSubtitle}>{t('search.propertyStateSub')}</Text>
         <View style={s.statusList}>
-          {PROPERTY_STATES.map(st => {
-            const active = selectedState === st.id;
+          {PROPERTY_STATE_IDS.map(id => {
+            const st     = PROPERTY_STATE_META[id];
+            const active = selectedState === id;
             return (
-              <TouchableOpacity key={st.id} activeOpacity={0.75} onPress={() => setSelectedState(st.id)}
+              <TouchableOpacity key={id} activeOpacity={0.75} onPress={() => setSelectedState(id)}
                 style={[s.statusBanner, { backgroundColor: active ? st.activeBg : st.bg, borderColor: active ? st.activeBorder : st.border }]}>
                 <View style={[s.statusAccent, { backgroundColor: st.color }]} />
                 <View style={s.statusIconWrap}><Feather name={st.icon as any} size={20} color={st.color} /></View>
                 <View style={s.statusTextWrap}>
-                  <Text style={[s.statusLabel, { color: st.color }]}>{st.label}</Text>
-                  <Text style={s.statusSubtitle}>{st.subtitle}</Text>
+                  <Text style={[s.statusLabel, { color: st.color }]}>{t(st.labelKey)}</Text>
+                  <Text style={s.statusSubtitle}>{t(st.subtitleKey)}</Text>
                 </View>
                 <View style={[s.statusCheck, { backgroundColor: active ? st.color : 'transparent', borderColor: active ? st.color : '#D1D5DB' }]}>
                   {active && <Feather name="check" size={11} color="#fff" />}
@@ -213,25 +255,26 @@ export default function SearchFiltersScreen() {
           })}
         </View>
 
-        {/* House Type */}
-        <Text style={[s.sectionTitle, { marginTop: 26 }]}>House Type</Text>
+        {/* ── House Type ── */}
+        <Text style={[s.sectionTitle, { marginTop: 26 }]}>{t('search.houseType')}</Text>
         <View style={s.typeGrid}>
-          {HOUSE_TYPES.map(t => {
-            const active = selectedType === t.id;
+          {HOUSE_TYPES.map(type => {
+            const active = selectedType === type.id;
             return (
-              <TouchableOpacity key={t.id} style={[s.typeCard, active && s.typeCardActive]}
-                activeOpacity={0.75} onPress={() => setSelectedType(active ? '' : t.id)}>
-                <Feather name={t.icon as any} size={22} color={active ? '#7C3AED' : '#888'} />
-                <Text style={[s.typeLabel, active && s.typeLabelActive]}>{t.label}</Text>
+              <TouchableOpacity key={type.id} style={[s.typeCard, active && s.typeCardActive]}
+                activeOpacity={0.75} onPress={() => setSelectedType(active ? '' : type.id)}>
+                <Feather name={type.icon as any} size={22} color={active ? '#7C3AED' : '#888'} />
+                {/* House type names are proper nouns / loanwords — same in EN & FR */}
+                <Text style={[s.typeLabel, active && s.typeLabelActive]}>{type.id}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Budget */}
+        {/* ── Budget ── */}
         <View style={s.budgetHeader}>
-          <Text style={s.sectionTitle}>Budget Range</Text>
-          <Text style={s.budgetValue}>Up to {formatBudget(budget)} XAF</Text>
+          <Text style={s.sectionTitle}>{t('search.budget')}</Text>
+          <Text style={s.budgetValue}>{t('search.upTo')} {formatBudget(budget)} XAF</Text>
         </View>
         <View style={s.sliderContainer} ref={sliderRef}
           onLayout={() => sliderRef.current?.measure((_x, _y, _w, _h, px) => { sliderX.current = px; })}
@@ -242,12 +285,12 @@ export default function SearchFiltersScreen() {
           <View style={[s.sliderThumb, { left: thumbLeft - 10 }]} />
         </View>
         <View style={s.sliderLabels}>
-          <Text style={s.sliderLabel}>MIN: {formatBudget(MIN_BUDGET)}</Text>
-          <Text style={s.sliderLabel}>MAX: {formatBudget(MAX_BUDGET)}</Text>
+          <Text style={s.sliderLabel}>{t('search.minBudget')} {formatBudget(MIN_BUDGET)}</Text>
+          <Text style={s.sliderLabel}>{t('search.maxBudget')} {formatBudget(MAX_BUDGET)}</Text>
         </View>
 
-        {/* Facilities */}
-        <Text style={[s.sectionTitle, { marginTop: 26 }]}>Nearby Facilities</Text>
+        {/* ── Facilities ── */}
+        <Text style={[s.sectionTitle, { marginTop: 26 }]}>{t('search.facilities')}</Text>
         <View style={s.facilitiesGrid}>
           {FACILITIES.map(f => {
             const active = selectedFacilities.includes(f.id);
@@ -255,7 +298,8 @@ export default function SearchFiltersScreen() {
               <TouchableOpacity key={f.id} style={[s.facilityRow, active && s.facilityRowActive]}
                 activeOpacity={0.75} onPress={() => toggleFacility(f.id)}>
                 <Feather name={f.icon as any} size={15} color={active ? '#7C3AED' : '#888'} />
-                <Text style={[s.facilityLabel, active && s.facilityLabelActive]}>{f.label}</Text>
+                {/* Facility names are technical/loanword terms — same in EN & FR */}
+                <Text style={[s.facilityLabel, active && s.facilityLabelActive]}>{f.id}</Text>
               </TouchableOpacity>
             );
           })}
@@ -264,19 +308,26 @@ export default function SearchFiltersScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
+      {/* ── Search button ── */}
       <View style={s.bottomBar}>
         <TouchableOpacity style={s.resultsBtn} activeOpacity={0.88} onPress={handleSearch}>
           <Ionicons name="search" size={18} color="#fff" />
-          <Text style={s.resultsBtnTxt}>Search</Text>
+          <Text style={s.resultsBtnTxt}>{t('search.searchBtn')}</Text>
         </TouchableOpacity>
       </View>
 
-      <RegionPicker visible={regionPickerVisible} selected={selectedRegion?.label || ''}
-        onSelect={r => setSelectedRegion(r)} onClose={() => setRegionPickerVisible(false)} />
+      <RegionPicker
+        visible={regionPickerVisible}
+        selected={selectedRegion?.id || ''}
+        title={t('search.selectRegionTitle')}
+        onSelect={r => setSelectedRegion(r)}
+        onClose={() => setRegionPickerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
   scroll: { paddingHorizontal: H_PAD, paddingTop: 20 },

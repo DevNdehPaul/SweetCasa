@@ -2,6 +2,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Image,
@@ -21,23 +22,15 @@ const PURPLE = '#7C3AED';
 
 // ─── Welcome Modal ────────────────────────────────────────────────────────────
 function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 60,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
+        Animated.spring(scaleAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
       ]).start();
     }
   }, [visible]);
@@ -50,20 +43,20 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
           <View style={wm.iconWrap}>
             <Ionicons name="home" size={32} color="#fff" />
           </View>
-          <Text style={wm.title}>Welcome to SweetCasa! 🏠</Text>
-          <Text style={wm.subtitle}>You're logged in as a House Owner</Text>
+          <Text style={wm.title}>{t('agentHub.welcomeTitle')}</Text>
+          <Text style={wm.subtitle}>{t('agentHub.welcomeSubtitle')}</Text>
           <Text style={wm.body}>
-            As a verified House Owner on SweetCasa, you can{' '}
-            <Text style={wm.bold}>list your properties</Text> — apartments, studios, villas,
-            and more — for{' '}
-            <Text style={wm.bold}>Purchase or Rent</Text>. House Seekers across Cameroon will
-            discover and connect with your listings directly through our platform.
+            {t('agentHub.welcomeBody').split(t('agentHub.welcomeBold1'))[0]}
+            <Text style={wm.bold}>{t('agentHub.welcomeBold1')}</Text>
+            {t('agentHub.welcomeBody').split(t('agentHub.welcomeBold1'))[1]?.split(t('agentHub.welcomeBold2'))[0]}
+            <Text style={wm.bold}>{t('agentHub.welcomeBold2')}</Text>
+            {t('agentHub.welcomeBody').split(t('agentHub.welcomeBold2'))[1]}
           </Text>
           <View style={wm.stepsWrap}>
             {[
-              { icon: 'upload-cloud', text: 'Upload your property with photos & video' },
-              { icon: 'users',        text: 'House Seekers find and contact you' },
-              { icon: 'shield',       text: 'SweetCasa verifies & protects every deal' },
+              { icon: 'upload-cloud', text: t('agentHub.step1') },
+              { icon: 'users',        text: t('agentHub.step2') },
+              { icon: 'shield',       text: t('agentHub.step3') },
             ].map((step, i) => (
               <View key={i} style={wm.stepRow}>
                 <View style={wm.stepIcon}>
@@ -74,10 +67,10 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
             ))}
           </View>
           <TouchableOpacity style={wm.btn} onPress={onClose} activeOpacity={0.88}>
-            <Text style={wm.btnTxt}>Get Started</Text>
+            <Text style={wm.btnTxt}>{t('agentHub.getStarted')}</Text>
             <Feather name="arrow-right" size={16} color="#fff" />
           </TouchableOpacity>
-          <Text style={wm.skipTxt} onPress={onClose}>I'll explore on my own</Text>
+          <Text style={wm.skipTxt} onPress={onClose}>{t('agentHub.exploreOwn')}</Text>
         </Animated.View>
       </View>
     </Modal>
@@ -86,14 +79,13 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function AgentHubScreen() {
-  const [profile, setProfile] = useState<any>(null);
-  const [listings, setListings] = useState<any[]>([]);
+  const { t } = useTranslation();
+  const [profile, setProfile]     = useState<any>(null);
+  const [listings, setListings]   = useState<any[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem('profile').then((p) => {
-      if (p) setProfile(JSON.parse(p));
-    });
+    AsyncStorage.getItem('profile').then((p) => { if (p) setProfile(JSON.parse(p)); });
     loadListings();
     checkWelcome();
   }, []);
@@ -113,7 +105,7 @@ export default function AgentHubScreen() {
         id: String(l.id),
         title: l.title,
         price: `${Number(l.price).toLocaleString()} XAF`,
-        status: l.status === 'Available' ? 'Active' : l.status,
+        status: l.status === 'Available' ? t('dashboard.available') : l.status,
         views: 0,
         messages: 0,
       }));
@@ -128,12 +120,11 @@ export default function AgentHubScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F4F3FF" />
-
       <WelcomeModal visible={showWelcome} onClose={() => setShowWelcome(false)} />
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Agent Hub</Text>
+        <Text style={styles.headerTitle}>{t('agentHub.title')}</Text>
         <TouchableOpacity style={styles.bellBtn}>
           <Feather name="bell" size={22} color="#111" />
           <View style={styles.bellDot} />
@@ -145,17 +136,14 @@ export default function AgentHubScreen() {
         {/* ── User Row ── */}
         <View style={styles.userRow}>
           <View style={styles.avatarWrap}>
-            <Image
-              source={{ uri: 'https://randomuser.me/api/portraits/men/45.jpg' }}
-              style={styles.avatar}
-            />
+            <Image source={{ uri: 'https://randomuser.me/api/portraits/men/45.jpg' }} style={styles.avatar} />
             <View style={styles.onlineDot} />
           </View>
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{profile?.name}</Text>
             <View style={styles.verifiedRow}>
               <Ionicons name="shield-checkmark" size={13} color={PURPLE} />
-              <Text style={styles.verifiedTxt}>Verified House Owner</Text>
+              <Text style={styles.verifiedTxt}>{t('agentHub.verifiedOwner')}</Text>
             </View>
           </View>
         </View>
@@ -164,13 +152,13 @@ export default function AgentHubScreen() {
         <View style={styles.walletCard}>
           <View style={styles.walletLabelRow}>
             <MaterialCommunityIcons name="currency-usd" size={16} color={PURPLE} />
-            <Text style={styles.walletLabel}>Secure Escrow Balance</Text>
+            <Text style={styles.walletLabel}>{t('agentHub.escrowBalance')}</Text>
           </View>
           <Text style={styles.walletAmount}>1,250,000 XAF</Text>
-          <Text style={styles.walletPending}>450,000 XAF Pending Payout</Text>
+          <Text style={styles.walletPending}>450,000 XAF {t('agentHub.pendingPayout')}</Text>
           <Link href="/wallet">
             <TouchableOpacity style={styles.walletBtn} activeOpacity={0.85}>
-              <Text style={styles.walletBtnTxt}>Manage Wallet</Text>
+              <Text style={styles.walletBtnTxt}>{t('agentHub.manageWallet')}</Text>
             </TouchableOpacity>
           </Link>
         </View>
@@ -182,66 +170,56 @@ export default function AgentHubScreen() {
               <Feather name="trending-up" size={18} color={PURPLE} />
             </View>
             <Text style={styles.statNum}>14.2%</Text>
-            <Text style={styles.statLabel}>Lead Conversion</Text>
+            <Text style={styles.statLabel}>{t('agentHub.leadConversion')}</Text>
           </View>
           <View style={styles.statCard}>
             <View style={styles.statIconWrap}>
               <Feather name="message-circle" size={18} color={PURPLE} />
             </View>
             <Text style={styles.statNum}>12</Text>
-            <Text style={styles.statLabel}>Unread Messages</Text>
+            <Text style={styles.statLabel}>{t('agentHub.unreadMessages')}</Text>
           </View>
         </View>
 
         {/* ── Quick Actions ── */}
-        <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
+        <Text style={styles.sectionLabel}>{t('agentHub.quickActions')}</Text>
 
-        {/* Upload Property */}
-        <TouchableOpacity
-          style={styles.actionCard}
-          activeOpacity={0.85}
-          onPress={() => router.push('/upload')}
-        >
+        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85} onPress={() => router.push('/upload')}>
           <View style={styles.actionIconWrap}>
             <Feather name="plus" size={22} color="#fff" />
           </View>
           <View style={styles.actionText}>
-            <Text style={styles.actionTitle}>Upload New Property</Text>
-            <Text style={styles.actionSub}>List your apartment, studio or villa in minutes.</Text>
+            <Text style={styles.actionTitle}>{t('agentHub.uploadProperty')}</Text>
+            <Text style={styles.actionSub}>{t('agentHub.uploadPropertySub')}</Text>
           </View>
           <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
-        {/* Messages */}
-        <TouchableOpacity
-          style={[styles.actionCard, styles.actionCardMessages]}
-          activeOpacity={0.85}
-          onPress={() => router.push('/messages')}
-        >
+        <TouchableOpacity style={[styles.actionCard, styles.actionCardMessages]} activeOpacity={0.85} onPress={() => router.push('/messages')}>
           <View style={[styles.actionIconWrap, styles.actionIconMessages]}>
             <Feather name="message-circle" size={22} color="#fff" />
           </View>
           <View style={styles.actionText}>
-            <Text style={styles.actionTitle}>Messages</Text>
-            <Text style={styles.actionSub}>Reply to enquiries from house seekers.</Text>
+            <Text style={styles.actionTitle}>{t('agentHub.messages')}</Text>
+            <Text style={styles.actionSub}>{t('agentHub.messagesSub')}</Text>
           </View>
           <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
         {/* ── Latest Listings ── */}
-        <Text style={styles.sectionLabel}>LATEST LISTINGS</Text>
+        <Text style={styles.sectionLabel}>{t('agentHub.latestListings')}</Text>
 
         <View style={styles.tableCard}>
           {latestListings.length === 0 ? (
             <View style={styles.emptyBox}>
-              <Text style={styles.emptyTxt}>No listings yet. Add your first property!</Text>
+              <Text style={styles.emptyTxt}>{t('agentHub.noListings')}</Text>
             </View>
           ) : (
             <>
               <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderTxt, { flex: 2 }]}>PROPERTY</Text>
-                <Text style={[styles.tableHeaderTxt, { width: 60, textAlign: 'center' }]}>PRICE</Text>
-                <Text style={[styles.tableHeaderTxt, { width: 70, textAlign: 'right' }]}>STATUS</Text>
+                <Text style={[styles.tableHeaderTxt, { flex: 2 }]}>{t('agentHub.property')}</Text>
+                <Text style={[styles.tableHeaderTxt, { width: 60, textAlign: 'center' }]}>{t('agentHub.price')}</Text>
+                <Text style={[styles.tableHeaderTxt, { width: 70, textAlign: 'right' }]}>{t('agentHub.status')}</Text>
               </View>
               {latestListings.map((item, index) => (
                 <View key={item.id}>
@@ -258,11 +236,9 @@ export default function AgentHubScreen() {
                     <Text style={styles.listingPrice}>{item.price}</Text>
                     <Text style={[
                       styles.listingStatus,
-                      item.status === 'Active' || item.status === 'Approved'
-                        ? styles.statusActive
-                        : item.status === 'Rejected'
-                          ? styles.statusRejected
-                          : styles.statusPending,
+                      item.status === 'Active' || item.status === 'Approved' ? styles.statusActive
+                        : item.status === 'Rejected' ? styles.statusRejected
+                        : styles.statusPending,
                     ]}>
                       {item.status}
                     </Text>
@@ -274,14 +250,9 @@ export default function AgentHubScreen() {
           )}
         </View>
 
-        {/* ── View All Listings Button ── */}
-        <TouchableOpacity
-          style={styles.viewAllBtn}
-          activeOpacity={0.85}
-          onPress={() => router.push('/listings')}
-        >
+        <TouchableOpacity style={styles.viewAllBtn} activeOpacity={0.85} onPress={() => router.push('/listings')}>
           <Feather name="list" size={18} color="#fff" />
-          <Text style={styles.viewAllTxt}>View All My Listings</Text>
+          <Text style={styles.viewAllTxt}>{t('agentHub.viewAllListings')}</Text>
           <Feather name="arrow-right" size={18} color="#fff" />
         </TouchableOpacity>
 
@@ -291,169 +262,61 @@ export default function AgentHubScreen() {
   );
 }
 
-// ─── Welcome Modal Styles ─────────────────────────────────────────────────────
 const wm = StyleSheet.create({
-  overlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24,
-  },
-  card: {
-    width: '100%', backgroundColor: '#fff',
-    borderRadius: 28, overflow: 'hidden', paddingBottom: 28,
-  },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  card: { width: '100%', backgroundColor: '#fff', borderRadius: 28, overflow: 'hidden', paddingBottom: 28 },
   topAccent: { height: 6, backgroundColor: PURPLE, width: '100%' },
-  iconWrap: {
-    width: 68, height: 68, borderRadius: 34, backgroundColor: PURPLE,
-    alignItems: 'center', justifyContent: 'center', alignSelf: 'center',
-    marginTop: 24, marginBottom: 16,
-    shadowColor: PURPLE, shadowOpacity: 0.4, shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 }, elevation: 8,
-  },
-  title: {
-    fontSize: 22, fontWeight: '800', color: '#111',
-    textAlign: 'center', letterSpacing: -0.5, paddingHorizontal: 24,
-  },
-  subtitle: {
-    fontSize: 13, color: PURPLE, fontWeight: '600',
-    textAlign: 'center', marginTop: 4, marginBottom: 14,
-  },
-  body: {
-    fontSize: 13.5, color: '#555', lineHeight: 21,
-    textAlign: 'center', paddingHorizontal: 24, marginBottom: 20,
-  },
+  iconWrap: { width: 68, height: 68, borderRadius: 34, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 24, marginBottom: 16, shadowColor: PURPLE, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+  title: { fontSize: 22, fontWeight: '800', color: '#111', textAlign: 'center', letterSpacing: -0.5, paddingHorizontal: 24 },
+  subtitle: { fontSize: 13, color: PURPLE, fontWeight: '600', textAlign: 'center', marginTop: 4, marginBottom: 14 },
+  body: { fontSize: 13.5, color: '#555', lineHeight: 21, textAlign: 'center', paddingHorizontal: 24, marginBottom: 20 },
   bold: { fontWeight: '700', color: '#222' },
-  stepsWrap: {
-    marginHorizontal: 24, backgroundColor: '#F8F7FF',
-    borderRadius: 16, padding: 16, gap: 12, marginBottom: 24,
-  },
+  stepsWrap: { marginHorizontal: 24, backgroundColor: '#F8F7FF', borderRadius: 16, padding: 16, gap: 12, marginBottom: 24 },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepIcon: {
-    width: 32, height: 32, borderRadius: 10, backgroundColor: '#EDE9FE',
-    alignItems: 'center', justifyContent: 'center',
-  },
+  stepIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
   stepTxt: { flex: 1, fontSize: 13, color: '#333', fontWeight: '500' },
-  btn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, marginHorizontal: 24, backgroundColor: PURPLE,
-    borderRadius: 16, paddingVertical: 16,
-    shadowColor: PURPLE, shadowOpacity: 0.35, shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 }, elevation: 6,
-  },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 24, backgroundColor: PURPLE, borderRadius: 16, paddingVertical: 16, shadowColor: PURPLE, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   btnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  skipTxt: {
-    textAlign: 'center', fontSize: 12,
-    color: '#A0A0A0', marginTop: 14, fontWeight: '500',
-  },
+  skipTxt: { textAlign: 'center', fontSize: 12, color: '#A0A0A0', marginTop: 14, fontWeight: '500' },
 });
 
-// ─── Screen Styles ────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F4F3FF' },
   scroll: { paddingBottom: 20 },
-
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: H_PAD, paddingTop: 8, paddingBottom: 16,
-    backgroundColor: '#F4F3FF',
-  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, paddingTop: 8, paddingBottom: 16, backgroundColor: '#F4F3FF' },
   headerTitle: { fontSize: 26, fontWeight: '800', color: '#111', letterSpacing: -0.6 },
-  bellBtn: {
-    width: 42, height: 42, alignItems: 'center',
-    justifyContent: 'center', position: 'relative',
-  },
-  bellDot: {
-    position: 'absolute', top: 6, right: 6,
-    width: 9, height: 9, borderRadius: 5,
-    backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#F4F3FF',
-  },
-
-  userRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: H_PAD, marginBottom: 20, gap: 12,
-  },
+  bellBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  bellDot: { position: 'absolute', top: 6, right: 6, width: 9, height: 9, borderRadius: 5, backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#F4F3FF' },
+  userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 20, gap: 12 },
   avatarWrap: { position: 'relative' },
   avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: '#fff' },
-  onlineDot: {
-    position: 'absolute', bottom: 1, right: 1,
-    width: 12, height: 12, borderRadius: 6,
-    backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#F4F3FF',
-  },
+  onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#F4F3FF' },
   userInfo: { flex: 1 },
   userName: { fontSize: 17, fontWeight: '800', color: '#111', letterSpacing: -0.3, marginBottom: 3 },
   verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   verifiedTxt: { fontSize: 12, color: PURPLE, fontWeight: '600' },
-
-  walletCard: {
-    marginHorizontal: H_PAD, backgroundColor: '#EDE9FE',
-    borderRadius: 22, padding: 22, marginBottom: 16,
-  },
+  walletCard: { marginHorizontal: H_PAD, backgroundColor: '#EDE9FE', borderRadius: 22, padding: 22, marginBottom: 16 },
   walletLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   walletLabel: { fontSize: 13, fontWeight: '600', color: PURPLE },
   walletAmount: { fontSize: 34, fontWeight: '800', color: '#6D28D9', letterSpacing: -1, marginBottom: 6 },
   walletPending: { fontSize: 13, color: '#8B5CF6', marginBottom: 20 },
-  walletBtn: {
-    backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 14,
-    paddingHorizontal: 24, alignSelf: 'flex-start',
-    shadowColor: '#5B21B6', shadowOpacity: 0.35, shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 }, elevation: 6,
-  },
+  walletBtn: { backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 24, alignSelf: 'flex-start', shadowColor: '#5B21B6', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
   walletBtnTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
-
   statsRow: { flexDirection: 'row', gap: 12, marginHorizontal: H_PAD, marginBottom: 24 },
-  statCard: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 18, padding: 18,
-    shadowColor: PURPLE, shadowOpacity: 0.06, shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 }, elevation: 2,
-  },
-  statIconWrap: {
-    width: 38, height: 38, borderRadius: 12, backgroundColor: '#F3F0FF',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-  },
+  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 18, padding: 18, shadowColor: PURPLE, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  statIconWrap: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F3F0FF', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   statNum: { fontSize: 28, fontWeight: '800', color: '#111', letterSpacing: -0.8, marginBottom: 4 },
   statLabel: { fontSize: 12, color: '#A0A0A0', fontWeight: '500' },
-
-  sectionLabel: {
-    fontSize: 11, fontWeight: '700', color: '#A0A0A0',
-    letterSpacing: 1.2, paddingHorizontal: H_PAD, marginBottom: 10,
-  },
-
-  // ── Action cards ──
-  actionCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18,
-    padding: 18, marginBottom: 12,                      // ← 12 gap between cards
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 }, elevation: 2,
-  },
-  actionCardMessages: {
-    marginBottom: 24,                                   // restore bottom gap after last card
-  },
-  actionIconWrap: {
-    width: 50, height: 50, borderRadius: 25, backgroundColor: PURPLE,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#5B21B6', shadowOpacity: 0.3, shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 }, elevation: 4,
-  },
-  // Teal icon circle for messages
-  actionIconMessages: {
-    backgroundColor: '#0891B2',
-    shadowColor: '#0891B2',
-  },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#A0A0A0', letterSpacing: 1.2, paddingHorizontal: H_PAD, marginBottom: 10 },
+  actionCard: { flexDirection: 'row', alignItems: 'center', gap: 16, marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  actionCardMessages: { marginBottom: 24 },
+  actionIconWrap: { width: 50, height: 50, borderRadius: 25, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', shadowColor: '#5B21B6', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+  actionIconMessages: { backgroundColor: '#0891B2', shadowColor: '#0891B2' },
   actionText: { flex: 1 },
   actionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2, marginBottom: 3 },
   actionSub: { fontSize: 12, color: '#A0A0A0', lineHeight: 17 },
-
-  tableCard: {
-    marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18,
-    overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05,
-    shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2,
-    marginBottom: 16,
-  },
-  tableHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: '#FAFAFA', borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
-  },
+  tableCard: { marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2, marginBottom: 16 },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FAFAFA', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   tableHeaderTxt: { fontSize: 10, fontWeight: '700', color: '#B0B0B0', letterSpacing: 0.8 },
   tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   tableDivider: { height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 },
@@ -465,16 +328,8 @@ const styles = StyleSheet.create({
   statusActive: { color: '#16A34A' },
   statusPending: { color: '#D97706' },
   statusRejected: { color: '#DC2626' },
-
   emptyBox: { padding: 24, alignItems: 'center' },
   emptyTxt: { fontSize: 13, color: '#A0A0A0', textAlign: 'center' },
-
-  viewAllBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, marginHorizontal: H_PAD, backgroundColor: PURPLE,
-    paddingVertical: 16, borderRadius: 16,
-    shadowColor: PURPLE, shadowOpacity: 0.35, shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 }, elevation: 6,
-  },
+  viewAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginHorizontal: H_PAD, backgroundColor: PURPLE, paddingVertical: 16, borderRadius: 16, shadowColor: PURPLE, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
   viewAllTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

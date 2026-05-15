@@ -30,6 +30,7 @@ export default function RootLayout() {
   <Stack.Screen name="TermsOwnerRead"  options={{ headerShown: false }} />
   <Stack.Screen name="TermsSeekerRead"  options={{ headerShown: false }} />
   <Stack.Screen name="AccountInformation"  options={{ headerShown: false }} />
+  <Stack.Screen name="casamatch"  options={{ headerShown: false }} />
   <Stack.Screen name="(tabs)"       options={{ headerShown: false }} />
   <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
   

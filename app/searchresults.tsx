@@ -1,6 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next'; // adjust path as needed
 import {
   ActivityIndicator, Dimensions, Image, SafeAreaView,
   ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View,
@@ -26,22 +27,22 @@ function getPrimaryImage(images: ListingImage[]) {
     ?? [...images].sort((a, b) => a.sortOrder - b.sortOrder)[0].imageUrl;
 }
 
-function formatPrice(price: string, freq: string | null) {
+function formatPrice(price: string, freq: string | null, t: (key: string) => string) {
   const n = Number(price);
-  const f = n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace('.0', '')}M` : n.toLocaleString('fr-CM');
+  const f = n >= 1_000_000
+    ? `${(n / 1_000_000).toFixed(1).replace('.0', '')}M`
+    : n.toLocaleString('fr-CM');
   if (freq === 'For Sale') return `${f} XAF`;
-  if (freq === 'Yearly')   return `${f} XAF/yr`;
-  return `${f} XAF/mo`;
+  if (freq === 'Yearly')   return `${f} XAF/${t('propertyDetail.yearlyPeriod').replace('/ ', '')}`;
+  return `${f} XAF/${t('propertyDetail.monthlyPeriod').replace('/ ', '')}`;
 }
 
-function ListingCard({ item }: { item: Listing }) {
+function ListingCard({ item, t }: { item: Listing; t: (key: string) => string }) {
   const [saved, setSaved] = useState(false);
   const img = getPrimaryImage(item.images);
   const location = [item.neighborhood, item.city, item.region].filter(Boolean).join(', ');
 
   const handlePress = () => {
-    // Pass the full listing as JSON so propertydetail works
-    // even without a GET /listings/:id backend endpoint
     router.push({
       pathname: '/propertydetail',
       params: {
@@ -59,13 +60,15 @@ function ListingCard({ item }: { item: Listing }) {
           : <View style={[styles.cardImg, styles.cardImgPlaceholder]}><Text style={{ fontSize: 30 }}>🏠</Text></View>
         }
         <View style={styles.pricePill}>
-          <Text style={styles.pricePillTxt}>{formatPrice(item.price, item.paymentFrequency)}</Text>
+          <Text style={styles.pricePillTxt}>{formatPrice(item.price, item.paymentFrequency, t)}</Text>
         </View>
         <TouchableOpacity style={styles.saveBtn} onPress={() => setSaved(p => !p)}>
           <Ionicons name={saved ? 'heart' : 'heart-outline'} size={14} color={saved ? '#EF4444' : '#888'} />
         </TouchableOpacity>
         {item.status === 'Approved' && (
-          <View style={styles.verifiedBadge}><Text style={styles.verifiedTxt}>VERIFIED</Text></View>
+          <View style={styles.verifiedBadge}>
+            <Text style={styles.verifiedTxt}>{t('searchResults.verified')}</Text>
+          </View>
         )}
       </View>
       <View style={styles.cardBody}>
@@ -84,6 +87,8 @@ function ListingCard({ item }: { item: Listing }) {
 }
 
 export default function SearchResultsScreen() {
+  const { t } = useTranslation();
+
   const raw = useLocalSearchParams<{
     region?: string; city?: string; neighborhood?: string;
     type?: string; status?: string; state?: string; maxBudget?: string; facilities?: string;
@@ -122,14 +127,14 @@ export default function SearchResultsScreen() {
 
       const res  = await fetch(`${BASE_URL}/listings?${query.toString()}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to load listings.');
+      if (!res.ok) throw new Error(data.error || t('errors.serverError'));
 
       setListings(pg === 1 ? data.listings : prev => [...prev, ...data.listings]);
       setTotal(data.total);
       setHasMore(pg < data.pages);
       setPage(pg);
     } catch (err: any) {
-      setError(err.message || 'Something went wrong.');
+      setError(err.message || t('errors.error'));
     } finally {
       setLoading(false);
     }
@@ -159,8 +164,10 @@ export default function SearchResultsScreen() {
           <Feather name="chevron-left" size={22} color="#111" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Search Results</Text>
-          {filterSummary ? <Text style={styles.headerSub} numberOfLines={1}>{filterSummary}</Text> : null}
+          <Text style={styles.headerTitle}>{t('searchResults.title')}</Text>
+          {filterSummary ? (
+            <Text style={styles.headerSub} numberOfLines={1}>{filterSummary}</Text>
+          ) : null}
         </View>
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
           <Feather name="sliders" size={18} color={PURPLE} />
@@ -170,48 +177,56 @@ export default function SearchResultsScreen() {
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={PURPLE} />
-          <Text style={styles.loadingTxt}>Finding properties…</Text>
+          <Text style={styles.loadingTxt}>{t('searchResults.finding')}</Text>
         </View>
       ) : error ? (
         <View style={styles.centered}>
           <Text style={styles.errorTxt}>{error}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={() => fetchListings(1)}>
-            <Text style={styles.retryTxt}>Try Again</Text>
+            <Text style={styles.retryTxt}>{t('common.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
           <View style={styles.metaRow}>
             <View>
-              <Text style={styles.metaSmall}>Found for you</Text>
-              <Text style={styles.metaBig}>{total} listing{total !== 1 ? 's' : ''}</Text>
+              <Text style={styles.metaSmall}>{t('searchResults.foundForYou')}</Text>
+              <Text style={styles.metaBig}>
+                {total} {t(total !== 1 ? 'searchResults.listings' : 'searchResults.listing')}
+              </Text>
             </View>
           </View>
 
           {listings.length === 0 ? (
             <View style={styles.emptyBox}>
               <Text style={styles.emptyIcon}>🏘️</Text>
-              <Text style={styles.emptyTitle}>No properties found</Text>
-              <Text style={styles.emptyDesc}>Try adjusting your filters — change the region, budget, or house type.</Text>
+              <Text style={styles.emptyTitle}>{t('searchResults.noPropertiesTitle')}</Text>
+              <Text style={styles.emptyDesc}>{t('searchResults.noPropertiesDesc')}</Text>
               <TouchableOpacity style={styles.adjustBtn} onPress={() => router.back()}>
-                <Text style={styles.adjustTxt}>Adjust Filters</Text>
+                <Text style={styles.adjustTxt}>{t('searchResults.adjustFilters')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <>
               <View style={styles.grid}>
-                {listings.map(item => <ListingCard key={item.id} item={item} />)}
+                {listings.map(item => (
+                  <ListingCard key={item.id} item={item} t={t} />
+                ))}
               </View>
               {hasMore && (
                 <TouchableOpacity
-                  style={styles.seeMoreBtn} activeOpacity={0.8}
+                  style={styles.seeMoreBtn}
+                  activeOpacity={0.8}
                   onPress={() => fetchListings(page + 1)}
-                  disabled={loading}>
-                  <Text style={styles.seeMoreTxt}>Load More</Text>
+                  disabled={loading}
+                >
+                  <Text style={styles.seeMoreTxt}>{t('searchResults.loadMore')}</Text>
                   <Feather name="chevron-down" size={16} color={PURPLE} />
                 </TouchableOpacity>
               )}
-              <Text style={styles.showingTxt}>Showing {listings.length} of {total} results</Text>
+              <Text style={styles.showingTxt}>
+                {t('searchResults.showing')} {listings.length} {t('searchResults.of')} {total} {t('searchResults.results')}
+              </Text>
             </>
           )}
           <View style={{ height: 80 }} />

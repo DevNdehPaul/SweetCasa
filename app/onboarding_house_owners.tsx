@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Dimensions,
@@ -22,73 +23,90 @@ const PURPLE_LIGHT = '#F0EBFF';
 interface Slide {
   id: string;
   image: any;
-  headline: string;
-  body: string;
+  headlineKey: string;
+  bodyKey: string;
   accentColor: string;
 }
 
-const slides: Slide[] = [
+// Static slide data — only translation keys and assets here, no hardcoded strings
+const SLIDES: Slide[] = [
   {
     id: '1',
     image: require('../assets/owner_list.png'),
-    headline: 'Reach Verified Tenants',
-    body: 'List your property to thousands of serious seekers. We background-check our users so you only deal with high-intent, verified tenants.',
+    headlineKey: 'ownerOnboarding.slide1_headline',
+    bodyKey:     'ownerOnboarding.slide1_body',
     accentColor: '#7C3AED',
   },
   {
     id: '2',
     image: require('../assets/owner_payout.png'),
-    headline: 'Guaranteed Payouts',
-    body: 'Stop chasing payments. All transactions happen in-app and are disbursed directly to your account 7 days after the tenant moves in.',
+    headlineKey: 'ownerOnboarding.slide2_headline',
+    bodyKey:     'ownerOnboarding.slide2_body',
     accentColor: '#6D28D9',
   },
   {
     id: '3',
     image: require('../assets/owner_dashboard.png'),
-    headline: 'Manage from Anywhere',
-    body: 'Manage your listings, viewings, and earnings all in one dashboard. SweetCasa makes being a landlord simple, digital, and secure.',
+    headlineKey: 'ownerOnboarding.slide3_headline',
+    bodyKey:     'ownerOnboarding.slide3_body',
     accentColor: '#5B21B6',
   },
 ];
 
-const DotIndicator = ({ count, activeIndex, color }: { count: number; activeIndex: number; color: string }) => (
+// ─── Dot Indicator ────────────────────────────────────────────────────────────
+const DotIndicator = ({
+  count, activeIndex, color,
+}: {
+  count: number; activeIndex: number; color: string;
+}) => (
   <View style={styles.dotRow}>
     {Array.from({ length: count }).map((_, i) => (
       <Animated.View
         key={i}
-        style={[styles.dot, { backgroundColor: i === activeIndex ? color : '#D8B4FE', width: i === activeIndex ? 28 : 8 }]}
+        style={[
+          styles.dot,
+          { backgroundColor: i === activeIndex ? color : '#D8B4FE', width: i === activeIndex ? 28 : 8 },
+        ]}
       />
     ))}
   </View>
 );
 
-const SlideItem = ({ item }: { item: Slide }) => (
-  <View style={[styles.slide, { width }]}>
-    <View style={[styles.blob, { backgroundColor: item.accentColor + '18' }]} />
-    <View style={styles.imageWrapper}>
-      <Image source={item.image} style={styles.illustration} resizeMode="contain" />
-    </View>
-    <View style={styles.textBlock}>
-      <View style={[styles.pill, { backgroundColor: item.accentColor + '15' }]}>
-        <Text style={[styles.pillText, { color: item.accentColor }]}>🏡 For House Owners</Text>
+// ─── Slide Item ───────────────────────────────────────────────────────────────
+const SlideItem = ({ item }: { item: Slide }) => {
+  const { t } = useTranslation();
+  return (
+    <View style={[styles.slide, { width }]}>
+      <View style={[styles.blob, { backgroundColor: item.accentColor + '18' }]} />
+      <View style={styles.imageWrapper}>
+        <Image source={item.image} style={styles.illustration} resizeMode="contain" />
       </View>
-      <Text style={styles.headline}>{item.headline}</Text>
-      <Text style={styles.body}>{item.body}</Text>
+      <View style={styles.textBlock}>
+        <View style={[styles.pill, { backgroundColor: item.accentColor + '15' }]}>
+          <Text style={[styles.pillText, { color: item.accentColor }]}>
+            {t('ownerOnboarding.pill')}
+          </Text>
+        </View>
+        <Text style={styles.headline}>{t(item.headlineKey)}</Text>
+        <Text style={styles.body}>{t(item.bodyKey)}</Text>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function OwnerOnboarding() {
+  const { t } = useTranslation();
   const flatListRef = useRef<FlatList<Slide>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / width);
-    if (idx >= 0 && idx < slides.length && idx !== activeIndex) setActiveIndex(idx);
+    if (idx >= 0 && idx < SLIDES.length && idx !== activeIndex) setActiveIndex(idx);
   };
 
   const goNext = () => {
-    if (activeIndex < slides.length - 1) {
+    if (activeIndex < SLIDES.length - 1) {
       const next = activeIndex + 1;
       flatListRef.current?.scrollToIndex({ index: next, animated: true });
       setActiveIndex(next);
@@ -97,8 +115,8 @@ export default function OwnerOnboarding() {
     }
   };
 
-  const currentAccent = slides[activeIndex].accentColor;
-  const isLast = activeIndex === slides.length - 1;
+  const currentAccent = SLIDES[activeIndex].accentColor;
+  const isLast = activeIndex === SLIDES.length - 1;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -110,15 +128,20 @@ export default function OwnerOnboarding() {
           <Feather name="arrow-left" size={22} color="#111827" />
         </TouchableOpacity>
         {!isLast && (
-          <TouchableOpacity style={[styles.skipBtn, { backgroundColor: currentAccent + '20' }]} onPress={() => router.replace('/house_owners_login_signup')}>
-            <Text style={[styles.skipText, { color: currentAccent }]}>Skip</Text>
+          <TouchableOpacity
+            style={[styles.skipBtn, { backgroundColor: currentAccent + '20' }]}
+            onPress={() => router.replace('/house_owners_login_signup')}
+          >
+            <Text style={[styles.skipText, { color: currentAccent }]}>
+              {t('ownerOnboarding.skip')}
+            </Text>
           </TouchableOpacity>
         )}
       </View>
 
       <FlatList<Slide>
         ref={flatListRef}
-        data={slides}
+        data={SLIDES}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <SlideItem item={item} />}
         horizontal
@@ -132,10 +155,15 @@ export default function OwnerOnboarding() {
       />
 
       <View style={styles.bottomBar}>
-        <DotIndicator count={slides.length} activeIndex={activeIndex} color={currentAccent} />
-        <TouchableOpacity style={[styles.nextBtn, { backgroundColor: currentAccent }]} onPress={goNext} activeOpacity={0.85}>
-          <Text style={styles.nextBtnText}>{isLast ? 'List My Property' : 'Next'}</Text>
-          {/* Use Feather icon instead of unicode arrow — renders correctly on all Android devices */}
+        <DotIndicator count={SLIDES.length} activeIndex={activeIndex} color={currentAccent} />
+        <TouchableOpacity
+          style={[styles.nextBtn, { backgroundColor: currentAccent }]}
+          onPress={goNext}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.nextBtnText}>
+            {isLast ? t('ownerOnboarding.cta') : t('common.next')}
+          </Text>
           <Feather name={isLast ? 'check' : 'arrow-right'} size={18} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -143,64 +171,39 @@ export default function OwnerOnboarding() {
   );
 }
 
+// ─── Styles (unchanged) ───────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FAFAFA' },
-
   topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 4,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
   },
-  skipBtn: {
-    paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20,
-  },
+  skipBtn: { paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20 },
   skipText: { fontSize: 14, fontWeight: '600' },
-
-  slide: {
-    alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 28,
-    paddingBottom: 8,
-  },
+  slide: { alignItems: 'center', paddingTop: 16, paddingHorizontal: 28, paddingBottom: 8 },
   blob: {
-    position: 'absolute',
-    top: 0,
-    left: width * 0.1,
-    width: width * 0.8,
-    height: width * 0.6,
-    borderRadius: width * 0.4,
+    position: 'absolute', top: 0,
+    left: width * 0.1, width: width * 0.8, height: width * 0.6, borderRadius: width * 0.4,
   },
   imageWrapper: {
-    width: width * 0.72,
-    height: height * 0.30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
+    width: width * 0.72, height: height * 0.30,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 24,
   },
   illustration: { width: '100%', height: '100%' },
-
   textBlock: { alignItems: 'center', paddingHorizontal: 8 },
-  pill: {
-    borderRadius: 20, paddingVertical: 5, paddingHorizontal: 14, marginBottom: 14,
-  },
+  pill: { borderRadius: 20, paddingVertical: 5, paddingHorizontal: 14, marginBottom: 14 },
   pillText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   headline: {
     fontSize: 24, fontWeight: '800', color: '#1A1A2E',
     textAlign: 'center', lineHeight: 32, marginBottom: 12, letterSpacing: -0.4,
   },
-  body: {
-    fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22, fontWeight: '400',
-  },
-
+  body: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22, fontWeight: '400' },
   bottomBar: {
-    paddingHorizontal: 28, paddingBottom: 46, paddingTop: 12, // ✅ moved up
+    paddingHorizontal: 28, paddingBottom: 46, paddingTop: 12,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: '#FAFAFA',
   },

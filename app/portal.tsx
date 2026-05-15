@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Dimensions,
@@ -16,6 +17,8 @@ import {
 const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
+  const { t } = useTranslation();
+
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const card1Anim = useRef(new Animated.Value(50)).current;
@@ -39,7 +42,7 @@ export default function WelcomeScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="dark-content" backgroundColor="#F0EEFF" />
 
-      {/* Background blobs — absolutely positioned, non-interactive */}
+      {/* Background blobs */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <View style={styles.blobTop} />
         <View style={styles.blobBottom} />
@@ -60,8 +63,8 @@ export default function WelcomeScreen() {
 
         {/* Title */}
         <Animated.View style={[styles.titleBlock, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <Text style={styles.title}>Welcome</Text>
-          <Text style={styles.subtitle}>Choose your portal to get started</Text>
+          <Text style={styles.title}>{t('portal.title')}</Text>
+          <Text style={styles.subtitle}>{t('portal.subtitle')}</Text>
         </Animated.View>
 
         {/* House Seekers Card */}
@@ -74,10 +77,8 @@ export default function WelcomeScreen() {
             <View style={styles.iconWrapPrimary}>
               <Feather name="search" size={30} color="#fff" />
             </View>
-            <Text style={styles.cardTitlePrimary}>House Seekers</Text>
-            <Text style={styles.cardDescPrimary}>
-              Discover properties and find your perfect dream home.
-            </Text>
+            <Text style={styles.cardTitlePrimary}>{t('portal.seekerTitle')}</Text>
+            <Text style={styles.cardDescPrimary}>{t('portal.seekerDesc')}</Text>
             <View style={styles.arrowBtnPrimary}>
               <Feather name="arrow-right" size={16} color="rgba(255,255,255,0.85)" />
             </View>
@@ -94,207 +95,85 @@ export default function WelcomeScreen() {
             <View style={styles.iconWrapSecondary}>
               <Feather name="key" size={28} color="#7C3AED" />
             </View>
-            <Text style={styles.cardTitleSecondary}>House Owners</Text>
-            <Text style={styles.cardDescSecondary}>
-              List your space and manage your property listings.
-            </Text>
+            <Text style={styles.cardTitleSecondary}>{t('portal.ownerTitle')}</Text>
+            <Text style={styles.cardDescSecondary}>{t('portal.ownerDesc')}</Text>
             <View style={styles.arrowBtnSecondary}>
               <Feather name="arrow-right" size={16} color="#7C3AED" />
             </View>
           </TouchableOpacity>
         </Animated.View>
-
-        
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+// ─── Styles (unchanged) ───────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#F0EEFF',
-  },
-
+  safe: { flex: 1, backgroundColor: '#F0EEFF' },
   blobTop: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: '#DDD6FE',
-    opacity: 0.45,
-    top: -90,
-    right: -70,
+    position: 'absolute', width: 260, height: 260, borderRadius: 130,
+    backgroundColor: '#DDD6FE', opacity: 0.45, top: -90, right: -70,
   },
   blobBottom: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#EDE9FE',
-    opacity: 0.5,
-    bottom: -50,
-    left: -50,
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: '#EDE9FE', opacity: 0.5, bottom: -50, left: -50,
   },
-
-  scroll: {
-    paddingHorizontal: 22,
-    paddingTop: 12,
-    paddingBottom: 36,
-  },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 32,
-  },
+  scroll: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 36 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 32 },
   logoMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#7C3AED',
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
+    width: 34, height: 34, borderRadius: 10, backgroundColor: '#7C3AED',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#7C3AED', shadowOpacity: 0.35, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 }, elevation: 5,
   },
-  brandName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#3B0764',
-    letterSpacing: -0.3,
-  },
-
-  // Title
-  titleBlock: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#1F0A4C',
-    letterSpacing: -0.6,
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 14.5,
-    color: '#7C6FA0',
-    fontWeight: '400',
-  },
-
-  // Primary Card
+  brandName: { fontSize: 18, fontWeight: '800', color: '#3B0764', letterSpacing: -0.3 },
+  titleBlock: { alignItems: 'center', marginBottom: 28 },
+  title: { fontSize: 32, fontWeight: '800', color: '#1F0A4C', letterSpacing: -0.6, marginBottom: 6 },
+  subtitle: { fontSize: 14.5, color: '#7C6FA0', fontWeight: '400' },
   cardPrimary: {
-    backgroundColor: '#7C3AED',
-    borderRadius: 26,
-    paddingVertical: 32,
-    paddingHorizontal: 28,
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#5B21B6',
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    backgroundColor: '#7C3AED', borderRadius: 26,
+    paddingVertical: 32, paddingHorizontal: 28, alignItems: 'center', marginBottom: 16,
+    shadowColor: '#5B21B6', shadowOpacity: 0.4, shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 }, elevation: 10,
   },
   iconWrapPrimary: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
+    width: 72, height: 72, borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center',
+    justifyContent: 'center', marginBottom: 20,
   },
   cardTitlePrimary: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.3,
-    marginBottom: 10,
-    textAlign: 'center',
+    fontSize: 22, fontWeight: '800', color: '#fff',
+    letterSpacing: -0.3, marginBottom: 10, textAlign: 'center',
   },
   cardDescPrimary: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.78)',
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 230,
-    marginBottom: 20,
+    fontSize: 14, color: 'rgba(255,255,255,0.78)',
+    textAlign: 'center', lineHeight: 22, maxWidth: 230, marginBottom: 20,
   },
   arrowBtnPrimary: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center',
   },
-
-  // Secondary Card
   cardSecondary: {
-    backgroundColor: '#fff',
-    borderRadius: 26,
-    paddingVertical: 32,
-    paddingHorizontal: 28,
-    alignItems: 'center',
-    marginBottom: 28,
-    shadowColor: '#7C3AED',
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-    borderWidth: 1.5,
-    borderColor: '#EDE9FE',
+    backgroundColor: '#fff', borderRadius: 26,
+    paddingVertical: 32, paddingHorizontal: 28, alignItems: 'center', marginBottom: 28,
+    shadowColor: '#7C3AED', shadowOpacity: 0.08, shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 }, elevation: 3,
+    borderWidth: 1.5, borderColor: '#EDE9FE',
   },
   iconWrapSecondary: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: '#F5F3FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
+    width: 72, height: 72, borderRadius: 22, backgroundColor: '#F5F3FF',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
   },
   cardTitleSecondary: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1F0A4C',
-    letterSpacing: -0.3,
-    marginBottom: 10,
-    textAlign: 'center',
+    fontSize: 22, fontWeight: '800', color: '#1F0A4C',
+    letterSpacing: -0.3, marginBottom: 10, textAlign: 'center',
   },
   cardDescSecondary: {
-    fontSize: 14,
-    color: '#7C6FA0',
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 230,
-    marginBottom: 20,
+    fontSize: 14, color: '#7C6FA0', textAlign: 'center',
+    lineHeight: 22, maxWidth: 230, marginBottom: 20,
   },
   arrowBtnSecondary: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F5F3FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // Footer
-  footer: {
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12.5,
-    color: '#A78BCA',
-    fontWeight: '500',
-    letterSpacing: 0.1,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#F5F3FF', alignItems: 'center', justifyContent: 'center',
   },
 });

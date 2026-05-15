@@ -1,7 +1,8 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-  Dimensions,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,61 +12,64 @@ import {
   View,
 } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const PURPLE_LIGHT = '#F0EBFF';
 const H_PAD = 20;
+const TEXT_DARK = '#111827';
 
-const OPTIONS = [
-  {
-    id: 'security',
-    icon: 'shield',
-    label: 'Maximum Security',
-    desc: 'Gated community, 24/7 guard, CCTV monitoring.',
-    iconBg: '#7C3AED',
-    iconColor: '#fff',
-  },
-  {
-    id: 'commute',
-    icon: 'navigation',
-    label: 'Easy Commute',
-    desc: 'Close to main roads, taxi ranks, and transit hubs.',
-    iconBg: '#F3F4F6',
-    iconColor: '#6B7280',
-  },
-  {
-    id: 'wfh',
-    icon: 'briefcase',
-    label: 'Work From Home',
-    desc: 'Quiet environment with stable fiber internet.',
-    iconBg: '#F3F4F6',
-    iconColor: '#6B7280',
-  },
-  {
-    id: 'budget',
-    icon: 'zap',
-    label: 'Budget Friendly',
-    desc: 'Optimized costs without sacrificing quality.',
-    iconBg: '#7C3AED',
-    iconColor: '#fff',
-  },
-  {
-    id: 'family',
-    icon: 'users',
-    label: 'Family Oriented',
-    desc: 'Schools, parks, and safe neighborhoods nearby.',
-    iconBg: '#F3F4F6',
-    iconColor: '#6B7280',
-  },
-  {
-    id: 'luxury',
-    icon: 'star',
-    label: 'Luxury Living',
-    desc: 'Premium amenities, pool, gym, and concierge.',
-    iconBg: '#F3F4F6',
-    iconColor: '#6B7280',
-  },
-];
+// ─── Options ──────────────────────────────────────────────────────────────────
+// Labels/descs are now resolved from i18n keys at render time (see getOptions).
 
-function OptionCard({ item, selected, onPress }: { item: typeof OPTIONS[0]; selected: boolean; onPress: () => void }) {
+function getOptions(t: (key: string) => string) {
+  return [
+    {
+      id: 'security',
+      icon: 'shield',
+      label: t('casaMatch.opt_security_label'),
+      desc:  t('casaMatch.opt_security_desc'),
+    },
+    {
+      id: 'commute',
+      icon: 'navigation',
+      label: t('casaMatch.opt_commute_label'),
+      desc:  t('casaMatch.opt_commute_desc'),
+    },
+    {
+      id: 'wfh',
+      icon: 'briefcase',
+      label: t('casaMatch.opt_wfh_label'),
+      desc:  t('casaMatch.opt_wfh_desc'),
+    },
+    {
+      id: 'budget',
+      icon: 'zap',
+      label: t('casaMatch.opt_budget_label'),
+      desc:  t('casaMatch.opt_budget_desc'),
+    },
+    {
+      id: 'family',
+      icon: 'users',
+      label: t('casaMatch.opt_family_label'),
+      desc:  t('casaMatch.opt_family_desc'),
+    },
+    {
+      id: 'luxury',
+      icon: 'star',
+      label: t('casaMatch.opt_luxury_label'),
+      desc:  t('casaMatch.opt_luxury_desc'),
+    },
+  ];
+}
+
+// ─── OptionCard ───────────────────────────────────────────────────────────────
+function OptionCard({
+  item,
+  selected,
+  onPress,
+}: {
+  item: ReturnType<typeof getOptions>[0];
+  selected: boolean;
+  onPress: () => void;
+}) {
   return (
     <TouchableOpacity
       style={[styles.optionCard, selected && styles.optionCardActive]}
@@ -76,8 +80,12 @@ function OptionCard({ item, selected, onPress }: { item: typeof OPTIONS[0]; sele
         <Feather name={item.icon as any} size={20} color={selected ? '#fff' : '#7C3AED'} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.optionLabel, selected && styles.optionLabelActive]}>{item.label}</Text>
-        <Text style={styles.optionDesc} numberOfLines={2}>{item.desc}</Text>
+        <Text style={[styles.optionLabel, selected && styles.optionLabelActive]}>
+          {item.label}
+        </Text>
+        <Text style={styles.optionDesc} numberOfLines={2}>
+          {item.desc}
+        </Text>
       </View>
       {selected && (
         <Ionicons name="checkmark-circle-outline" size={20} color="#7C3AED" />
@@ -86,8 +94,12 @@ function OptionCard({ item, selected, onPress }: { item: typeof OPTIONS[0]; sele
   );
 }
 
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function CasaMatchAIScreen() {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<string[]>(['security', 'budget']);
+
+  const OPTIONS = getOptions(t);
 
   const toggle = (id: string) => {
     setSelected(prev =>
@@ -99,13 +111,17 @@ export default function CasaMatchAIScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* Header */}
-      
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={styles.heading}>Tell us your lifestyle</Text>
-        <Text style={styles.subheading}>
-          Our AI analyzes thousands of verified listings to find your perfect home match.
-        </Text>
+      {/* Back button */}
+      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <Feather name="arrow-left" size={20} color={TEXT_DARK} />
+      </TouchableOpacity>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+      >
+        <Text style={styles.heading}>{t('casaMatch.heading')}</Text>
+        <Text style={styles.subheading}>{t('casaMatch.subheading')}</Text>
 
         <View style={styles.optionsList}>
           {OPTIONS.map(item => (
@@ -118,16 +134,16 @@ export default function CasaMatchAIScreen() {
           ))}
         </View>
 
-        {/* AI Ready hint */}
+        {/* AI ready hint – shows when ≥ 2 selections */}
         {selected.length >= 2 && (
           <View style={styles.aiReadyCard}>
             <View style={styles.aiReadyIcon}>
               <Ionicons name="sparkles" size={16} color="#7C3AED" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.aiReadyTitle}>AI Assistant ready</Text>
+              <Text style={styles.aiReadyTitle}>{t('casaMatch.aiReadyTitle')}</Text>
               <Text style={styles.aiReadyDesc}>
-                Based on your {selected.length} selections, we can identify high-confidence matches.
+                {t('casaMatch.aiReadyDesc', { count: selected.length })}
               </Text>
             </View>
           </View>
@@ -143,26 +159,24 @@ export default function CasaMatchAIScreen() {
           activeOpacity={0.88}
           disabled={selected.length === 0}
         >
-          <Text style={styles.analyzeBtnTxt}>Analyze Compatibility</Text>
+          <Text style={styles.analyzeBtnTxt}>{t('casaMatch.analyzeBtn')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
   scroll: { paddingHorizontal: H_PAD, paddingTop: 20, paddingBottom: 16 },
-
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 10, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
+  backBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
+    marginTop: 20, marginLeft: 10,
   },
-  iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
 
-  heading: { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.5, marginBottom: 8 },
+  heading:    { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.5, marginBottom: 8 },
   subheading: { fontSize: 13.5, color: '#9CA3AF', lineHeight: 20, marginBottom: 24 },
 
   optionsList: { gap: 12 },
@@ -176,9 +190,9 @@ const styles = StyleSheet.create({
     width: 46, height: 46, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
   },
-  optionLabel: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 3 },
+  optionLabel:       { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 3 },
   optionLabelActive: { color: '#5B21B6' },
-  optionDesc: { fontSize: 12, color: '#9CA3AF', lineHeight: 17 },
+  optionDesc:        { fontSize: 12, color: '#9CA3AF', lineHeight: 17 },
 
   aiReadyCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -190,7 +204,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center',
   },
   aiReadyTitle: { fontSize: 13, fontWeight: '700', color: '#7C3AED', marginBottom: 2 },
-  aiReadyDesc: { fontSize: 11.5, color: '#A78BFA', lineHeight: 16 },
+  aiReadyDesc:  { fontSize: 11.5, color: '#A78BFA', lineHeight: 16 },
 
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,

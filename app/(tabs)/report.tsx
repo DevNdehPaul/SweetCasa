@@ -2,25 +2,26 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
 import { BASE_URL } from '../../constants/api';
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
-const PURPLE      = '#7C5CFC';
+const PURPLE       = '#7C5CFC';
 const PURPLE_LIGHT = '#F0EBFF';
 const GRAY_BORDER  = '#E5E7EB';
 const TEXT_DARK    = '#111827';
@@ -29,21 +30,33 @@ const TEXT_LIGHT   = '#9CA3AF';
 const BG           = '#F5F6FA';
 const WHITE        = '#FFFFFF';
 
-// ─── Category options ─────────────────────────────────────────────────────────
-type Category = 'Fraud / Scam' | 'App Bug' | 'Suggestion' | 'Other';
+// ─── Category IDs (stable, never translated) ─────────────────────────────────
+type CategoryId = 'Fraud / Scam' | 'App Bug' | 'Suggestion' | 'Other';
 
-const CATEGORIES: { label: Category; icon: string }[] = [
-  { label: 'Fraud / Scam', icon: '⚠️' },
-  { label: 'App Bug',      icon: '🐛' },
-  { label: 'Suggestion',   icon: '💡' },
-  { label: 'Other',        icon: '❓' },
-];
+const CATEGORY_ICONS: Record<CategoryId, string> = {
+  'Fraud / Scam': '⚠️',
+  'App Bug':      '🐛',
+  'Suggestion':   '💡',
+  'Other':        '❓',
+};
+
+// Keys that map to report.fraud / report.bug / report.suggestion / report.other
+const CATEGORY_KEYS: Record<CategoryId, string> = {
+  'Fraud / Scam': 'report.fraud',
+  'App Bug':      'report.bug',
+  'Suggestion':   'report.suggestion',
+  'Other':        'report.other',
+};
+
+const CATEGORY_IDS: CategoryId[] = ['Fraud / Scam', 'App Bug', 'Suggestion', 'Other'];
 
 type SelectedMedia = { uri: string; fileName?: string | null; mimeType?: string | null };
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ReportIssue() {
-  const [category, setCategory] = useState<Category>('Fraud / Scam');
+  const { t } = useTranslation();
+
+  const [category, setCategory] = useState<CategoryId>('Fraud / Scam');
   const [subject, setSubject]   = useState('');
   const [description, setDescription] = useState('');
   const [media, setMedia]       = useState<SelectedMedia[]>([]);
@@ -54,7 +67,7 @@ export default function ReportIssue() {
   const handleAddMedia = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Permission needed', 'Please allow access to your photo library.');
+      Alert.alert(t('report.permissionNeeded'), t('report.permissionDesc'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -79,11 +92,11 @@ export default function ReportIssue() {
   // ── Submit ──
   const handleSubmit = async () => {
     if (!subject.trim()) {
-      Alert.alert('Subject required', 'Please briefly describe the topic.');
+      Alert.alert(t('report.subjectRequired'), t('report.subjectRequiredDesc'));
       return;
     }
     if (!description.trim()) {
-      Alert.alert('Description required', 'Please provide more detail so we can help you.');
+      Alert.alert(t('report.descriptionRequired'), t('report.descriptionRequiredDesc'));
       return;
     }
 
@@ -113,15 +126,15 @@ export default function ReportIssue() {
       });
 
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || 'Failed to submit report.');
+      if (!res.ok) throw new Error(data?.error || t('report.failedTitle'));
 
       Alert.alert(
-        'Report submitted ✅',
-        'Thank you! Our team will review your report and get back to you if needed.',
-        [{ text: 'OK', onPress: () => router.back() }],
+        t('report.successTitle'),
+        t('report.successDesc'),
+        [{ text: t('common.ok'), onPress: () => router.back() }],
       );
     } catch (err: any) {
-      Alert.alert('Submission failed', err?.message || 'Please try again.');
+      Alert.alert(t('report.failedTitle'), err?.message || t('common.error'));
     } finally {
       setSubmitting(false);
     }
@@ -131,7 +144,7 @@ export default function ReportIssue() {
     <SafeAreaView style={s.safe}>
       {/* ── Header ── */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>Report Issue</Text>
+        <Text style={s.headerTitle}>{t('report.title')}</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -148,26 +161,23 @@ export default function ReportIssue() {
             <View style={s.iconCircle}>
               <Text style={s.heroIcon}>💬</Text>
             </View>
-            <Text style={s.heroTitle}>How can we help?</Text>
-            <Text style={s.heroSub}>
-              Let us know about an issue, report suspicious activity, or suggest an improvement
-              to make SweetCasa better.
-            </Text>
+            <Text style={s.heroTitle}>{t('report.heroTitle')}</Text>
+            <Text style={s.heroSub}>{t('report.heroSub')}</Text>
           </View>
 
           {/* ── Category ── */}
-          <Text style={s.sectionTitle}>What is this regarding?</Text>
+          <Text style={s.sectionTitle}>{t('report.whatRegarding')}</Text>
           <View style={s.categoryGrid}>
-            {CATEGORIES.map(({ label, icon }) => {
-              const active = category === label;
+            {CATEGORY_IDS.map((id) => {
+              const active = category === id;
               return (
                 <TouchableOpacity
-                  key={label}
-                  onPress={() => setCategory(label)}
+                  key={id}
+                  onPress={() => setCategory(id)}
                   style={[s.categoryChip, active && s.categoryChipActive]}>
-                  <Text style={s.categoryIcon}>{icon}</Text>
+                  <Text style={s.categoryIcon}>{CATEGORY_ICONS[id]}</Text>
                   <Text style={[s.categoryLabel, active && s.categoryLabelActive]}>
-                    {label}
+                    {t(CATEGORY_KEYS[id])}
                   </Text>
                 </TouchableOpacity>
               );
@@ -176,22 +186,20 @@ export default function ReportIssue() {
 
           {/* ── Subject & Description ── */}
           <View style={s.card}>
-            <Text style={s.fieldLabel}>Subject</Text>
+            <Text style={s.fieldLabel}>{t('report.subject')}</Text>
             <TextInput
               style={s.input}
-              placeholder="Briefly describe the topic"
+              placeholder={t('report.subjectPlaceholder')}
               placeholderTextColor={TEXT_LIGHT}
               value={subject}
               onChangeText={setSubject}
               returnKeyType="next"
             />
 
-            <Text style={[s.fieldLabel, { marginTop: 16 }]}>Description</Text>
+            <Text style={[s.fieldLabel, { marginTop: 16 }]}>{t('report.description')}</Text>
             <TextInput
               style={[s.input, s.inputMulti]}
-              placeholder={
-                'Please provide as much detail as possible so our team can assist you effectively…'
-              }
+              placeholder={t('report.descriptionPlaceholder')}
               placeholderTextColor={TEXT_LIGHT}
               multiline
               value={description}
@@ -203,20 +211,18 @@ export default function ReportIssue() {
           {/* ── Evidence ── */}
           <View style={s.card}>
             <View style={s.evidenceHeader}>
-              <Text style={s.fieldLabel}>Screenshots or Evidence</Text>
-              <Text style={s.maxBadge}>Max 3</Text>
+              <Text style={s.fieldLabel}>{t('report.evidence')}</Text>
+              <Text style={s.maxBadge}>{t('report.maxFiles')}</Text>
             </View>
 
             <View style={s.mediaRow}>
-              {/* Add button — only shown when < 3 files */}
               {media.length < 3 && (
                 <TouchableOpacity onPress={handleAddMedia} style={s.addBox}>
                   <Text style={s.addPlus}>+</Text>
-                  <Text style={s.addLabel}>Add</Text>
+                  <Text style={s.addLabel}>{t('report.addEvidence')}</Text>
                 </TouchableOpacity>
               )}
 
-              {/* Previews */}
               {media.map((m) => (
                 <View key={m.uri} style={s.previewWrap}>
                   <Image source={{ uri: m.uri }} style={s.previewImg} />
@@ -229,17 +235,15 @@ export default function ReportIssue() {
               ))}
             </View>
 
-            <Text style={s.evidenceHint}>
-              Upload images or documents that help explain your report.
-            </Text>
+            <Text style={s.evidenceHint}>{t('report.evidenceHint')}</Text>
           </View>
 
           {/* ── Follow-up toggle ── */}
           <View style={s.card}>
             <View style={s.toggleRow}>
               <View style={{ flex: 1 }}>
-                <Text style={s.toggleTitle}>Follow up with me</Text>
-                <Text style={s.toggleSub}>Allow support to contact you</Text>
+                <Text style={s.toggleTitle}>{t('report.followUp')}</Text>
+                <Text style={s.toggleSub}>{t('report.followUpSub')}</Text>
               </View>
               <Switch
                 value={followUp}
@@ -263,7 +267,9 @@ export default function ReportIssue() {
           disabled={submitting}
           activeOpacity={0.85}>
           <Text style={s.submitIcon}>✈</Text>
-          <Text style={s.submitTxt}>{submitting ? 'Submitting…' : 'Submit Report'}</Text>
+          <Text style={s.submitTxt}>
+            {submitting ? t('report.submitting') : t('report.submitReport')}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -274,7 +280,6 @@ export default function ReportIssue() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: BG },
 
-  // Header
   header: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -288,7 +293,6 @@ const s = StyleSheet.create({
 
   scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 20 },
 
-  // Hero
   hero: { alignItems: 'center', marginBottom: 28 },
   iconCircle: {
     width: 72, height: 72, borderRadius: 36,
@@ -306,7 +310,6 @@ const s = StyleSheet.create({
     lineHeight: 22, paddingHorizontal: 8,
   },
 
-  // Category
   sectionTitle: {
     fontSize: 15, fontWeight: '700', color: TEXT_DARK,
     marginBottom: 12,
@@ -327,7 +330,6 @@ const s = StyleSheet.create({
   categoryLabel: { fontSize: 13.5, fontWeight: '600', color: TEXT_DARK },
   categoryLabelActive: { color: WHITE },
 
-  // Card
   card: {
     backgroundColor: WHITE, borderRadius: 18,
     padding: 18, marginBottom: 14,
@@ -336,7 +338,6 @@ const s = StyleSheet.create({
   },
   fieldLabel: { fontSize: 14, fontWeight: '700', color: TEXT_DARK, marginBottom: 8 },
 
-  // Inputs
   input: {
     borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 12,
@@ -344,7 +345,6 @@ const s = StyleSheet.create({
   },
   inputMulti: { minHeight: 120, textAlignVertical: 'top' },
 
-  // Evidence
   evidenceHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 14,
@@ -374,14 +374,12 @@ const s = StyleSheet.create({
   removeTxt: { color: WHITE, fontSize: 10, fontWeight: '800' },
   evidenceHint: { fontSize: 12, color: TEXT_LIGHT, lineHeight: 18 },
 
-  // Toggle
   toggleRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   toggleTitle: { fontSize: 15, fontWeight: '700', color: TEXT_DARK, marginBottom: 3 },
   toggleSub: { fontSize: 12, color: TEXT_MID },
 
-  // Footer
   footer: {
     paddingHorizontal: 20, paddingVertical: 14,
     backgroundColor: WHITE,

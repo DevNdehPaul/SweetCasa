@@ -1,14 +1,15 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const PURPLE = '#7C3AED';
@@ -17,72 +18,11 @@ const TEXT_DARK = '#111827';
 const TEXT_MID = '#6B7280';
 const GRAY_BORDER = '#E5E7EB';
 
-type Section = { title: string; body: string };
-
-const SECTIONS: Section[] = [
-  {
-    title: '1. Eligibility',
-    body:
-      'To list properties on SweetCasa as a House Owner, you must be at least 18 years of age, a legal resident or registered entity in Cameroon, and hold verifiable ownership or authorised management rights over any property you list.',
-  },
-  {
-    title: '2. Listing Accuracy',
-    body:
-      'All property details — including photos, videos, pricing, location, and room counts — must be truthful, accurate, and up to date. Misleading or fraudulent listings will result in immediate removal and may lead to permanent account suspension.',
-  },
-  {
-    title: '3. Verification Process',
-    body:
-      'Every listing submitted on SweetCasa undergoes a 12-point verification review by our local agents before going live. You agree to cooperate with this process and to provide any requested supporting documents promptly.',
-  },
-  {
-    title: '4. Legal Documents',
-    body:
-      'You are required to upload valid proof of ownership or authorisation (title deed, lease agreement, power of attorney, etc.) when submitting a listing. SweetCasa reserves the right to reject any listing lacking adequate documentation.',
-  },
-  {
-    title: '5. Pricing & Payments',
-    body:
-      'All rental or sale prices must be stated in XAF (Central African Franc). Payments facilitated through the SweetCasa platform are processed via a secure escrow wallet. Funds are held until tenancy or sale conditions are met, protecting both parties.',
-  },
-  {
-    title: '6. Communication',
-    body:
-      'House Seekers may contact you through the SweetCasa messaging system. You agree to respond to enquiries in good faith and within a reasonable timeframe. Harassment, discrimination, or abuse of any kind is strictly prohibited.',
-  },
-  {
-    title: '7. Fees & Commission',
-    body:
-      'SweetCasa charges a platform service fee on successful transactions. The applicable rate will be clearly communicated before any listing is published. Attempting to circumvent platform fees by conducting transactions outside SweetCasa is a violation of these terms.',
-  },
-  {
-    title: '8. Removal of Listings',
-    body:
-      'SweetCasa reserves the right to remove any listing at any time for violations of these terms, inaccurate information, or reports from other users. Repeated violations may result in permanent account deactivation.',
-  },
-  {
-    title: '9. Intellectual Property',
-    body:
-      'By uploading photos, videos, and other media to SweetCasa, you grant SweetCasa a non-exclusive, royalty-free licence to display and promote that content on our platform and in marketing materials. You retain full ownership of your content.',
-  },
-  {
-    title: '10. Limitation of Liability',
-    body:
-      'SweetCasa acts as a marketplace platform and is not responsible for disputes arising between House Owners and House Seekers once a transaction has been completed outside the platform. We strongly encourage all parties to use our in-platform escrow and messaging systems.',
-  },
-  {
-    title: '11. Privacy',
-    body:
-      'Your personal data is handled in accordance with the SweetCasa Privacy Policy. We do not sell or share your information with third parties for marketing purposes without your explicit consent.',
-  },
-  {
-    title: '12. Amendments',
-    body:
-      'SweetCasa reserves the right to update these Terms & Conditions at any time. Continued use of the platform after changes are published constitutes acceptance of the updated terms. We will notify you of material changes via the app or email.',
-  },
-];
+const SECTION_KEYS = ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10', 's11', 's12'] as const;
 
 export default function TermsOwner() {
+  const { t } = useTranslation();
+
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -92,7 +32,7 @@ export default function TermsOwner() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Feather name="arrow-left" size={20} color={TEXT_DARK} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Terms & Conditions</Text>
+        <Text style={s.headerTitle}>{t('terms.pageTitle')}</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -105,32 +45,26 @@ export default function TermsOwner() {
           <View style={s.heroIconWrap}>
             <Feather name="file-text" size={28} color={PURPLE} />
           </View>
-          <Text style={s.heroTitle}>House Owner Agreement</Text>
-          <Text style={s.heroSub}>
-            Please read these terms carefully. They govern your use of SweetCasa as a property
-            owner listing homes for rent or sale in Cameroon.
-          </Text>
+          <Text style={s.heroTitle}>{t('terms.ownerAgreementTitle')}</Text>
+          <Text style={s.heroSub}>{t('terms.ownerAgreementSub')}</Text>
           <View style={s.lastUpdated}>
             <Feather name="clock" size={11} color={TEXT_MID} />
-            <Text style={s.lastUpdatedTxt}>Last updated: May 2026</Text>
+            <Text style={s.lastUpdatedTxt}>{t('terms.lastUpdated')}</Text>
           </View>
         </View>
 
         {/* Sections */}
-        {SECTIONS.map((sec) => (
-          <View key={sec.title} style={s.section}>
-            <Text style={s.sectionTitle}>{sec.title}</Text>
-            <Text style={s.sectionBody}>{sec.body}</Text>
+        {SECTION_KEYS.map((key) => (
+          <View key={key} style={s.section}>
+            <Text style={s.sectionTitle}>{t(`terms.owner.${key}_title`)}</Text>
+            <Text style={s.sectionBody}>{t(`terms.owner.${key}_body`)}</Text>
           </View>
         ))}
 
         {/* Footer note */}
         <View style={s.footerNote}>
           <Feather name="info" size={14} color={PURPLE} />
-          <Text style={s.footerNoteTxt}>
-            By using SweetCasa as a House Owner, you confirm that you have read, understood,
-            and agree to these Terms & Conditions.
-          </Text>
+          <Text style={s.footerNoteTxt}>{t('terms.ownerFooter')}</Text>
         </View>
 
         <View style={{ height: 32 }} />

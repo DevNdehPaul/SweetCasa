@@ -2,6 +2,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -13,26 +14,21 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import api from '../constants/api';
 import { persistAuthSession, routeForRole } from '../constants/auth';
+
 const { width } = Dimensions.get('window');
 const H_PAD = 20;
 const PURPLE_LIGHT = '#F0EBFF';
+
 type Tab = 'login' | 'signup';
 
 const EMPTY_OWNER_FORM = {
-  fullName:        '',
-  companyName:     '',
-  email:           '',
-  phone:           '',
-  password:        '',
-  confirmPassword: '',
-  country:         '',
-  region:          '',
-  city:            '',
-  street:          '',
+  fullName: '', companyName: '', email: '', phone: '',
+  password: '', confirmPassword: '',
+  country: '', region: '', city: '', street: '',
 };
 
 // ─── Reusable Field ───────────────────────────────────────────────────────────
@@ -103,12 +99,13 @@ function LoginTab({ email, setEmail, password, setPassword }: {
   password: string;
   setPassword: (v: string) => void;
 }) {
+  const { t } = useTranslation();
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      Alert.alert(t('auth.missingFields'), t('auth.missingFieldsDesc'));
       return;
     }
     setLoading(true);
@@ -117,13 +114,13 @@ function LoginTab({ email, setEmail, password, setPassword }: {
         email: email.trim(),
         password,
         expectedRole: 'SELLER',
-      })
+      });
       const { token, role, profile } = res.data;
       await persistAuthSession({ token, role, profile });
       router.replace(routeForRole(role) as any);
     } catch (err: any) {
-      const message = err.response?.data?.error || 'Login failed. Please try again.';
-      Alert.alert('Login failed', message);
+      const message = err.response?.data?.error || t('auth.loginFailedGeneric');
+      Alert.alert(t('auth.loginFailed'), message);
     } finally {
       setLoading(false);
     }
@@ -135,14 +132,12 @@ function LoginTab({ email, setEmail, password, setPassword }: {
         <View style={styles.shieldWrap}>
           <Ionicons name="shield-checkmark-outline" size={30} color="#7C3AED" />
         </View>
-        <Text style={styles.authHeroTitle}>Owner Access</Text>
-        <Text style={styles.authHeroDesc}>
-          Login to manage your listings, tenants, and escrow wallet.
-        </Text>
+        <Text style={styles.authHeroTitle}>{t('auth.ownerAccess')}</Text>
+        <Text style={styles.authHeroDesc}>{t('auth.ownerDesc')}</Text>
       </View>
 
       <Field
-        label="Email Address"
+        label={t('auth.email')}
         placeholder="e.g. owner@company.cm"
         value={email}
         onChangeText={setEmail}
@@ -151,15 +146,15 @@ function LoginTab({ email, setEmail, password, setPassword }: {
       />
 
       <Field
-        label="Password"
-        placeholder="••••••••"
+        label={t('auth.password')}
+        placeholder={t('auth.passwordPlaceholder')}
         value={password}
         onChangeText={setPassword}
         icon="lock"
         secure={!showPass}
         topRight={
           <TouchableOpacity onPress={() => {}}>
-            <Text style={styles.forgotLink}>Forgot?</Text>
+            <Text style={styles.forgotLink}>{t('auth.forgotPassword')}</Text>
           </TouchableOpacity>
         }
         rightEl={
@@ -176,7 +171,7 @@ function LoginTab({ email, setEmail, password, setPassword }: {
       >
         {loading ? <ActivityIndicator color="#fff" /> : (
           <>
-            <Text style={styles.primaryBtnTxt}>Secure Login</Text>
+            <Text style={styles.primaryBtnTxt}>{t('auth.secureLogin')}</Text>
             <Feather name="arrow-right" size={17} color="#fff" />
           </>
         )}
@@ -184,26 +179,26 @@ function LoginTab({ email, setEmail, password, setPassword }: {
 
       <View style={styles.orDivider}>
         <View style={styles.dividerLine} />
-        <Text style={styles.orTxt}>OR CONTINUE WITH</Text>
+        <Text style={styles.orTxt}>{t('auth.orContinueWith')}</Text>
         <View style={styles.dividerLine} />
       </View>
 
       <View style={styles.socialRow}>
         <TouchableOpacity style={styles.socialBtn}>
           <Feather name="globe" size={17} color="#374151" />
-          <Text style={styles.socialBtnTxt}>Google</Text>
+          <Text style={styles.socialBtnTxt}>{t('auth.google')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.socialBtn}>
           <Feather name="smartphone" size={17} color="#374151" />
-          <Text style={styles.socialBtnTxt}>Apple</Text>
+          <Text style={styles.socialBtnTxt}>{t('auth.apple')}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.tipCard}>
         <Feather name="info" size={13} color="#9CA3AF" style={{ marginTop: 2 }} />
         <Text style={styles.tipText}>
-          <Text style={{ fontWeight: '700' }}>Tip:</Text> Verified owners get priority listing
-          placement and access to the SweetCasa Escrow Wallet.
+          <Text style={{ fontWeight: '700' }}>{t('auth.tipTitle')}</Text>{' '}
+          {t('auth.ownerTip')}
         </Text>
       </View>
     </ScrollView>
@@ -220,6 +215,7 @@ function SignupTab({
   form: typeof EMPTY_OWNER_FORM;
   setForm: React.Dispatch<React.SetStateAction<typeof EMPTY_OWNER_FORM>>;
 }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const set = (k: keyof typeof EMPTY_OWNER_FORM) => (v: string) =>
     setForm(p => ({ ...p, [k]: v }));
@@ -227,11 +223,11 @@ function SignupTab({
   const handleSignup = async () => {
     if (!termsAccepted) {
       Alert.alert(
-        'Agreement Required',
-        'You must read and accept the Terms of Service & Privacy Policy before creating an account. Please tap the link below to review them.',
+        t('auth.agreementRequired'),
+        t('auth.agreementDesc'),
         [
-          { text: 'Read Terms', onPress: () => router.push('/TermsOwner') },
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('auth.readTerms'), onPress: () => router.push('/TermsOwner') },
+          { text: t('common.cancel'), style: 'cancel' },
         ]
       );
       return;
@@ -242,11 +238,11 @@ function SignupTab({
       !form.email.trim()       ||
       !form.password.trim()
     ) {
-      Alert.alert('Missing fields', 'Please fill in your name, company name, email, and password.');
+      Alert.alert(t('auth.missingFields'), t('auth.ownerMissingFieldsDesc'));
       return;
     }
     if (form.password !== form.confirmPassword) {
-      Alert.alert('Password mismatch', 'Your passwords do not match.');
+      Alert.alert(t('auth.passwordMismatch'), t('auth.passwordMismatchDesc'));
       return;
     }
     setLoading(true);
@@ -270,8 +266,8 @@ function SignupTab({
       await AsyncStorage.removeItem('owner_signup_draft');
       router.replace('/agent-dashboard');
     } catch (err: any) {
-      const message = err.response?.data?.error || 'Registration failed. Please try again.';
-      Alert.alert('Sign up failed', message);
+      const message = err.response?.data?.error || t('auth.signupFailedGeneric');
+      Alert.alert(t('auth.signupFailed'), message);
     } finally {
       setLoading(false);
     }
@@ -279,19 +275,22 @@ function SignupTab({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
-      <Text style={styles.stepTitle}>List your property</Text>
+      <Text style={styles.stepTitle}>{t('auth.listProperty')}</Text>
 
       {/* Partner benefits banner */}
       <View style={styles.benefitsBanner}>
         <Ionicons name="shield-checkmark" size={18} color="#7C3AED" />
         <Text style={styles.benefitsTxt}>
-          Verified owners get <Text style={{ fontWeight: '700', color: '#7C3AED' }}>priority listing</Text> and escrow wallet access.
+          {t('auth.verifiedOwners')}{' '}
+          <Text style={{ fontWeight: '700', color: '#7C3AED' }}>{t('auth.priorityListing')}</Text>{' '}
+          {t('auth.escrowAccess')}
         </Text>
       </View>
 
-      <SectionCard icon="briefcase" title="Business Identity">
+      {/* ── Business Identity ── */}
+      <SectionCard icon="briefcase" title={t('account.businessIdentity')}>
         <View style={styles.fieldGroup}>
-          <RegLabel>FULL NAME</RegLabel>
+          <RegLabel>{t('account.fullName')}</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="user" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="John Doe"
@@ -300,17 +299,17 @@ function SignupTab({
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>COMPANY NAME</RegLabel>
+          <RegLabel>{t('account.companyName')}</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="briefcase" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="e.g. BlueSky Estates Ltd"
               placeholderTextColor="#9CA3AF" value={form.companyName} onChangeText={set('companyName')} />
           </View>
-          <Text style={styles.fieldHint}>Displayed on your verified listings.</Text>
+          <Text style={styles.fieldHint}>{t('account.companyNameHint')}</Text>
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>BUSINESS EMAIL</RegLabel>
+          <RegLabel>{t('auth.businessEmail')}</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="mail" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="contact@company.cm"
@@ -320,27 +319,27 @@ function SignupTab({
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>PASSWORD</RegLabel>
+          <RegLabel>{t('auth.password')}</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="lock" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder="Min 8 chars, letters, numbers & symbols"
+            <TextInput style={styles.fieldInput} placeholder={t('auth.passwordHint')}
               placeholderTextColor="#9CA3AF" value={form.password} onChangeText={set('password')}
               secureTextEntry />
           </View>
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>CONFIRM PASSWORD</RegLabel>
+          <RegLabel>{t('auth.confirmPassword')}</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="lock" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder="Repeat your password"
+            <TextInput style={styles.fieldInput} placeholder={t('auth.confirmPasswordPlaceholder')}
               placeholderTextColor="#9CA3AF" value={form.confirmPassword}
               onChangeText={set('confirmPassword')} secureTextEntry />
           </View>
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>PROFESSIONAL PHONE</RegLabel>
+          <RegLabel>{t('account.professionalPhone')}</RegLabel>
           <View style={styles.phoneWrap}>
             <View style={styles.phonePrefix}>
               <Feather name="globe" size={13} color="#374151" />
@@ -348,7 +347,7 @@ function SignupTab({
             </View>
             <View style={[styles.inputWrap, { flex: 1 }]}>
               <Feather name="phone" size={14} color="#9CA3AF" />
-              <TextInput style={styles.fieldInput} placeholder="6XX XXX XXX"
+              <TextInput style={styles.fieldInput} placeholder={t('auth.phonePlaceholder')}
                 placeholderTextColor="#9CA3AF" value={form.phone} onChangeText={set('phone')}
                 keyboardType="phone-pad" />
             </View>
@@ -356,10 +355,11 @@ function SignupTab({
         </View>
       </SectionCard>
 
-      <SectionCard icon="map-pin" title="Office Location">
+      {/* ── Office Location ── */}
+      <SectionCard icon="map-pin" title={t('account.officeLocation')}>
         <View style={styles.twoCol}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>COUNTRY</RegLabel>
+            <RegLabel>{t('account.country')}</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="globe" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Cameroon"
@@ -367,7 +367,7 @@ function SignupTab({
             </View>
           </View>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>REGION</RegLabel>
+            <RegLabel>{t('account.region')}</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="map" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Centre"
@@ -378,7 +378,7 @@ function SignupTab({
 
         <View style={styles.twoCol}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>CITY</RegLabel>
+            <RegLabel>{t('account.city')}</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="grid" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Yaoundé"
@@ -386,7 +386,7 @@ function SignupTab({
             </View>
           </View>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>STREET</RegLabel>
+            <RegLabel>{t('account.street')}</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="navigation" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Bastos 102"
@@ -396,6 +396,7 @@ function SignupTab({
         </View>
       </SectionCard>
 
+      {/* ── Terms Checkbox ── */}
       <TouchableOpacity
         style={styles.termsRow}
         activeOpacity={0.7}
@@ -405,24 +406,20 @@ function SignupTab({
           {termsAccepted && <Feather name="check" size={12} color="#fff" />}
         </View>
         <Text style={styles.termsText}>
-          {termsAccepted
-            ? '✓ I have read and accepted the Terms of Service & Privacy Policy.'
-            : 'I agree to the Terms of Service & Privacy Policy (tap to read & accept)'}
+          {termsAccepted ? t('auth.termsAccepted') : t('auth.termsNotAccepted')}
         </Text>
       </TouchableOpacity>
 
       {!termsAccepted && (
         <View style={styles.termsWarning}>
           <Feather name="alert-circle" size={13} color="#D97706" />
-          <Text style={styles.termsWarningTxt}>
-            Tap the link above to read the Terms, then tap <Text style={{ fontWeight: '700' }}>Accept & Continue</Text> to unlock registration.
-          </Text>
+          <Text style={styles.termsWarningTxt}>{t('auth.termsWarning')}</Text>
         </View>
       )}
       {termsAccepted && (
         <View style={styles.termsSuccess}>
           <Feather name="check-circle" size={13} color="#16A34A" />
-          <Text style={styles.termsSuccessTxt}>Terms accepted — you're all set to register!</Text>
+          <Text style={styles.termsSuccessTxt}>{t('auth.termsAcceptedMsg')}</Text>
         </View>
       )}
 
@@ -434,7 +431,7 @@ function SignupTab({
         >
           {loading ? <ActivityIndicator color="#fff" /> : (
             <>
-              <Text style={styles.nextBtnTxt}>Create Owner Account</Text>
+              <Text style={styles.nextBtnTxt}>{t('auth.createOwnerAccount')}</Text>
               <Feather name="arrow-right" size={15} color="#fff" />
             </>
           )}
@@ -446,6 +443,7 @@ function SignupTab({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function HouseOwnersLoginSignup() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ tab?: string; termsAccepted?: string }>();
 
   const [activeTab, setActiveTab] = useState<Tab>(
@@ -454,17 +452,11 @@ export default function HouseOwnersLoginSignup() {
 
   const termsAccepted = params.termsAccepted === 'true';
 
-  // ── Signup form state (lifted up so back button can reset it) ──────────────
-  const [form, setForm] = useState(EMPTY_OWNER_FORM);
-
-  // ── Login field state (lifted up so back button can reset them) ───────────
+  const [form, setForm]                   = useState(EMPTY_OWNER_FORM);
   const [loginEmail, setLoginEmail]       = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-
-  // Tracks whether we've loaded the draft at least once
   const draftLoaded = useRef(false);
 
-  // Load draft on focus (handles returning from Terms page)
   useFocusEffect(
     useCallback(() => {
       AsyncStorage.getItem('owner_signup_draft').then(raw => {
@@ -476,13 +468,11 @@ export default function HouseOwnersLoginSignup() {
     }, [])
   );
 
-  // Save draft on every form change, but only after the first load
   useEffect(() => {
     if (!draftLoaded.current) return;
     AsyncStorage.setItem('owner_signup_draft', JSON.stringify(form));
   }, [form]);
 
-  // ── Clear all state + draft, then navigate back ────────────────────────────
   const handleBack = () => {
     setForm(EMPTY_OWNER_FORM);
     setLoginEmail('');
@@ -499,16 +489,18 @@ export default function HouseOwnersLoginSignup() {
       <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
         <Feather name="arrow-left" size={22} color="#111827" />
       </TouchableOpacity>
+
+      {/* Tab switcher — loop var renamed 'tab' to avoid shadowing t() */}
       <View style={styles.tabRow}>
-        {(['login', 'signup'] as Tab[]).map(t => (
+        {(['login', 'signup'] as Tab[]).map(tab => (
           <TouchableOpacity
-            key={t}
-            style={[styles.tabBtn, activeTab === t && styles.tabBtnActive]}
-            onPress={() => setActiveTab(t)}
+            key={tab}
+            style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
+            onPress={() => setActiveTab(tab)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.tabBtnTxt, activeTab === t && styles.tabBtnTxtActive]}>
-              {t === 'login' ? 'Login' : 'Register'}
+            <Text style={[styles.tabBtnTxt, activeTab === tab && styles.tabBtnTxtActive]}>
+              {tab === 'login' ? t('auth.login') : t('auth.register')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -516,9 +508,9 @@ export default function HouseOwnersLoginSignup() {
 
       <View style={styles.formHeader}>
         <Text style={styles.formHeaderTitle}>
-          {activeTab === 'login' ? 'Welcome Back, Owner' : 'Create Owner Account'}
+          {activeTab === 'login' ? t('auth.welcomeBackOwner') : t('auth.createOwnerTitle')}
         </Text>
-        <Text style={styles.formHeaderSub}>House Owners Portal</Text>
+        <Text style={styles.formHeaderSub}>{t('auth.houseOwnersPortal')}</Text>
       </View>
 
       {activeTab === 'login' && (
@@ -540,7 +532,7 @@ export default function HouseOwnersLoginSignup() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles (unchanged) ───────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F7F7FB' },
   backBtn: {
@@ -637,8 +629,7 @@ const styles = StyleSheet.create({
   },
   checkbox: {
     width: 22, height: 22, borderWidth: 2, borderColor: '#D1D5DB',
-    borderRadius: 6, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#fff',
+    borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
   },
   checkboxChecked: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
   termsText: { flex: 1, fontSize: 12.5, color: '#6B7280', lineHeight: 19 },

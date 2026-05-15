@@ -7,21 +7,28 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { initI18n } from '../../src/i18n'; // ← i18n import
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const [role, setRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [role, setRole]           = useState<string | null>(null);
+  const [loading, setLoading]     = useState(true);
+  const [i18nReady, setI18nReady] = useState(false);   // ← i18n ready state
 
   useEffect(() => {
-    AsyncStorage.getItem('role').then(r => {
+    // Run both in parallel — role load + i18n init
+    Promise.all([
+      AsyncStorage.getItem('role'),
+      initI18n(),                       // ← initialize i18n
+    ]).then(([r]) => {
       setRole(r);
+      setI18nReady(true);              // ← mark i18n as ready
       setLoading(false);
     });
   }, []);
 
-  // Show a spinner while reading role from storage
-  if (loading) {
+  // Show spinner while role AND language are loading (usually < 200ms)
+  if (loading || !i18nReady) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
         <ActivityIndicator size="large" color="#7C3AED" />
@@ -65,7 +72,7 @@ export default function TabLayout() {
           name="profile"
           options={{ title: 'Profile', tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.circle" color={color} /> }}
         />
-        {/* Hide buyer-only screen from seller tab bar */}
+        {/* Hide buyer-only screens from seller tab bar */}
         <Tabs.Screen name="search" options={{ href: null }} />
         <Tabs.Screen name="seeker-dashboard" options={{ href: null }} />
       </Tabs>
@@ -88,14 +95,14 @@ export default function TabLayout() {
         options={{ title: 'Wallet', tabBarIcon: ({ color }) => <IconSymbol size={26} name="creditcard.fill" color={color} /> }}
       />
       <Tabs.Screen
-          name="report"
-          options={{ title: 'Reports', tabBarIcon: ({ color }) => <IconSymbol size={26} name="flag.fill" color={color} /> }}
-        />
+        name="report"
+        options={{ title: 'Reports', tabBarIcon: ({ color }) => <IconSymbol size={26} name="flag.fill" color={color} /> }}
+      />
       <Tabs.Screen
         name="profile"
         options={{ title: 'Profile', tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.circle" color={color} /> }}
       />
-      {/* Hide seller-only screen from buyer tab bar */}
+      {/* Hide seller-only screens from buyer tab bar */}
       <Tabs.Screen name="upload" options={{ href: null }} />
       <Tabs.Screen name="agent-dashboard" options={{ href: null }} />
     </Tabs>

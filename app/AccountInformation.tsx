@@ -2,19 +2,20 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import api from '../constants/api';
 
@@ -124,6 +125,8 @@ function TwoCol({ children }: { children: React.ReactNode }) {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AccountInformation() {
+  const { t } = useTranslation();
+
   const [role, setRole]       = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
@@ -223,8 +226,8 @@ export default function AccountInformation() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
-      const msg = err?.response?.data?.error || 'Failed to save changes. Please try again.';
-      Alert.alert('Save failed', msg);
+      const msg = err?.response?.data?.error || t('errors.serverError');
+      Alert.alert(t('account.saveFailed'), msg);
     } finally {
       setSaving(false);
     }
@@ -249,7 +252,7 @@ export default function AccountInformation() {
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
           <Feather name="arrow-left" size={20} color={TEXT_DARK} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Account Information</Text>
+        <Text style={s.headerTitle}>{t('account.title')}</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -272,12 +275,10 @@ export default function AccountInformation() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.roleTitle}>
-                {isSeller ? 'House Owner Account' : 'House Seeker Account'}
+                {isSeller ? t('account.ownerAccount') : t('account.seekerAccount')}
               </Text>
               <Text style={s.roleSub}>
-                {isSeller
-                  ? 'Manage your business identity and contact details'
-                  : 'Update your personal details and location preferences'}
+                {isSeller ? t('account.ownerAccountSub') : t('account.seekerAccountSub')}
               </Text>
             </View>
           </View>
@@ -285,28 +286,28 @@ export default function AccountInformation() {
           {/* ══════════════ SELLER FORM ══════════════ */}
           {isSeller && (
             <>
-              <SectionCard icon="briefcase" title="Business Identity">
+              <SectionCard icon="briefcase" title={t('account.businessIdentity')}>
                 <EditField
-                  label="FULL NAME"
+                  label={t('account.fullName')}
                   value={sellerForm.name}
                   onChangeText={setSeller('name')}
                   icon="user"
                   placeholder="e.g. John Doe"
                 />
                 <EditField
-                  label="COMPANY NAME"
+                  label={t('account.companyName')}
                   value={sellerForm.companyName}
                   onChangeText={setSeller('companyName')}
                   icon="briefcase"
                   placeholder="e.g. BlueSky Estates Ltd"
-                  hint="Displayed publicly on your verified listings."
+                  hint={t('account.companyNameHint')}
                 />
                 <EditField
-                  label="EMAIL ADDRESS"
+                  label={t('account.emailAddress')}
                   value={sellerForm.email}
                   icon="mail"
                   editable={false}
-                  hint="Email cannot be changed. Contact support if needed."
+                  hint={t('account.emailHint')}
                 />
                 <View style={s.phoneRow}>
                   <View style={s.phonePrefix}>
@@ -315,7 +316,7 @@ export default function AccountInformation() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="PROFESSIONAL PHONE"
+                      label={t('account.professionalPhone')}
                       value={sellerForm.phone}
                       onChangeText={setSeller('phone')}
                       icon="phone"
@@ -326,11 +327,11 @@ export default function AccountInformation() {
                 </View>
               </SectionCard>
 
-              <SectionCard icon="map-pin" title="Office Location">
+              <SectionCard icon="map-pin" title={t('account.officeLocation')}>
                 <TwoCol>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="COUNTRY"
+                      label={t('account.country')}
                       value={sellerForm.country}
                       onChangeText={setSeller('country')}
                       icon="globe"
@@ -339,7 +340,7 @@ export default function AccountInformation() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="REGION"
+                      label={t('account.region')}
                       value={sellerForm.region}
                       onChangeText={setSeller('region')}
                       icon="map"
@@ -350,7 +351,7 @@ export default function AccountInformation() {
                 <TwoCol>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="CITY"
+                      label={t('account.city')}
                       value={sellerForm.city}
                       onChangeText={setSeller('city')}
                       icon="grid"
@@ -359,7 +360,7 @@ export default function AccountInformation() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="STREET"
+                      label={t('account.street')}
                       value={sellerForm.street}
                       onChangeText={setSeller('street')}
                       icon="navigation"
@@ -374,20 +375,20 @@ export default function AccountInformation() {
           {/* ══════════════ BUYER FORM ══════════════ */}
           {!isSeller && (
             <>
-              <SectionCard icon="user" title="Personal Details">
+              <SectionCard icon="user" title={t('account.personalDetails')}>
                 <EditField
-                  label="FULL NAME"
+                  label={t('account.fullName')}
                   value={buyerForm.name}
                   onChangeText={setBuyer('name')}
                   icon="user"
                   placeholder="e.g. Jane Doe"
                 />
                 <EditField
-                  label="EMAIL ADDRESS"
+                  label={t('account.emailAddress')}
                   value={buyerForm.email}
                   icon="mail"
                   editable={false}
-                  hint="Email cannot be changed. Contact support if needed."
+                  hint={t('account.emailHint')}
                 />
                 <View style={s.phoneRow}>
                   <View style={s.phonePrefix}>
@@ -396,7 +397,7 @@ export default function AccountInformation() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="PHONE NUMBER"
+                      label={t('account.phoneNumber')}
                       value={buyerForm.phone}
                       onChangeText={setBuyer('phone')}
                       icon="phone"
@@ -407,11 +408,11 @@ export default function AccountInformation() {
                 </View>
               </SectionCard>
 
-              <SectionCard icon="map-pin" title="Location Details">
+              <SectionCard icon="map-pin" title={t('account.locationDetails')}>
                 <TwoCol>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="COUNTRY"
+                      label={t('account.country')}
                       value={buyerForm.country}
                       onChangeText={setBuyer('country')}
                       icon="globe"
@@ -420,7 +421,7 @@ export default function AccountInformation() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="REGION"
+                      label={t('account.region')}
                       value={buyerForm.region}
                       onChangeText={setBuyer('region')}
                       icon="map"
@@ -431,7 +432,7 @@ export default function AccountInformation() {
                 <TwoCol>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="CITY"
+                      label={t('account.city')}
                       value={buyerForm.city}
                       onChangeText={setBuyer('city')}
                       icon="grid"
@@ -440,7 +441,7 @@ export default function AccountInformation() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <EditField
-                      label="STREET NAME"
+                      label={t('account.streetName')}
                       value={buyerForm.street}
                       onChangeText={setBuyer('street')}
                       icon="navigation"
@@ -456,9 +457,9 @@ export default function AccountInformation() {
           <View style={s.passwordNote}>
             <Feather name="lock" size={14} color={PURPLE} />
             <View style={{ flex: 1 }}>
-              <Text style={s.passwordNoteTitle}>Want to change your password?</Text>
+              <Text style={s.passwordNoteTitle}>{t('account.passwordTitle')}</Text>
               <Text style={s.passwordNoteSub}>
-                For security reasons, password changes require email verification. Contact{' '}
+                {t('account.passwordDesc')}{' '}
                 <Text style={s.passwordNoteLink}>support@sweetcasa.cm</Text>
               </Text>
             </View>
@@ -468,7 +469,7 @@ export default function AccountInformation() {
           {saved && (
             <View style={s.successBanner}>
               <Feather name="check-circle" size={16} color={GREEN} />
-              <Text style={s.successTxt}>Changes saved successfully!</Text>
+              <Text style={s.successTxt}>{t('account.saveSuccess')}</Text>
             </View>
           )}
 
@@ -483,7 +484,7 @@ export default function AccountInformation() {
             ) : (
               <>
                 <Feather name="save" size={17} color={WHITE} />
-                <Text style={s.saveBtnTxt}>Save Changes</Text>
+                <Text style={s.saveBtnTxt}>{t('common.save')}</Text>
               </>
             )}
           </TouchableOpacity>

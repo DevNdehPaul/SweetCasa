@@ -2,24 +2,26 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Dimensions,
-  Image, Pressable, SafeAreaView,
+  Image,
+  Pressable,
+  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
+import LanguageModal from '../../components/LanguageModal'; // adjust path if needed
 import { clearAuthSession } from '../../constants/auth';
 
 const { width } = Dimensions.get('window');
 const H_PAD = 20;
 const RECENT_CARD_W = (width - H_PAD * 2 - 12) / 3;
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
 
 type MenuItem = {
   id: string;
@@ -32,13 +34,11 @@ type MenuItem = {
   onPress?: () => void;
 };
 
-// ─── Menu Item Row ─────────────────────────────────────────────────────────────
 function MenuRow({ item }: { item: MenuItem }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.6 }]}
-      onPress={() => item.onPress?.()}
-    >
+      onPress={() => item.onPress?.()}>
       <View style={[styles.menuIconBox, { backgroundColor: item.iconBg }]}>
         <Feather name={item.icon as any} size={16} color={item.iconColor} />
       </View>
@@ -66,15 +66,14 @@ function MenuGroup({ items }: { items: MenuItem[] }) {
   );
 }
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
-  const [profile, setProfile] = useState<any>(null);
-  const [role, setRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { t, i18n } = useTranslation();
+  const [profile, setProfile]             = useState<any>(null);
+  const [role, setRole]                   = useState<string | null>(null);
+  const [loading, setLoading]             = useState(true);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
 
-  useEffect(() => {
-    loadUserData();
-  }, []);
+  useEffect(() => { loadUserData(); }, []);
 
   const loadUserData = async () => {
     try {
@@ -104,36 +103,36 @@ export default function ProfileScreen() {
     );
   }
 
-  // Pull real data from profile
-  const fullName = role === 'SELLER'
-    ? profile?.companyName || profile?.name || 'SweetCasa User'
-    : profile?.fullName || profile?.name || 'SweetCasa User';
-  const city    = profile?.city    || '';
-  const region  = profile?.region  || '';
-  const country = profile?.country || '';
   const isSeller = role === 'SELLER';
 
-  // Build location string from real data
-  const locationStr = [city, region, country].filter(Boolean).join(', ') || 'Location not set';
+  const fullName = isSeller
+    ? profile?.companyName || profile?.name || 'SweetCasa User'
+    : profile?.fullName   || profile?.name || 'SweetCasa User';
 
-  // Build menu groups — Account Information wired to /AccountInformation
+  const locationStr =
+    [profile?.city, profile?.region, profile?.country].filter(Boolean).join(', ')
+    || t('profile.locationNotSet');
+
+  // Current language label for the subtitle
+  const langSubtitle = i18n.language === 'fr'
+    ? t('profile.appLanguageSub')   // "Français (Cameroun)"
+    : 'English (Cameroon)';
+
   const MENU_GROUP_1: MenuItem[] = [
     {
       id: 'account',
       icon: 'user',
-      label: 'Account Information',
-      sub: 'View & edit your personal details',
-      iconBg: '#F3F0FF',
-      iconColor: '#7C3AED',
-      onPress: () => router.push('/AccountInformation'),   // ← wired up
+      label: t('profile.accountInfo'),
+      sub: t('profile.accountInfoSub'),
+      iconBg: '#F3F0FF', iconColor: '#7C3AED',
+      onPress: () => router.push('/AccountInformation'),
     },
     {
       id: 'history',
       icon: 'rotate-ccw',
-      label: 'Transaction History',
-      sub: 'Past rentals & escrow logs',
-      iconBg: '#F3F0FF',
-      iconColor: '#7C3AED',
+      label: t('profile.transactionHistory'),
+      sub: t('profile.transactionHistorySub'),
+      iconBg: '#F3F0FF', iconColor: '#7C3AED',
     },
   ];
 
@@ -141,19 +140,18 @@ export default function ProfileScreen() {
     {
       id: 'terms',
       icon: 'file-text',
-      label: 'Terms & Conditions',
-      sub: 'Read our terms of service',
-      iconBg: '#F3F0FF',
-      iconColor: '#7C3AED',
+      label: t('profile.terms'),
+      sub: t('profile.termsSub'),
+      iconBg: '#F3F0FF', iconColor: '#7C3AED',
       onPress: () => router.push(isSeller ? '/TermsOwnerRead' : '/TermsSeekerRead'),
     },
     {
       id: 'language',
       icon: 'globe',
-      label: 'App Language',
-      sub: 'English (Cameroon)',
-      iconBg: '#F3F0FF',
-      iconColor: '#7C3AED',
+      label: t('profile.appLanguage'),
+      sub: langSubtitle,           // ← shows current language dynamically
+      iconBg: '#F3F0FF', iconColor: '#7C3AED',
+      onPress: () => setLanguageModalVisible(true),   // ← opens the modal
     },
   ];
 
@@ -161,11 +159,10 @@ export default function ProfileScreen() {
     {
       id: 'logout',
       icon: 'log-out',
-      label: 'Log Out',
-      sub: 'Safely exit your account',
+      label: t('auth.logout'),
+      sub: t('auth.logoutSub'),
       danger: true,
-      iconBg: '#FFF1F1',
-      iconColor: '#EF4444',
+      iconBg: '#FFF1F1', iconColor: '#EF4444',
       onPress: handleLogout,
     },
   ];
@@ -174,13 +171,19 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
+      {/* Language Modal */}
+      <LanguageModal
+        visible={languageModalVisible}
+        onClose={() => setLanguageModalVisible(false)}
+      />
+
       {/* Header */}
       <View style={styles.header}>
         <View style={{ width: 38 }} />
-        <Text style={styles.headerTitle}>My Profile</Text>
+        <Text style={styles.headerTitle}>{t('profile.title')}</Text>
         <TouchableOpacity
           style={styles.iconBtn}
-          onPress={() => router.push('/AccountInformation')}>
+          onPress={() => router.push('/settings')}>
           <Feather name="settings" size={20} color="#111" />
         </TouchableOpacity>
       </View>
@@ -199,44 +202,40 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Real name from DB */}
           {isSeller && (
             <Text style={styles.userName}>{profile?.name}</Text>
           )}
           <Text style={styles.profileName}>{fullName}</Text>
 
-          {/* Real location from DB */}
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={13} color="#A0A0A0" />
             <Text style={styles.locationTxt}>{locationStr}</Text>
           </View>
 
-          {/* Role badge — dynamic based on role */}
           <View style={[styles.badgeChip, isSeller && styles.badgeChipSeller]}>
             <Text style={[styles.badgeChipTxt, isSeller && styles.badgeChipTxtSeller]}>
-              {isSeller ? '🏢 House Owner' : '🔍 House Seeker'}
+              {isSeller ? t('profile.houseOwner') : t('profile.houseSeeker')}
             </Text>
           </View>
 
-          {/* Edit profile shortcut */}
           <TouchableOpacity
             style={styles.editBtn}
             onPress={() => router.push('/AccountInformation')}
             activeOpacity={0.8}>
             <Feather name="edit-2" size={13} color="#7C3AED" />
-            <Text style={styles.editBtnTxt}>Edit Profile</Text>
+            <Text style={styles.editBtnTxt}>{t('profile.editProfile')}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Agent Mode Banner — only show for buyers */}
+        {/* Agent Mode Banner — only for buyers */}
         {!isSeller && (
           <TouchableOpacity style={styles.agentBanner} activeOpacity={0.85}>
             <View style={styles.agentIconWrap}>
               <Ionicons name="flash" size={20} color="#fff" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.agentBannerTitle}>Agent Mode</Text>
-              <Text style={styles.agentBannerSub}>List properties & track leads</Text>
+              <Text style={styles.agentBannerTitle}>{t('profile.agentMode')}</Text>
+              <Text style={styles.agentBannerSub}>{t('profile.agentModeSub')}</Text>
             </View>
             <Feather name="chevron-right" size={18} color="#7C3AED" />
           </TouchableOpacity>
@@ -248,10 +247,14 @@ export default function ProfileScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerVersion}>SweetCasa Cameroon v2.4.0</Text>
+          <Text style={styles.footerVersion}>{t('common.version')}</Text>
           <View style={styles.footerLinks}>
-            <TouchableOpacity><Text style={styles.footerLink}>Privacy Policy</Text></TouchableOpacity>
-            <TouchableOpacity><Text style={styles.footerLink}>Support Center</Text></TouchableOpacity>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>{t('profile.privacyPolicy')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity>
+              <Text style={styles.footerLink}>{t('profile.supportCenter')}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -261,11 +264,9 @@ export default function ProfileScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
+  safe:   { flex: 1, backgroundColor: '#fff' },
   scroll: { paddingBottom: 16 },
-
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: H_PAD, paddingVertical: 10,
@@ -273,68 +274,39 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
   iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-
   heroSection: {
     alignItems: 'center', paddingTop: 28, paddingBottom: 24,
     backgroundColor: '#FDF9F6', borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  avatarWrap: { position: 'relative', marginBottom: 12 },
-  avatar: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#fff' },
-  verifiedBadge: {
-    position: 'absolute', bottom: 0, right: 0,
-    backgroundColor: '#fff', borderRadius: 12, padding: 1,
-  },
-  profileName: { fontSize: 18, fontWeight: '700', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
-  userName:    { fontSize: 25, fontWeight: '800', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 10 },
-  locationTxt: { fontSize: 12.5, color: '#A0A0A0' },
-
-  badgeChip: {
-    backgroundColor: '#EDE9FE', borderRadius: 30,
-    paddingHorizontal: 14, paddingVertical: 5, marginBottom: 12,
-  },
-  badgeChipTxt:    { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
-  badgeChipSeller: { backgroundColor: '#FFF3E0' },
+  avatarWrap:    { position: 'relative', marginBottom: 12 },
+  avatar:        { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: '#fff' },
+  verifiedBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#fff', borderRadius: 12, padding: 1 },
+  profileName:   { fontSize: 18, fontWeight: '700', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
+  userName:      { fontSize: 25, fontWeight: '800', color: '#111', letterSpacing: -0.4, marginBottom: 5 },
+  locationRow:   { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 10 },
+  locationTxt:   { fontSize: 12.5, color: '#A0A0A0' },
+  badgeChip:        { backgroundColor: '#EDE9FE', borderRadius: 30, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 12 },
+  badgeChipTxt:     { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
+  badgeChipSeller:  { backgroundColor: '#FFF3E0' },
   badgeChipTxtSeller: { color: '#D97706' },
-
-  editBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderWidth: 1.5, borderColor: '#7C3AED', borderRadius: 30,
-    paddingHorizontal: 20, paddingVertical: 8,
-  },
+  editBtn:    { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: '#7C3AED', borderRadius: 30, paddingHorizontal: 20, paddingVertical: 8 },
   editBtnTxt: { fontSize: 13, fontWeight: '700', color: '#7C3AED' },
-
   agentBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     marginHorizontal: H_PAD, marginTop: 24, marginBottom: 8,
     backgroundColor: '#F3F0FF', borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: '#EDE9FE',
   },
-  agentIconWrap: {
-    width: 44, height: 44, borderRadius: 14,
-    backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center',
-  },
+  agentIconWrap:    { width: 44, height: 44, borderRadius: 14, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
   agentBannerTitle: { fontSize: 14, fontWeight: '700', color: '#7C3AED', marginBottom: 2 },
   agentBannerSub:   { fontSize: 11.5, color: '#A78BFA' },
-
-  menuGroup: {
-    marginHorizontal: H_PAD, marginTop: 14,
-    backgroundColor: '#FAFAFA', borderRadius: 16,
-    borderWidth: 1, borderColor: '#EFEFEF', overflow: 'hidden',
-  },
-  menuRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: 16, paddingVertical: 14,
-  },
-  menuIconBox: {
-    width: 38, height: 38, borderRadius: 11,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  menuText:  { flex: 1 },
-  menuLabel: { fontSize: 13.5, fontWeight: '600', color: '#111', marginBottom: 1 },
-  menuSub:   { fontSize: 11.5, color: '#B0B0B0' },
+  menuGroup:   { marginHorizontal: H_PAD, marginTop: 14, backgroundColor: '#FAFAFA', borderRadius: 16, borderWidth: 1, borderColor: '#EFEFEF', overflow: 'hidden' },
+  menuRow:     { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  menuIconBox: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  menuText:    { flex: 1 },
+  menuLabel:   { fontSize: 13.5, fontWeight: '600', color: '#111', marginBottom: 1 },
+  menuSub:     { fontSize: 11.5, color: '#B0B0B0' },
   menuDivider: { height: 1, backgroundColor: '#F0F0F0', marginLeft: 68 },
-
   footer:        { alignItems: 'center', paddingTop: 28, gap: 8 },
   footerVersion: { fontSize: 11.5, color: '#C0C0C0' },
   footerLinks:   { flexDirection: 'row', gap: 20 },

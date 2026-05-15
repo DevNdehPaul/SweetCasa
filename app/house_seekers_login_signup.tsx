@@ -2,6 +2,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -13,12 +14,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import api from '../constants/api';
 import { persistAuthSession, routeForRole } from '../constants/auth';
-const PURPLE_LIGHT = '#F0EBFF';
 
+const PURPLE_LIGHT = '#F0EBFF';
 const { width } = Dimensions.get('window');
 const H_PAD = 20;
 
@@ -97,28 +98,28 @@ function LoginTab({ email, setEmail, password, setPassword }: {
   password: string;
   setPassword: (v: string) => void;
 }) {
+  const { t } = useTranslation();
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      Alert.alert(t('auth.missingFields'), t('auth.missingFieldsDesc'));
       return;
     }
     setLoading(true);
     try {
-      
       const res = await api.post('/auth/login', {
         email: email.trim(),
         password,
         expectedRole: 'BUYER',
-      })
+      });
       const { token, role, profile } = res.data;
       await persistAuthSession({ token, role, profile });
       router.replace(routeForRole(role) as any);
     } catch (err: any) {
-      const message = err.response?.data?.error || 'Login failed. Please try again.';
-      Alert.alert('Login failed', message);
+      const message = err.response?.data?.error || t('auth.loginFailedGeneric');
+      Alert.alert(t('auth.loginFailed'), message);
     } finally {
       setLoading(false);
     }
@@ -130,15 +131,13 @@ function LoginTab({ email, setEmail, password, setPassword }: {
         <View style={styles.shieldWrap}>
           <Ionicons name="shield-checkmark-outline" size={30} color="#7C3AED" />
         </View>
-        <Text style={styles.authHeroTitle}>Welcome Back</Text>
-        <Text style={styles.authHeroDesc}>
-          Login to continue your property search and find your dream home.
-        </Text>
+        <Text style={styles.authHeroTitle}>{t('auth.welcomeBack')}</Text>
+        <Text style={styles.authHeroDesc}>{t('auth.seekerDesc')}</Text>
       </View>
 
       <Field
-        label="Email Address"
-        placeholder="e.g. name@email.com"
+        label={t('auth.email')}
+        placeholder={t('auth.emailPlaceholder')}
         value={email}
         onChangeText={setEmail}
         icon="mail"
@@ -146,15 +145,15 @@ function LoginTab({ email, setEmail, password, setPassword }: {
       />
 
       <Field
-        label="Password"
-        placeholder="••••••••"
+        label={t('auth.password')}
+        placeholder={t('auth.passwordPlaceholder')}
         value={password}
         onChangeText={setPassword}
         icon="lock"
         secure={!showPass}
         topRight={
           <TouchableOpacity onPress={() => {}}>
-            <Text style={styles.forgotLink}>Forgot?</Text>
+            <Text style={styles.forgotLink}>{t('auth.forgotPassword')}</Text>
           </TouchableOpacity>
         }
         rightEl={
@@ -171,7 +170,7 @@ function LoginTab({ email, setEmail, password, setPassword }: {
       >
         {loading ? <ActivityIndicator color="#fff" /> : (
           <>
-            <Text style={styles.primaryBtnTxt}>Secure Login</Text>
+            <Text style={styles.primaryBtnTxt}>{t('auth.secureLogin')}</Text>
             <Feather name="arrow-right" size={17} color="#fff" />
           </>
         )}
@@ -179,26 +178,26 @@ function LoginTab({ email, setEmail, password, setPassword }: {
 
       <View style={styles.orDivider}>
         <View style={styles.dividerLine} />
-        <Text style={styles.orTxt}>OR CONTINUE WITH</Text>
+        <Text style={styles.orTxt}>{t('auth.orContinueWith')}</Text>
         <View style={styles.dividerLine} />
       </View>
 
       <View style={styles.socialRow}>
         <TouchableOpacity style={styles.socialBtn}>
           <Feather name="globe" size={17} color="#374151" />
-          <Text style={styles.socialBtnTxt}>Google</Text>
+          <Text style={styles.socialBtnTxt}>{t('auth.google')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.socialBtn}>
           <Feather name="smartphone" size={17} color="#374151" />
-          <Text style={styles.socialBtnTxt}>Apple</Text>
+          <Text style={styles.socialBtnTxt}>{t('auth.apple')}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.tipCard}>
         <Feather name="info" size={13} color="#9CA3AF" style={{ marginTop: 2 }} />
         <Text style={styles.tipText}>
-          <Text style={{ fontWeight: '700' }}>Tip:</Text> Use a strong password and enable 2FA to
-          qualify for higher escrow transaction limits in your SweetCasa wallet.
+          <Text style={{ fontWeight: '700' }}>{t('auth.tipTitle')}</Text>{' '}
+          {t('auth.seekerTip')}
         </Text>
       </View>
     </ScrollView>
@@ -215,6 +214,7 @@ function SignupTab({
   form: typeof EMPTY_FORM;
   setForm: React.Dispatch<React.SetStateAction<typeof EMPTY_FORM>>;
 }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const set = (k: keyof typeof EMPTY_FORM) => (v: string) =>
     setForm(p => ({ ...p, [k]: v }));
@@ -222,21 +222,21 @@ function SignupTab({
   const handleSignup = async () => {
     if (!termsAccepted) {
       Alert.alert(
-        'Agreement Required',
-        'You must read and accept the Terms of Service & Privacy Policy before creating an account.',
+        t('auth.agreementRequired'),
+        t('auth.agreementDesc'),
         [
-          { text: 'Read Terms', onPress: () => router.push('/TermsSeeker') },
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('auth.readTerms'), onPress: () => router.push('/TermsSeeker') },
+          { text: t('common.cancel'), style: 'cancel' },
         ]
       );
       return;
     }
     if (!form.fullName.trim() || !form.email.trim() || !form.password.trim()) {
-      Alert.alert('Missing fields', 'Please fill in your name, email, and password.');
+      Alert.alert(t('auth.missingFields'), t('auth.signupMissingFieldsDesc'));
       return;
     }
     if (form.password !== form.confirmPassword) {
-      Alert.alert('Password mismatch', 'Your passwords do not match.');
+      Alert.alert(t('auth.passwordMismatch'), t('auth.passwordMismatchDesc'));
       return;
     }
     setLoading(true);
@@ -259,8 +259,8 @@ function SignupTab({
       await AsyncStorage.removeItem('signup_draft');
       router.replace('/seeker-dashboard');
     } catch (err: any) {
-      const message = err.response?.data?.error || 'Registration failed. Please try again.';
-      Alert.alert('Sign up failed', message);
+      const message = err.response?.data?.error || t('auth.signupFailedGeneric');
+      Alert.alert(t('auth.signupFailed'), message);
     } finally {
       setLoading(false);
     }
@@ -268,11 +268,11 @@ function SignupTab({
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
-      <Text style={styles.stepTitle}>Find your dream home</Text>
+      <Text style={styles.stepTitle}>{t('auth.findDreamHome')}</Text>
 
-      <SectionCard icon="user" title="Personal Details">
+      <SectionCard icon="user" title={t('account.personalDetails')}>
         <View style={styles.fieldGroup}>
-          <RegLabel>FULL NAME</RegLabel>
+          <RegLabel>{t('account.fullName')}</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="user" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="John Doe"
@@ -281,7 +281,7 @@ function SignupTab({
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>EMAIL ADDRESS</RegLabel>
+          <RegLabel>{t('account.emailAddress')}</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="mail" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="john@example.com"
@@ -291,27 +291,27 @@ function SignupTab({
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>PASSWORD</RegLabel>
+          <RegLabel>{t('auth.password')}</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="lock" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder="Min 8 chars, letters, numbers & symbols"
+            <TextInput style={styles.fieldInput} placeholder={t('auth.passwordHint')}
               placeholderTextColor="#9CA3AF" value={form.password} onChangeText={set('password')}
               secureTextEntry />
           </View>
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>CONFIRM PASSWORD</RegLabel>
+          <RegLabel>{t('auth.confirmPassword')}</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="lock" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder="Repeat your password"
+            <TextInput style={styles.fieldInput} placeholder={t('auth.confirmPasswordPlaceholder')}
               placeholderTextColor="#9CA3AF" value={form.confirmPassword}
               onChangeText={set('confirmPassword')} secureTextEntry />
           </View>
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>PHONE NUMBER</RegLabel>
+          <RegLabel>{t('account.phoneNumber')}</RegLabel>
           <View style={styles.phoneWrap}>
             <View style={styles.phonePrefix}>
               <Feather name="globe" size={13} color="#374151" />
@@ -319,7 +319,7 @@ function SignupTab({
             </View>
             <View style={[styles.inputWrap, { flex: 1 }]}>
               <Feather name="phone" size={14} color="#9CA3AF" />
-              <TextInput style={styles.fieldInput} placeholder="6XX XXX XXX"
+              <TextInput style={styles.fieldInput} placeholder={t('auth.phonePlaceholder')}
                 placeholderTextColor="#9CA3AF" value={form.phone} onChangeText={set('phone')}
                 keyboardType="phone-pad" />
             </View>
@@ -327,10 +327,10 @@ function SignupTab({
         </View>
       </SectionCard>
 
-      <SectionCard icon="map-pin" title="Location Details">
+      <SectionCard icon="map-pin" title={t('account.locationDetails')}>
         <View style={styles.twoCol}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>COUNTRY</RegLabel>
+            <RegLabel>{t('account.country')}</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="globe" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Cameroon"
@@ -338,7 +338,7 @@ function SignupTab({
             </View>
           </View>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>REGION</RegLabel>
+            <RegLabel>{t('account.region')}</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="map" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Littoral"
@@ -349,7 +349,7 @@ function SignupTab({
 
         <View style={styles.twoCol}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>CITY</RegLabel>
+            <RegLabel>{t('account.city')}</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="grid" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Douala"
@@ -357,7 +357,7 @@ function SignupTab({
             </View>
           </View>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>STREET NAME</RegLabel>
+            <RegLabel>{t('account.streetName')}</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="navigation" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Street 1024"
@@ -367,21 +367,22 @@ function SignupTab({
         </View>
       </SectionCard>
 
-      {/* ── Terms & Conditions ─────────────────────────────────────────────── */}
+      {/* ── Terms Card ── */}
       <View style={styles.termsCard}>
         <Feather name="file-text" size={16} color="#7C3AED" style={{ marginTop: 1 }} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.termsCardLabel}>Required before registering</Text>
+          <Text style={styles.termsCardLabel}>{t('auth.termsRequired')}</Text>
           <Text style={styles.termsCardBody}>
-            You must read and accept our{' '}
+            {t('auth.termsCardBodyPre')}{' '}
             <Text style={styles.termsLink} onPress={() => router.push('/TermsSeeker')}>
-              Terms of Service & Privacy Policy
+              {t('auth.termsLinkText')}
             </Text>{' '}
-            to create an account.
+            {t('auth.termsCardBodyPost')}
           </Text>
         </View>
       </View>
 
+      {/* ── Terms Checkbox ── */}
       <TouchableOpacity
         style={styles.termsRow}
         activeOpacity={0.7}
@@ -391,25 +392,20 @@ function SignupTab({
           {termsAccepted && <Feather name="check" size={12} color="#fff" />}
         </View>
         <Text style={styles.termsText}>
-          {termsAccepted
-            ? '✓ I have read and accepted the Terms of Service & Privacy Policy.'
-            : 'I agree to the Terms of Service & Privacy Policy (tap to read & accept)'}
+          {termsAccepted ? t('auth.termsAccepted') : t('auth.termsNotAccepted')}
         </Text>
       </TouchableOpacity>
 
       {!termsAccepted && (
         <View style={styles.termsWarning}>
           <Feather name="alert-circle" size={13} color="#D97706" />
-          <Text style={styles.termsWarningTxt}>
-            Tap the link above to read the Terms, then tap{' '}
-            <Text style={{ fontWeight: '700' }}>Accept & Continue</Text> to unlock registration.
-          </Text>
+          <Text style={styles.termsWarningTxt}>{t('auth.termsWarning')}</Text>
         </View>
       )}
       {termsAccepted && (
         <View style={styles.termsSuccess}>
           <Feather name="check-circle" size={13} color="#16A34A" />
-          <Text style={styles.termsSuccessTxt}>Terms accepted — you're all set to register!</Text>
+          <Text style={styles.termsSuccessTxt}>{t('auth.termsAcceptedMsg')}</Text>
         </View>
       )}
 
@@ -421,7 +417,7 @@ function SignupTab({
         >
           {loading ? <ActivityIndicator color="#fff" /> : (
             <>
-              <Text style={styles.nextBtnTxt}>Create Account</Text>
+              <Text style={styles.nextBtnTxt}>{t('auth.createAccount')}</Text>
               <Feather name="arrow-right" size={15} color="#fff" />
             </>
           )}
@@ -433,6 +429,7 @@ function SignupTab({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function HouseSeekersLoginSignup() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ tab?: string; termsAccepted?: string }>();
 
   const [activeTab, setActiveTab] = useState<Tab>(
@@ -447,17 +444,11 @@ export default function HouseSeekersLoginSignup() {
 
   const termsAccepted = params.termsAccepted === 'true';
 
-  // ── Signup form state (lifted up so back button can reset it) ──────────────
-  const [form, setForm] = useState(EMPTY_FORM);
-
-  // ── Login field state (lifted up so back button can reset them) ───────────
+  const [form, setForm]                   = useState(EMPTY_FORM);
   const [loginEmail, setLoginEmail]       = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-
-  // Tracks whether we've loaded the draft at least once
   const draftLoaded = useRef(false);
 
-  // Load draft on focus (handles returning from Terms page)
   useFocusEffect(
     useCallback(() => {
       AsyncStorage.getItem('signup_draft').then(raw => {
@@ -469,13 +460,11 @@ export default function HouseSeekersLoginSignup() {
     }, [])
   );
 
-  // Save draft on every form change, but only after the first load
   useEffect(() => {
     if (!draftLoaded.current) return;
     AsyncStorage.setItem('signup_draft', JSON.stringify(form));
   }, [form]);
 
-  // ── Clear all state + draft, then navigate back ────────────────────────────
   const handleBack = () => {
     setForm(EMPTY_FORM);
     setLoginEmail('');
@@ -492,16 +481,18 @@ export default function HouseSeekersLoginSignup() {
       <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
         <Feather name="arrow-left" size={22} color="#111827" />
       </TouchableOpacity>
+
+      {/* Tab switcher — renamed loop var to 'tab' to avoid conflict with t() */}
       <View style={styles.tabRow}>
-        {(['login', 'signup'] as Tab[]).map(t => (
+        {(['login', 'signup'] as Tab[]).map(tab => (
           <TouchableOpacity
-            key={t}
-            style={[styles.tabBtn, activeTab === t && styles.tabBtnActive]}
-            onPress={() => setActiveTab(t)}
+            key={tab}
+            style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
+            onPress={() => setActiveTab(tab)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.tabBtnTxt, activeTab === t && styles.tabBtnTxtActive]}>
-              {t === 'login' ? 'Login' : 'Sign Up'}
+            <Text style={[styles.tabBtnTxt, activeTab === tab && styles.tabBtnTxtActive]}>
+              {tab === 'login' ? t('auth.login') : t('auth.signUp')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -509,9 +500,9 @@ export default function HouseSeekersLoginSignup() {
 
       <View style={styles.formHeader}>
         <Text style={styles.formHeaderTitle}>
-          {activeTab === 'login' ? 'Welcome Back, Seeker' : 'Create Seeker Profile'}
+          {activeTab === 'login' ? t('auth.welcomeBackSeeker') : t('auth.createSeekerTitle')}
         </Text>
-        <Text style={styles.formHeaderSub}>House Seekers Portal</Text>
+        <Text style={styles.formHeaderSub}>{t('auth.houseSeekersPortal')}</Text>
       </View>
 
       {activeTab === 'login' && (
@@ -533,7 +524,7 @@ export default function HouseSeekersLoginSignup() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles (unchanged) ───────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F7F7FB' },
   backBtn: {
@@ -618,14 +609,10 @@ const styles = StyleSheet.create({
   termsCardLabel: { fontSize: 10.5, fontWeight: '700', color: '#7C3AED', letterSpacing: 0.6, marginBottom: 4 },
   termsCardBody: { fontSize: 12.5, color: '#374151', lineHeight: 19 },
   termsLink: { color: '#6D28D9', fontWeight: '700', textDecorationLine: 'underline' },
-  termsRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginBottom: 10, paddingHorizontal: 2,
-  },
+  termsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10, paddingHorizontal: 2 },
   checkbox: {
     width: 22, height: 22, borderWidth: 2, borderColor: '#D1D5DB',
-    borderRadius: 6, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#fff',
+    borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
   },
   checkboxChecked: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
   termsText: { flex: 1, fontSize: 12.5, color: '#6B7280', lineHeight: 19 },
@@ -641,11 +628,6 @@ const styles = StyleSheet.create({
     borderRadius: 12, padding: 11, marginBottom: 16,
   },
   termsSuccessTxt: { flex: 1, fontSize: 12, color: '#15803D', fontWeight: '600' },
-  securityNote: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginBottom: 16,
-  },
-  securityText: { flex: 1, fontSize: 12, color: '#6B7280', lineHeight: 18 },
   actionRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   saveBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff',
