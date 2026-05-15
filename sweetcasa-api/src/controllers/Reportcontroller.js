@@ -1,8 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
+const { getPrisma }  = require('../config/prisma');   // shared pool-based instance
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
-const streamifier = require('streamifier');
-
-const prisma = new PrismaClient();
+const streamifier    = require('streamifier');
 
 // ─── Helper: upload a buffer to Cloudinary ────────────────────────────────────
 function uploadToCloudinary(buffer, folder) {
@@ -19,13 +17,11 @@ function uploadToCloudinary(buffer, folder) {
 }
 
 // ─── POST /reports ────────────────────────────────────────────────────────────
-// Accepts: category, subject, description, followUp, evidence (up to 3 images)
-// Auth: optional — works for both logged-in and guest users
 exports.createReport = async (req, res) => {
   try {
+    const prisma = getPrisma();
     const { category, subject, description, followUp } = req.body;
 
-    // Basic validation
     if (!subject?.trim()) {
       return res.status(400).json({ error: 'Subject is required.' });
     }
@@ -42,19 +38,18 @@ exports.createReport = async (req, res) => {
       evidenceUrls.push(url);
     }
 
-    // Get userId from JWT if authenticated (optional)
+    // userId from JWT if authenticated, null for guests
     const userId = req.user?.id ?? null;
 
-    // Save to DB
     const report = await prisma.report.create({
       data: {
         userId,
-        category:    category || 'Other',
-        subject:     subject.trim(),
-        description: description.trim(),
-        followUp:    followUp === 'true' || followUp === true,
+        category:     category || 'Other',
+        subject:      subject.trim(),
+        description:  description.trim(),
+        followUp:     followUp === 'true' || followUp === true,
         evidenceUrls: evidenceUrls.length > 0 ? evidenceUrls : undefined,
-        status:      'Pending',
+        status:       'Pending',
       },
     });
 
@@ -71,6 +66,7 @@ exports.createReport = async (req, res) => {
 // ─── GET /reports (admin only) ────────────────────────────────────────────────
 exports.getAllReports = async (req, res) => {
   try {
+    const prisma = getPrisma();
     const reports = await prisma.report.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
