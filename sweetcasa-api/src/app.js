@@ -17,7 +17,7 @@ app.use(cors({ origin: '*' }))
 app.use('/auth', express.json(), authRoutes)
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
-const reportRoutes = require('./routes/reportRoutes');
+const reportRoutes = require('./routes/Reportroutes');
 app.use('/reports', reportRoutes);
 // Listings route handles its own body parsing via multer middleware
 app.use('/listings', listingRoutes)
