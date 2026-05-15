@@ -1,6 +1,6 @@
 const express      = require('express');
 const multer       = require('multer');
-const requireRole  = require('../middleware/auth'); // matches your existing middleware
+const requireRole  = require('../middleware/requireRole'); // matches your existing middleware
 const { createReport, getAllReports } = require('../controllers/Reportcontroller');
 
 const router = express.Router();
