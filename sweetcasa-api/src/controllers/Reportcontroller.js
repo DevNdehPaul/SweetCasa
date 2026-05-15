@@ -1,6 +1,6 @@
-const { getPrisma }  = require('../lib/prisma');
-const cloudinary     = require('../config/cloudinary'); // adjust if your cloudinary config path differs
-const streamifier    = require('streamifier');
+const { getPrisma } = require('../lib/prisma');
+const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary');
+const streamifier = require('streamifier');
 
 // ─── Helper: upload a buffer to Cloudinary ────────────────────────────────────
 function uploadToCloudinary(buffer, folder) {
@@ -19,6 +19,7 @@ function uploadToCloudinary(buffer, folder) {
 // ─── POST /reports ────────────────────────────────────────────────────────────
 exports.createReport = async (req, res) => {
   try {
+    ensureCloudinaryConfigured();
     const prisma = getPrisma();
     const { category, subject, description, followUp } = req.body;
 
@@ -37,7 +38,7 @@ exports.createReport = async (req, res) => {
       evidenceUrls.push(url);
     }
 
-    // userId from JWT if token was present, null for guests
+    // userId from JWT if authenticated, null for guests
     const userId = req.user?.id ?? null;
 
     const report = await prisma.report.create({
