@@ -23,10 +23,24 @@ model User {
   listings         Listing[]
   savedListings    SavedListing[]
   listingReviews   ListingReview[]
+  reports          Report[]
 
   @@map("users")
 }
+model Report {
+  id          Int       @id @default(autoincrement())
+  userId      Int?      @map("user_id")
+  category    String    @db.VarChar(50)
+  subject     String    @db.VarChar(255)
+  description String
+  followUp    Boolean   @default(false)
+  evidenceUrls Json?    @map("evidence_urls")
+  status      String    @default("Pending") @db.VarChar(30)
+  createdAt   DateTime? @default(now()) @map("created_at")
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@map("reports")
+}
 model Listing {
   id                  Int            @id @default(autoincrement())
   ownerId             Int?           @map("owner_id")
