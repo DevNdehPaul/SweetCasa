@@ -1,5 +1,5 @@
-const { getPrisma }  = require('../lib/prisma');   // shared pool-based instance
-const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
+const { getPrisma }  = require('../lib/prisma');
+const cloudinary     = require('../config/cloudinary'); // adjust if your cloudinary config path differs
 const streamifier    = require('streamifier');
 
 // ─── Helper: upload a buffer to Cloudinary ────────────────────────────────────
@@ -32,13 +32,12 @@ exports.createReport = async (req, res) => {
     // Upload evidence images to Cloudinary (if any)
     const evidenceUrls = [];
     const files = req.files || [];
-
     for (const file of files.slice(0, 3)) {
       const url = await uploadToCloudinary(file.buffer, 'sweetcasa/reports');
       evidenceUrls.push(url);
     }
 
-    // userId from JWT if authenticated, null for guests
+    // userId from JWT if token was present, null for guests
     const userId = req.user?.id ?? null;
 
     const report = await prisma.report.create({
