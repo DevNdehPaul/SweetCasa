@@ -1,4 +1,4 @@
-const { getPrisma }  = require('../config/prisma');   // shared pool-based instance
+const { getPrisma }  = require('../lib/prisma');   // shared pool-based instance
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
 const streamifier    = require('streamifier');
 
