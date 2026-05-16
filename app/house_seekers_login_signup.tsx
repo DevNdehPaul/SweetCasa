@@ -418,7 +418,8 @@ function SignupTab({
       await AsyncStorage.setItem('role', role);
       if (profile) await AsyncStorage.setItem('profile', JSON.stringify(profile));
       await AsyncStorage.removeItem('signup_draft');
-      router.replace('/seeker-dashboard');
+await AsyncStorage.removeItem('seeker_welcome_seen'); // ← ADD THIS
+router.replace('/seeker-dashboard');
     } catch (err: any) {
       const message = err.response?.data?.error || t('auth.signupFailedGeneric');
       Alert.alert(t('auth.signupFailed'), message);

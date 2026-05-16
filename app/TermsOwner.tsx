@@ -209,7 +209,7 @@ const s = StyleSheet.create({
   bold: { fontWeight: '700', color: TEXT_DARK },
   bottomBar: {
     flexDirection: 'row', gap: 12, padding: 16,
-    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: GRAY_BORDER,
+    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: GRAY_BORDER, paddingBottom: 60,
   },
   declineBtn: {
     flex: 1, paddingVertical: 14, borderRadius: 14,

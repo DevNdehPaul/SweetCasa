@@ -80,8 +80,8 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function AgentHubScreen() {
   const { t } = useTranslation();
-  const [profile, setProfile]     = useState<any>(null);
-  const [listings, setListings]   = useState<any[]>([]);
+  const [profile, setProfile]         = useState<any>(null);
+  const [listings, setListings]       = useState<any[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
@@ -90,11 +90,21 @@ export default function AgentHubScreen() {
     checkWelcome();
   }, []);
 
+  // ── Show modal on every fresh signup.
+  // ── The signup screen must call:
+  // ──   await AsyncStorage.removeItem('agent_welcome_seen');
+  // ── before navigating here. This function then detects the absent key
+  // ── and shows the modal, setting the key so it won't show again on
+  // ── subsequent visits (until the next signup clears it again).
   const checkWelcome = async () => {
-    const seen = await AsyncStorage.getItem('agent_welcome_seen');
-    if (!seen) {
-      setShowWelcome(true);
-      await AsyncStorage.setItem('agent_welcome_seen', 'true');
+    try {
+      const seen = await AsyncStorage.getItem('agent_welcome_seen');
+      if (!seen) {
+        setShowWelcome(true);
+        await AsyncStorage.setItem('agent_welcome_seen', 'true');
+      }
+    } catch {
+      // ignore
     }
   };
 

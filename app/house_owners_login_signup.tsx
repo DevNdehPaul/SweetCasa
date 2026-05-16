@@ -425,7 +425,8 @@ function SignupTab({
       await AsyncStorage.setItem('role', role);
       if (profile) await AsyncStorage.setItem('profile', JSON.stringify(profile));
       await AsyncStorage.removeItem('owner_signup_draft');
-      router.replace('/agent-dashboard');
+await AsyncStorage.removeItem('agent_welcome_seen'); // ← ADD THIS
+router.replace('/agent-dashboard');
     } catch (err: any) {
       const message = err.response?.data?.error || t('auth.signupFailedGeneric');
       Alert.alert(t('auth.signupFailed'), message);

@@ -74,7 +74,7 @@ function formatPrice(price: string, freq: string | null): string {
 }
 
 function getFirstName(fullName: string): string {
-  return fullName?.split(' ')[3] ?? fullName ?? '';
+  return fullName?.split(' ')[0] ?? fullName ?? '';
 }
 
 // ─── Welcome Modal ────────────────────────────────────────────────────────────
@@ -203,7 +203,6 @@ function ListingCard({ item }: { item: Listing }) {
             <Ionicons name="checkmark-circle" size={9} color="#7C3AED" />
             <Text style={styles.checkBadgeTxt}>{t('seekerDashboard.checkBadge')}</Text>
           </View>
-          {/* NEW badge for freshness */}
           <View style={styles.newBadge}>
             <Feather name="zap" size={9} color="#D97706" />
             <Text style={styles.newBadgeTxt}>NEW</Text>
@@ -248,7 +247,6 @@ export default function HomeScreen() {
   const [listings, setListings]       = useState<Listing[]>([]);
   const [listingsLoading, setListingsLoading] = useState(true);
 
-  // ── On mount: check welcome flag + load user + fetch listings ──
   useEffect(() => {
     initScreen();
   }, []);
@@ -257,6 +255,12 @@ export default function HomeScreen() {
     await Promise.all([checkWelcome(), loadUser(), fetchNewestListings()]);
   };
 
+  // ── Show modal on every fresh signup.
+  // ── The signup screen must call:
+  // ──   await AsyncStorage.removeItem('seeker_welcome_seen');
+  // ── before navigating here. This function then detects the absent key
+  // ── and shows the modal, setting the key so it won't show again on
+  // ── subsequent visits (until the next signup clears it again).
   const checkWelcome = async () => {
     try {
       const seen = await AsyncStorage.getItem('seeker_welcome_seen');
@@ -269,7 +273,6 @@ export default function HomeScreen() {
     }
   };
 
-  // ── Load user profile from AsyncStorage — mirrors profile.tsx logic exactly ──
   const loadUser = async () => {
     try {
       const [rawProfile, storedRole] = await Promise.all([
@@ -279,7 +282,6 @@ export default function HomeScreen() {
       if (rawProfile) {
         const parsed = JSON.parse(rawProfile);
         const isSeller = storedRole === 'SELLER';
-        // Exact same resolution as profile.tsx
         const resolvedName = isSeller
           ? (parsed.companyName || parsed.name || '')
           : (parsed.fullName   || parsed.name || '');
@@ -289,15 +291,13 @@ export default function HomeScreen() {
         });
       }
     } catch {
-      // ignore — fallback to empty
+      // ignore
     }
   };
 
-  // ── Fetch 5 newest approved listings from backend ──
   const fetchNewestListings = async () => {
     setListingsLoading(true);
     try {
-      // Sort by newest, limit to 5, only approved
       const query = new URLSearchParams({
         limit: '5',
         page: '1',
@@ -308,7 +308,6 @@ export default function HomeScreen() {
       const res = await fetch(`${BASE_URL}/listings?${query.toString()}`);
       if (!res.ok) throw new Error('Failed');
       const data = await res.json();
-      // Support both { listings: [...] } and [...] response shapes
       const items: Listing[] = Array.isArray(data) ? data : (data.listings ?? []);
       setListings(items.slice(0, 5));
     } catch {
@@ -388,7 +387,7 @@ export default function HomeScreen() {
           <Text style={styles.bannerBolt}>⚡</Text>
         </View>
 
-        {/* Recommended — newest from DB */}
+        {/* Recommended */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t('seekerDashboard.recommended')}</Text>
           <TouchableOpacity onPress={() => router.push('/search' as any)}>
@@ -397,7 +396,6 @@ export default function HomeScreen() {
         </View>
 
         {listingsLoading ? (
-          // Skeleton placeholders while loading
           <FlatList
             data={[1, 2, 3]}
             horizontal
@@ -409,7 +407,6 @@ export default function HomeScreen() {
             scrollEnabled={false}
           />
         ) : listings.length === 0 ? (
-          // Empty state
           <View style={styles.emptyListings}>
             <Text style={styles.emptyListingsIcon}>🏘️</Text>
             <Text style={styles.emptyListingsTxt}>No listings yet — check back soon!</Text>
@@ -468,20 +465,17 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, paddingTop: 4, paddingBottom: 12 },
   logoMark: { width: 38, height: 38, borderRadius: 10, backgroundColor: '#F3F0FF', alignItems: 'center', justifyContent: 'center' },
   bellWrap: { width: 38, height: 38, borderRadius: 10, borderWidth: 1, borderColor: '#EBEBEB', alignItems: 'center', justifyContent: 'center' },
-
   welcomeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: H_PAD, marginBottom: 28 },
   avatar: { width: 48, height: 48, borderRadius: 24, borderWidth: 2, borderColor: '#EDE9FE' },
   avatarPlaceholder: { backgroundColor: '#F3F0FF', alignItems: 'center', justifyContent: 'center' },
   onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 11, height: 11, borderRadius: 6, backgroundColor: '#22C55E', borderWidth: 1.5, borderColor: '#fff' },
   welcomeHi: { fontSize: 12, color: '#A0A0A0', fontWeight: '400', marginBottom: 1 },
   welcomeName: { fontSize: 20, fontWeight: '700', color: '#111', letterSpacing: -0.5, maxWidth: width - H_PAD * 2 - 72 },
-
   actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: H_PAD, marginBottom: 28 },
   actionCard: { backgroundColor: '#FAFAFA', borderRadius: 16, padding: 15, borderWidth: 1, borderColor: '#EFEFEF', width: ACTION_SIZE },
   actionIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   actionLabel: { fontSize: 13, fontWeight: '700', color: '#111', marginBottom: 2, letterSpacing: -0.1 },
   actionSub: { fontSize: 11, color: '#B0B0B0', lineHeight: 15 },
-
   banner: { marginHorizontal: H_PAD, borderRadius: 20, backgroundColor: '#6D28D9', padding: 20, marginBottom: 30, flexDirection: 'row', alignItems: 'flex-start', overflow: 'hidden' },
   bannerLeft: { flex: 1 },
   bannerTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'flex-start', borderRadius: 30, paddingHorizontal: 9, paddingVertical: 3, marginBottom: 10 },
@@ -491,11 +485,9 @@ const styles = StyleSheet.create({
   bannerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', alignSelf: 'flex-start', borderRadius: 30, paddingHorizontal: 16, paddingVertical: 8 },
   bannerBtnTxt: { fontSize: 12, fontWeight: '700', color: '#6D28D9' },
   bannerBolt: { fontSize: 72, opacity: 0.12, color: '#fff', position: 'absolute', right: -6, top: -6 },
-
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 14 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
   seeAll: { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
-
   listingRow: { paddingLeft: H_PAD, paddingRight: H_PAD / 2 },
   listingCard: { borderRadius: 16, backgroundColor: '#fff', overflow: 'hidden', borderWidth: 1, borderColor: '#EFEFEF', shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 3 },
   listingImgWrap: { width: '100%', height: 140, position: 'relative' },
@@ -517,11 +509,9 @@ const styles = StyleSheet.create({
   checkBadgeTxt: { fontSize: 9, fontWeight: '600', color: '#6D28D9' },
   newBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#FFFBEB', borderRadius: 20, paddingHorizontal: 7, paddingVertical: 3 },
   newBadgeTxt: { fontSize: 9, fontWeight: '700', color: '#D97706' },
-
   emptyListings: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: H_PAD },
   emptyListingsIcon: { fontSize: 36, marginBottom: 8 },
   emptyListingsTxt: { fontSize: 13, color: '#B0B0B0', textAlign: 'center' },
-
   verifiedStrip: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginHorizontal: H_PAD, marginTop: 28, backgroundColor: '#FAFAFA', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#EFEFEF' },
   verifiedTitle: { fontSize: 13, fontWeight: '700', color: '#111', marginBottom: 3 },
   verifiedSub: { fontSize: 11.5, color: '#A0A0A0', lineHeight: 17 },
