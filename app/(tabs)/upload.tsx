@@ -682,25 +682,33 @@ export default function NewListing() {
         </View>
 
         {/* 7. Documents */}
-        <View style={s.section}>
-          <SectionHeader num="7" title={t('listing.documents')} />
-          <View style={s.docInfoBox}>
-            <Text style={s.docInfoTitle}>
-              {t('listing.floorPlan')} <Text style={s.optional}>({t('common.optional')})</Text>
-            </Text>
-            <Text style={s.docInfoDesc}>{t('listing.floorPlanDesc')}</Text>
-          </View>
-          <DocumentUploadBox
-            label={t('listing.floorPlan')} files={floorPlans} setFiles={setFloorPlans} max={1}
-          />
-          <View style={[s.docInfoBox, { marginTop: 12 }]}>
-            <Text style={s.docInfoTitle}>{t('listing.legalDocuments')}</Text>
-            <Text style={s.docInfoDesc}>{t('listing.legalDocumentsDesc')}</Text>
-          </View>
-          <DocumentUploadBox
-            label={t('listing.legalDocuments')} files={legalDocs} setFiles={setLegalDocs}
-          />
-        </View>
+<View style={s.section}>
+  <SectionHeader num="7" title={t('listing.documents')} />
+  <View style={s.docInfoBox}>
+    <Text style={s.docInfoDesc}>{t('listing.floorPlanDesc')}</Text>
+    {/* ↓ NEW: format hint */}
+    <Text style={[s.docInfoDesc, { color: PURPLE, fontWeight: '600', marginTop: 4 }]}>
+      📐 {t('listing.floorPlanFormat') ?? 'Accepted formats: JPG, JPEG, PNG only'}
+    </Text>
+  </View>
+
+  {/* ↓ CHANGED: was DocumentUploadBox, now image picker */}
+  <MediaUploadBox
+    label={t('listing.floorPlan')}
+    files={floorPlans}
+    setFiles={setFloorPlans}
+    pickerMode="image"
+    max={1}
+  />
+
+  <View style={[s.docInfoBox, { marginTop: 12 }]}>
+    <Text style={s.docInfoTitle}>{t('listing.legalDocuments')}</Text>
+    <Text style={s.docInfoDesc}>{t('listing.legalDocumentsDesc')}</Text>
+  </View>
+  <DocumentUploadBox
+    label={t('listing.legalDocuments')} files={legalDocs} setFiles={setLegalDocs}
+  />
+</View>
 
         {/* 8. Description */}
         <View style={s.section}>

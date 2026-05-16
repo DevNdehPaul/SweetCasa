@@ -173,15 +173,13 @@ export default function SearchFiltersScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* ── Header ── */}
-      <View style={s.header}>
-        <TouchableOpacity style={s.iconBtn} onPress={() => router.back()}>
-          <Feather name="chevron-left" size={22} color="#111" />
-        </TouchableOpacity>
-        <Text style={s.headerTitle}>{t('search.title')}</Text>
-        <TouchableOpacity style={s.iconBtn} onPress={handleReset}>
-          <Feather name="rotate-ccw" size={18} color="#111" />
-        </TouchableOpacity>
-      </View>
+<View style={s.header}>
+  <View style={s.iconBtn} />
+  <Text style={s.headerTitle}>{t('search.title')}</Text>
+  <TouchableOpacity style={s.iconBtn} onPress={handleReset}>
+    <Feather name="rotate-ccw" size={18} color="#111" />
+  </TouchableOpacity>
+</View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
 
@@ -332,7 +330,7 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
   scroll: { paddingHorizontal: H_PAD, paddingTop: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', color: '#fff' },
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2, marginBottom: 10 },
   sectionSubtitle: { fontSize: 12, color: '#9CA3AF', marginBottom: 14, lineHeight: 17 },

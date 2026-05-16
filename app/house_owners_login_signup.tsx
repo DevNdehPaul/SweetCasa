@@ -1,5 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +32,13 @@ const EMPTY_OWNER_FORM = {
   password: '', confirmPassword: '',
   country: '', region: '', city: '', street: '',
 };
+
+type NationalIdFile = {
+  uri: string;
+  name: string;
+  mimeType: string;
+  size?: number;
+} | null;
 
 // ─── Reusable Field ───────────────────────────────────────────────────────────
 function Field({
@@ -88,6 +97,141 @@ function SectionCard({ icon, title, children }: {
         <Text style={styles.sectionCardTitle}>{title}</Text>
       </View>
       {children}
+    </View>
+  );
+}
+
+// ─── National ID Upload Field ─────────────────────────────────────────────────
+function NationalIdUpload({
+  file,
+  onFileSelected,
+}: {
+  file: NationalIdFile;
+  onFileSelected: (f: NationalIdFile) => void;
+}) {
+  const { t } = useTranslation();
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        t('auth.permissionRequired'),
+        t('auth.galleryPermissionDesc'),
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const asset = result.assets[0];
+      onFileSelected({
+        uri: asset.uri,
+        name: asset.fileName ?? `national_id_${Date.now()}.jpg`,
+        mimeType: asset.mimeType ?? 'image/jpeg',
+        size: asset.fileSize,
+      });
+    }
+  };
+
+  const handlePickCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        t('auth.permissionRequired'),
+        t('auth.cameraPermissionDesc'),
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const asset = result.assets[0];
+      onFileSelected({
+        uri: asset.uri,
+        name: asset.fileName ?? `national_id_${Date.now()}.jpg`,
+        mimeType: asset.mimeType ?? 'image/jpeg',
+        size: asset.fileSize,
+      });
+    }
+  };
+
+  const handlePickDocument = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/*'],
+      copyToCacheDirectory: true,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const asset = result.assets[0];
+      onFileSelected({
+        uri: asset.uri,
+        name: asset.name,
+        mimeType: asset.mimeType ?? 'application/pdf',
+        size: asset.size,
+      });
+    }
+  };
+
+  const showPicker = () => {
+    Alert.alert(
+      t('auth.uploadNationalId'),
+      t('auth.uploadNationalIdDesc'),
+      [
+        { text: t('auth.takePhoto'),     onPress: handlePickCamera },
+        { text: t('auth.chooseGallery'), onPress: handlePickImage },
+        { text: t('auth.choosePdf'),     onPress: handlePickDocument },
+        { text: t('common.cancel'),      style: 'cancel' },
+      ],
+    );
+  };
+
+  const isPdf = file?.mimeType === 'application/pdf';
+  const sizeKb = file?.size ? `${(file.size / 1024).toFixed(0)} KB` : null;
+
+  return (
+    <View style={styles.fieldGroup}>
+      <View style={styles.fieldLabelRow}>
+        <RegLabel>{t('auth.nationalId')}</RegLabel>
+        <View style={styles.requiredBadge}>
+          <Text style={styles.requiredBadgeTxt}>{t('auth.required')}</Text>
+        </View>
+      </View>
+
+      {/* Info card */}
+      <View style={styles.idInfoCard}>
+        <Feather name="shield" size={13} color="#7C3AED" style={{ marginTop: 1 }} />
+        <Text style={styles.idInfoText}>{t('auth.nationalIdInfo')}</Text>
+      </View>
+
+      {file ? (
+        /* ── File selected state ── */
+        <View style={styles.idSelectedWrap}>
+          <View style={styles.idSelectedIcon}>
+            <Feather name={isPdf ? 'file-text' : 'image'} size={22} color="#7C3AED" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.idSelectedName} numberOfLines={1}>{file.name}</Text>
+            {sizeKb && <Text style={styles.idSelectedSize}>{sizeKb}</Text>}
+          </View>
+          <TouchableOpacity onPress={showPicker} style={styles.idChangeBtn}>
+            <Feather name="refresh-cw" size={14} color="#7C3AED" />
+            <Text style={styles.idChangeBtnTxt}>{t('auth.change')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        /* ── Empty state ── */
+        <TouchableOpacity style={styles.idUploadBtn} onPress={showPicker} activeOpacity={0.7}>
+          <View style={styles.idUploadIconWrap}>
+            <Feather name="upload" size={20} color="#7C3AED" />
+          </View>
+          <Text style={styles.idUploadTitle}>{t('auth.uploadNationalId')}</Text>
+          <Text style={styles.idUploadSub}>{t('auth.uploadNationalIdFormats')}</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -217,6 +361,8 @@ function SignupTab({
 }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const [nationalIdFile, setNationalIdFile] = useState<NationalIdFile>(null);
+
   const set = (k: keyof typeof EMPTY_OWNER_FORM) => (v: string) =>
     setForm(p => ({ ...p, [k]: v }));
 
@@ -245,20 +391,35 @@ function SignupTab({
       Alert.alert(t('auth.passwordMismatch'), t('auth.passwordMismatchDesc'));
       return;
     }
+    if (!nationalIdFile) {
+      Alert.alert(t('auth.missingFields'), t('auth.nationalIdRequired'));
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await api.post('/auth/register', {
-        email:       form.email.trim(),
-        password:    form.password,
-        role:        'SELLER',
-        fullName:    form.fullName.trim(),
-        companyName: form.companyName.trim(),
-        phone:       form.phone,
-        country:     form.country.trim(),
-        region:      form.region.trim(),
-        city:        form.city.trim(),
-        street:      form.street.trim(),
+      // Build multipart/form-data payload
+      const formData = new FormData();
+      formData.append('email',       form.email.trim());
+      formData.append('password',    form.password);
+      formData.append('role',        'SELLER');
+      formData.append('fullName',    form.fullName.trim());
+      formData.append('companyName', form.companyName.trim());
+      formData.append('phone',       form.phone);
+      formData.append('country',     form.country.trim());
+      formData.append('region',      form.region.trim());
+      formData.append('city',        form.city.trim());
+      formData.append('street',      form.street.trim());
+      formData.append('nationalId', {
+        uri:  nationalIdFile.uri,
+        name: nationalIdFile.name,
+        type: nationalIdFile.mimeType,
+      } as any);
+
+      const res = await api.post('/auth/register', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
+
       const { token, role, profile } = res.data;
       await AsyncStorage.setItem('token', token);
       await AsyncStorage.setItem('role', role);
@@ -396,6 +557,11 @@ function SignupTab({
         </View>
       </SectionCard>
 
+      {/* ── National ID Upload ── */}
+      <SectionCard icon="credit-card" title={t('auth.identityVerification')}>
+        <NationalIdUpload file={nationalIdFile} onFileSelected={setNationalIdFile} />
+      </SectionCard>
+
       {/* ── Terms Checkbox ── */}
       <TouchableOpacity
         style={styles.termsRow}
@@ -490,7 +656,6 @@ export default function HouseOwnersLoginSignup() {
         <Feather name="arrow-left" size={22} color="#111827" />
       </TouchableOpacity>
 
-      {/* Tab switcher — loop var renamed 'tab' to avoid shadowing t() */}
       <View style={styles.tabRow}>
         {(['login', 'signup'] as Tab[]).map(tab => (
           <TouchableOpacity
@@ -532,7 +697,7 @@ export default function HouseOwnersLoginSignup() {
   );
 }
 
-// ─── Styles (unchanged) ───────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F7F7FB' },
   backBtn: {
@@ -615,6 +780,41 @@ const styles = StyleSheet.create({
   },
   phonePrefixTxt: { fontSize: 13, fontWeight: '600', color: '#374151' },
   twoCol: { flexDirection: 'row', gap: 10 },
+  // ── National ID ──
+  requiredBadge: {
+    backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
+  },
+  requiredBadgeTxt: { fontSize: 9.5, fontWeight: '700', color: '#B45309', letterSpacing: 0.5 },
+  idInfoCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 7,
+    backgroundColor: '#F5F3FF', borderRadius: 10, padding: 10, marginBottom: 10,
+    borderWidth: 1, borderColor: '#EDE9FE',
+  },
+  idInfoText: { flex: 1, fontSize: 11.5, color: '#6B7280', lineHeight: 17 },
+  idUploadBtn: {
+    borderWidth: 2, borderColor: '#DDD6FE', borderStyle: 'dashed', borderRadius: 14,
+    paddingVertical: 24, alignItems: 'center', gap: 8, backgroundColor: '#FAFAFF',
+  },
+  idUploadIconWrap: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: '#EDE9FE',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  idUploadTitle: { fontSize: 13.5, fontWeight: '700', color: '#5B21B6' },
+  idUploadSub: { fontSize: 11.5, color: '#9CA3AF' },
+  idSelectedWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#F5F3FF', borderRadius: 14, padding: 12,
+    borderWidth: 1.5, borderColor: '#DDD6FE',
+  },
+  idSelectedIcon: {
+    width: 42, height: 42, borderRadius: 10, backgroundColor: '#EDE9FE',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  idSelectedName: { fontSize: 13, fontWeight: '600', color: '#111827', marginBottom: 2 },
+  idSelectedSize: { fontSize: 11, color: '#9CA3AF' },
+  idChangeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6 },
+  idChangeBtnTxt: { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
+  // ── Terms ──
   termsCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
     backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#EDE9FE',

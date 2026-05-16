@@ -1,8 +1,10 @@
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const streamifier = require('streamifier')
 require('dotenv').config()
 
 const { getPrisma } = require('../lib/prisma')
+const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
 
 const ALLOWED_ROLES = ['BUYER', 'SELLER']
 
@@ -41,24 +43,38 @@ function buildDisplayName({ role, fullName, companyName, email }) {
 
 function toProfile(user) {
   return {
-    id:          user.id,
-    name:        user.name,
-    fullName:    user.role === 'BUYER' ? user.name : '',
-    companyName: user.companyName || '',
-    email:       user.email,
-    phone:       String(user.phone ?? ''),
-    role:        user.role,
-    country:     user.country  || '',
-    region:      user.region   || '',
-    city:        user.city     || '',
-    street:      user.street   || '',
-    createdAt:   user.createdAt,
+    id:             user.id,
+    name:           user.name,
+    fullName:       user.role === 'BUYER' ? user.name : '',
+    companyName:    user.companyName || '',
+    email:          user.email,
+    phone:          String(user.phone ?? ''),
+    role:           user.role,
+    country:        user.country        || '',
+    region:         user.region         || '',
+    city:           user.city           || '',
+    street:         user.street         || '',
+    nationalIdUrl:  user.nationalIdUrl  || '',
+    createdAt:      user.createdAt,
   }
+}
+
+// ─── Upload buffer to Cloudinary (stream-based, works with multer memoryStorage) ─
+function uploadToCloudinary(buffer, options = {}) {
+  return new Promise((resolve, reject) => {
+    ensureCloudinaryConfigured()
+    const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+      if (error) return reject(error)
+      resolve(result)
+    })
+    streamifier.createReadStream(buffer).pipe(stream)
+  })
 }
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 // The frontend must send role: 'BUYER'  from the House Seeker signup page
 //                          role: 'SELLER' from the House Owner signup page
+// The request must be multipart/form-data with a "nationalId" file field.
 
 exports.register = async (req, res) => {
   try {
@@ -77,8 +93,36 @@ exports.register = async (req, res) => {
       street,
     } = req.body
 
+    // ── Validate National ID file ──────────────────────────────────────────────
+    if (!req.file) {
+      return res.status(400).json({
+        error: 'National ID card is required. Please upload a photo or PDF of your ID.',
+      })
+    }
+
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'application/pdf',
+    ]
+    if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({
+        error: 'Invalid file type. Only JPG, PNG, WEBP images and PDF documents are accepted.',
+      })
+    }
+
+    // 5 MB limit guard (belt-and-suspenders alongside multer limits)
+    const MAX_BYTES = 5 * 1024 * 1024
+    if (req.file.size > MAX_BYTES) {
+      return res.status(400).json({
+        error: 'National ID file is too large. Maximum allowed size is 5 MB.',
+      })
+    }
+
     const normalizedEmail = normalizeEmail(email)
-    const userRole        = normalizeRole(role)   // guarantees 'BUYER' or 'SELLER'
+    const userRole        = normalizeRole(role)
 
     const name = buildDisplayName({
       role: userRole,
@@ -99,23 +143,34 @@ exports.register = async (req, res) => {
       return res.status(409).json({ error: 'Email already in use.' })
     }
 
+    // ── Upload National ID to Cloudinary ──────────────────────────────────────
+    const isPdf       = req.file.mimetype === 'application/pdf'
+    const uploadResult = await uploadToCloudinary(req.file.buffer, {
+      folder:        'sweetcasa/national_ids',
+      resource_type: isPdf ? 'raw' : 'image',
+      // Keep originals; no destructive transforms on identity documents
+      use_filename:  false,
+      unique_filename: true,
+    })
+
     const hashedPassword = await bcrypt.hash(password, 12)
 
     const user = await getPrisma().user.create({
       data: {
-        name: fullName ? String(fullName).trim() : companyName ? String(companyName).trim() : null,
-        // company_name: filled for SELLER, null for BUYER
-        companyName: userRole === 'SELLER'
-          ? String(companyName || '').trim() || null
-          : null,
-        email:    normalizedEmail,
-        password: hashedPassword,
-        phone:    normalizePhone(phone),
-        role:     userRole,
-        country:  String(country || '').trim() || null,
-        region:   String(region  || '').trim() || null,
-        city:     String(city    || '').trim() || null,
-        street:   String(street  || '').trim() || null,
+        name:              fullName ? String(fullName).trim() : companyName ? String(companyName).trim() : null,
+        companyName:       userRole === 'SELLER'
+                             ? String(companyName || '').trim() || null
+                             : null,
+        email:             normalizedEmail,
+        password:          hashedPassword,
+        phone:             normalizePhone(phone),
+        role:              userRole,
+        country:           String(country || '').trim() || null,
+        region:            String(region  || '').trim() || null,
+        city:              String(city    || '').trim() || null,
+        street:            String(street  || '').trim() || null,
+        nationalIdUrl:     uploadResult.secure_url,
+        nationalIdPublicId: uploadResult.public_id,
       },
     })
 
@@ -172,7 +227,7 @@ exports.updateProfile = async (req, res) => {
   try {
     const { getPrisma } = require('../lib/prisma')
     const userId = req.user.id
- 
+
     const {
       name,
       companyName,
@@ -182,51 +237,66 @@ exports.updateProfile = async (req, res) => {
       city,
       street,
     } = req.body
- 
-    // Build update payload — only include fields that were actually sent
+
     const data = {}
- 
+
     if (name        !== undefined) data.name        = String(name).trim()
     if (companyName !== undefined) data.companyName = String(companyName).trim()
     if (country     !== undefined) data.country     = String(country).trim()
     if (region      !== undefined) data.region      = String(region).trim()
     if (city        !== undefined) data.city        = String(city).trim()
     if (street      !== undefined) data.street      = String(street).trim()
- 
-    // Phone: stored as BigInt in DB — parse carefully
+
     if (phone !== undefined && phone !== null && String(phone).trim() !== '') {
-      const cleaned = String(phone).replace(/\D/g, '') // strip non-digits
+      const cleaned = String(phone).replace(/\D/g, '')
       if (cleaned) data.phone = BigInt(cleaned)
     }
- 
+
+    // ── Optional: replace National ID on profile update ───────────────────────
+    if (req.file) {
+      const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf']
+      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({ error: 'Invalid file type for National ID.' })
+      }
+      const isPdf = req.file.mimetype === 'application/pdf'
+      const uploadResult = await uploadToCloudinary(req.file.buffer, {
+        folder:          'sweetcasa/national_ids',
+        resource_type:   isPdf ? 'raw' : 'image',
+        unique_filename: true,
+      })
+      data.nationalIdUrl      = uploadResult.secure_url
+      data.nationalIdPublicId = uploadResult.public_id
+    }
+
     if (Object.keys(data).length === 0) {
       return res.status(400).json({ error: 'No fields provided to update.' })
     }
- 
+
     const updated = await getPrisma().user.update({
       where: { id: userId },
       data,
       select: {
-        id:          true,
-        name:        true,
-        companyName: true,
-        email:       true,
-        phone:       true,
-        role:        true,
-        country:     true,
-        region:      true,
-        city:        true,
-        street:      true,
-        createdAt:   true,
+        id:                true,
+        name:              true,
+        companyName:       true,
+        email:             true,
+        phone:             true,
+        role:              true,
+        country:           true,
+        region:            true,
+        city:              true,
+        street:            true,
+        nationalIdUrl:     true,
+        nationalIdPublicId: true,
+        createdAt:         true,
       },
     })
- 
-    // Serialize BigInt phone before sending JSON
+
     const profile = {
       ...updated,
       phone: updated.phone !== null ? updated.phone.toString() : null,
     }
- 
+
     res.json({ profile })
   } catch (err) {
     console.error('Update profile error:', err)
