@@ -133,7 +133,7 @@ exports.createListing = async (req, res) => {
     const {
       title, price, type, country, city, region,
       neighborhood, description, bedrooms, bathrooms, toilets,
-      parlors, verandas, areaSqm, paymentFrequency,
+      parlors, kitchens, areaSqm, paymentFrequency,
       visitHours, facilities,
       nearbySchoolName, nearbyBankName, nearbyRestaurantName,
       nearbyMarketName, nearbyClinicName,
@@ -194,7 +194,7 @@ exports.createListing = async (req, res) => {
         bathrooms: parseNumber(bathrooms),
         toilets: parseNumber(toilets),
         parlors: parseNumber(parlors),
-        verandas: parseNumber(verandas),
+        kitchens: parseNumber(kitchens),
         areaSqm: parseOptionalDecimal(areaSqm),
         paymentFrequency: normalizeString(paymentFrequency),
         visitHours: normalizeString(visitHours),
@@ -444,7 +444,7 @@ exports.editListing = async (req, res) => {
     const {
       title, price, type, city, region, neighborhood,
       description, bedrooms, bathrooms, toilets,
-      parlors, verandas, areaSqm, paymentFrequency,
+      parlors, kitchens, areaSqm, paymentFrequency,
       visitHours, facilities,
       nearbySchoolName, nearbyBankName, nearbyRestaurantName,
       nearbyMarketName, nearbyClinicName,
@@ -493,7 +493,7 @@ exports.editListing = async (req, res) => {
     if (bathrooms !== undefined)  updateData.bathrooms  = parseNumber(bathrooms)
     if (toilets !== undefined)    updateData.toilets    = parseNumber(toilets)
     if (parlors !== undefined)    updateData.parlors    = parseNumber(parlors)
-    if (verandas !== undefined)   updateData.verandas   = parseNumber(verandas)
+    if (kitchens !== undefined)    updateData.kitchens   = parseNumber(kitchens)
     if (areaSqm !== undefined)    updateData.areaSqm    = parseOptionalDecimal(areaSqm)
     if (paymentFrequency !== undefined) updateData.paymentFrequency = normalizeString(paymentFrequency)
     if (visitHours !== undefined) updateData.visitHours = normalizeString(visitHours)
