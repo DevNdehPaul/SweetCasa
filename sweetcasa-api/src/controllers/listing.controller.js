@@ -1,5 +1,6 @@
 const { getPrisma } = require('../lib/prisma')
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
+const streamifier = require('streamifier')
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value)
@@ -34,7 +35,6 @@ function serializeListing(listing) {
     ...listing,
     price:   listing.price?.toString?.()   ?? listing.price,
     areaSqm: listing.areaSqm?.toString?.() ?? listing.areaSqm,
-    // agent is passed in directly from getListingById — just preserve it
     agent:   listing.agent ?? null,
     videos: Array.isArray(listing.videos)
       ? listing.videos.map((video) => ({
@@ -45,33 +45,58 @@ function serializeListing(listing) {
   }
 }
 
+// ─── Upload helper ────────────────────────────────────────────────────────────
+// Uses streamifier for raw files (PDF, DOCX) so the buffer is piped correctly.
+// Images and videos use stream.end(buffer) as before.
 async function uploadFileToCloudinary(file, folder, resourceType = 'image') {
   const uploaded = await new Promise((resolve, reject) => {
     const options = {
       folder,
       resource_type: resourceType,
       timeout: resourceType === 'video' ? 300000 : 180000,
+      // Preserve original filename + extension so Cloudinary stores & serves
+      // the file with the correct extension (e.g. .pdf, .docx)
+      use_filename: true,
+      unique_filename: true,
+      // Explicitly tell Cloudinary the format for raw files
+      ...(resourceType === 'raw' && {
+        format: file.originalname?.split('.').pop()?.toLowerCase() || undefined,
+      }),
     }
 
-    const stream =
-      resourceType === 'video'
-        ? cloudinary.uploader.upload_chunked_stream(
-            { ...options, chunk_size: 6 * 1024 * 1024 },
-            (error, result) => {
-              if (error) reject(error)
-              else resolve(result)
-            }
-          )
-        : cloudinary.uploader.upload_stream(options, (error, result) => {
-            if (error) reject(error)
-            else resolve(result)
-          })
+    // ── Raw files (PDF, DOCX, etc.) — pipe via streamifier ──
+    if (resourceType === 'raw') {
+      const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+        if (error) reject(error)
+        else resolve(result)
+      })
+      streamifier.createReadStream(file.buffer).pipe(stream)
+      return
+    }
 
+    // ── Video — chunked upload ──
+    if (resourceType === 'video') {
+      const stream = cloudinary.uploader.upload_chunked_stream(
+        { ...options, chunk_size: 6 * 1024 * 1024 },
+        (error, result) => {
+          if (error) reject(error)
+          else resolve(result)
+        }
+      )
+      stream.end(file.buffer)
+      return
+    }
+
+    // ── Image — standard upload ──
+    const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+      if (error) reject(error)
+      else resolve(result)
+    })
     stream.end(file.buffer)
   })
 
   return {
-    url: uploaded.secure_url,
+    url: uploaded.secure_url,   // now includes extension for raw files
     publicId: uploaded.public_id,
     bytes: uploaded.bytes,
     duration: uploaded.duration ? Math.round(uploaded.duration) : null,
@@ -296,7 +321,6 @@ exports.getListingById = async (req, res) => {
 
     if (!listing) return res.status(404).json({ error: 'Listing not found.' })
 
-    // ── Fetch agent directly using owner_id → users.id (your theory) ──
     let agent = null
     if (listing.ownerId) {
       const user = await getPrisma().user.findUnique({
@@ -388,13 +412,11 @@ exports.deleteListing = async (req, res) => {
     const id = Number.parseInt(req.params.id, 10)
     if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
 
-    // Verify ownership
     const listing = await getPrisma().listing.findFirst({
       where: { id, ownerId: req.user.id },
     })
     if (!listing) return res.status(404).json({ error: 'Listing not found or access denied.' })
 
-    // Delete related records first (cascade order)
     await getPrisma().listingVideo.deleteMany({ where: { listingId: id } })
     await getPrisma().listingImage.deleteMany({ where: { listingId: id } })
     await getPrisma().listing.delete({ where: { id } })
@@ -413,7 +435,6 @@ exports.editListing = async (req, res) => {
     const id = Number.parseInt(req.params.id, 10)
     if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
 
-    // Verify ownership
     const existing = await getPrisma().listing.findFirst({
       where: { id, ownerId: req.user.id },
       include: { images: true, videos: true },
@@ -434,7 +455,6 @@ exports.editListing = async (req, res) => {
     const videoFile = filesByField.video?.[0] || null
     const floorPlanFile = filesByField.floorPlan?.[0] || null
 
-    // Upload new photos if provided
     let newImages = []
     if (photoFiles.length) {
       newImages = await Promise.all(
@@ -449,21 +469,18 @@ exports.editListing = async (req, res) => {
       )
     }
 
-    // Upload new video if provided
     let uploadedVideo = null
     if (videoFile) {
       uploadedVideo = await uploadFileToCloudinary(videoFile, 'sweetcasa/listings/videos', 'video')
     }
 
-    // Upload new floor plan if provided
     let uploadedFloorPlan = null
     if (floorPlanFile) {
       uploadedFloorPlan = await uploadFileToCloudinary(floorPlanFile, 'sweetcasa/listings/floor-plans', 'raw')
     }
 
-    // Build update data — only update fields that were sent
     const updateData = {
-      status: 'Pending', // always reset to Pending after edit
+      status: 'Pending',
     }
     if (title)            updateData.title            = String(title).trim()
     if (price)            updateData.price            = Number.parseFloat(String(price))
@@ -488,13 +505,8 @@ exports.editListing = async (req, res) => {
     if (nearbyClinicName !== undefined)     updateData.nearbyClinicName     = normalizeString(nearbyClinicName)
     if (uploadedFloorPlan) updateData.floorPlanUrl = uploadedFloorPlan.url
 
-    // Update listing
-    const updated = await getPrisma().listing.update({
-      where: { id },
-      data: updateData,
-    })
+    await getPrisma().listing.update({ where: { id }, data: updateData })
 
-    // Replace images if new ones were uploaded
     if (newImages.length) {
       await getPrisma().listingImage.deleteMany({ where: { listingId: id } })
       await getPrisma().listingImage.createMany({
@@ -502,7 +514,6 @@ exports.editListing = async (req, res) => {
       })
     }
 
-    // Replace video if new one was uploaded
     if (uploadedVideo) {
       await getPrisma().listingVideo.deleteMany({ where: { listingId: id } })
       await getPrisma().listingVideo.create({
