@@ -45,7 +45,6 @@ const FACILITY_IDS = [
   'Bank', 'Restaurant', 'Market', 'Clinic',
 ];
 
-// Nearby name fields: facility ID + form key + i18n placeholder key
 const NEARBY_FACILITY_FIELDS: {
   facility: string;
   key: keyof NearbyNames;
@@ -58,11 +57,10 @@ const NEARBY_FACILITY_FIELDS: {
   { facility: 'Clinic',        key: 'nearbyClinicName',     placeholderKey: 'listing.nearbyClinic'     },
 ];
 
-// Payment frequency IDs → translation keys
 const PAYMENT_FREQ_IDS = ['Monthly', 'Yearly', 'For Sale'] as const;
 const PAYMENT_FREQ_KEYS: Record<string, string> = {
-  Monthly:   'listing.monthly',
-  Yearly:    'listing.yearly',
+  Monthly:    'listing.monthly',
+  Yearly:     'listing.yearly',
   'For Sale': 'listing.forSale',
 };
 
@@ -133,6 +131,7 @@ async function submitReview(review: string): Promise<void> {
   }
 }
 
+// ── Increments the upload counter and returns true on upload #1 and every 5th ──
 async function shouldShowReview(): Promise<boolean> {
   try {
     const raw = await AsyncStorage.getItem(UPLOAD_COUNT_KEY);
@@ -506,7 +505,14 @@ export default function NewListing() {
 
       await uploadListing(formData);
 
-      const showReview = await shouldShowReview();
+      // ── FIX: call shouldShowReview() BEFORE showing the Alert,
+      // ── capture the result in a local variable, then use it
+      // ── inside the Alert callback. Using the state variable
+      // ── (showReview) inside the callback always reads `false`
+      // ── because Alert closures capture the value at render time.
+      const willShowReview = await shouldShowReview();
+
+      resetForm();
 
       Alert.alert(
         t('listing.submittedTitle'),
@@ -514,9 +520,11 @@ export default function NewListing() {
         [{
           text: t('common.ok'),
           onPress: () => {
-            resetForm();
-            if (showReview) setShowReviewModal(true);
-            else router.replace('/agent-dashboard');
+            if (willShowReview) {
+              setShowReviewModal(true);
+            } else {
+              router.replace('/agent-dashboard');
+            }
           },
         }],
       );
@@ -533,7 +541,6 @@ export default function NewListing() {
     router.replace('/agent-dashboard');
   };
 
-  // Stepper rows — labels are proper room-type nouns, same in EN & FR
   const stepperRows = [
     { label: t('listing.bedrooms'),  value: bedrooms,  setValue: setBedrooms  },
     { label: t('listing.bathrooms'), value: bathrooms, setValue: setBathrooms },
@@ -682,33 +689,31 @@ export default function NewListing() {
         </View>
 
         {/* 7. Documents */}
-<View style={s.section}>
-  <SectionHeader num="7" title={t('listing.documents')} />
-  <View style={s.docInfoBox}>
-    <Text style={s.docInfoDesc}>{t('listing.floorPlanDesc')}</Text>
-    {/* ↓ NEW: format hint */}
-    <Text style={[s.docInfoDesc, { color: PURPLE, fontWeight: '600', marginTop: 4 }]}>
-      📐 {t('listing.floorPlanFormat') ?? 'Accepted formats: JPG, JPEG, PNG only'}
-    </Text>
-  </View>
+        <View style={s.section}>
+          <SectionHeader num="7" title={t('listing.documents')} />
+          <View style={s.docInfoBox}>
+            <Text style={s.docInfoDesc}>{t('listing.floorPlanDesc')}</Text>
+            <Text style={[s.docInfoDesc, { color: PURPLE, fontWeight: '600', marginTop: 4 }]}>
+              📐 {t('listing.floorPlanFormat') ?? 'Accepted formats: JPG, JPEG, PNG only'}
+            </Text>
+          </View>
 
-  {/* ↓ CHANGED: was DocumentUploadBox, now image picker */}
-  <MediaUploadBox
-    label={t('listing.floorPlan')}
-    files={floorPlans}
-    setFiles={setFloorPlans}
-    pickerMode="image"
-    max={1}
-  />
+          <MediaUploadBox
+            label={t('listing.floorPlan')}
+            files={floorPlans}
+            setFiles={setFloorPlans}
+            pickerMode="image"
+            max={1}
+          />
 
-  <View style={[s.docInfoBox, { marginTop: 12 }]}>
-    <Text style={s.docInfoTitle}>{t('listing.legalDocuments')}</Text>
-    <Text style={s.docInfoDesc}>{t('listing.legalDocumentsDesc')}</Text>
-  </View>
-  <DocumentUploadBox
-    label={t('listing.legalDocuments')} files={legalDocs} setFiles={setLegalDocs}
-  />
-</View>
+          <View style={[s.docInfoBox, { marginTop: 12 }]}>
+            <Text style={s.docInfoTitle}>{t('listing.legalDocuments')}</Text>
+            <Text style={s.docInfoDesc}>{t('listing.legalDocumentsDesc')}</Text>
+          </View>
+          <DocumentUploadBox
+            label={t('listing.legalDocuments')} files={legalDocs} setFiles={setLegalDocs}
+          />
+        </View>
 
         {/* 8. Description */}
         <View style={s.section}>
