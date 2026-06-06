@@ -1,7 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Dimensions,
@@ -23,32 +22,31 @@ const PURPLE_LIGHT = '#F0EBFF';
 interface Slide {
   id: string;
   image: any;
-  headlineKey: string;
-  bodyKey: string;
+  headline: string;
+  body: string;
   accentColor: string;
 }
 
-// Static slide data — only translation keys and assets here, no hardcoded strings
 const SLIDES: Slide[] = [
   {
     id: '1',
     image: require('../assets/seeker_verified.png'),
-    headlineKey: 'seekerOnboarding.slide1_headline',
-    bodyKey:     'seekerOnboarding.slide1_body',
+    headline: 'Find Your Verified Home',
+    body: 'Say goodbye to fake agents and "ghost" houses. Every listing on SweetCasa is pre-screened and document-verified by our team to ensure you only deal with legitimate property owners.',
     accentColor: '#7C3AED',
   },
   {
     id: '2',
     image: require('../assets/seeker_security.png'),
-    headlineKey: 'seekerOnboarding.slide2_headline',
-    bodyKey:     'seekerOnboarding.slide2_body',
+    headline: 'Your Money is Secured',
+    body: 'We hold your payment in a secure escrow. The landlord only gets paid 7 days after you move in, giving you time to ensure the house matches exactly what you paid for.',
     accentColor: '#6D28D9',
   },
   {
     id: '3',
     image: require('../assets/seeker_lifestyle.png'),
-    headlineKey: 'seekerOnboarding.slide3_headline',
-    bodyKey:     'seekerOnboarding.slide3_body',
+    headline: 'Everything You Need, Nearby',
+    body: 'Find the home that fits your life, with our Casa-match AI. Our smart filters let you discover properties within walking distance of schools, hospitals, and markets, making your daily commute stress-free.',
     accentColor: '#5B21B6',
   },
 ];
@@ -74,7 +72,6 @@ const DotIndicator = ({
 
 // ─── Slide Item ───────────────────────────────────────────────────────────────
 const SlideItem = ({ item }: { item: Slide }) => {
-  const { t } = useTranslation();
   return (
     <View style={[styles.slide, { width }]}>
       <View style={[styles.blob, { backgroundColor: item.accentColor + '18' }]} />
@@ -84,11 +81,11 @@ const SlideItem = ({ item }: { item: Slide }) => {
       <View style={styles.textBlock}>
         <View style={[styles.pill, { backgroundColor: item.accentColor + '15' }]}>
           <Text style={[styles.pillText, { color: item.accentColor }]}>
-            {t('seekerOnboarding.pill')}
+            FOR SEEKERS
           </Text>
         </View>
-        <Text style={styles.headline}>{t(item.headlineKey)}</Text>
-        <Text style={styles.body}>{t(item.bodyKey)}</Text>
+        <Text style={styles.headline}>{item.headline}</Text>
+        <Text style={styles.body}>{item.body}</Text>
       </View>
     </View>
   );
@@ -96,7 +93,6 @@ const SlideItem = ({ item }: { item: Slide }) => {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function SeekerOnboarding() {
-  const { t } = useTranslation();
   const flatListRef = useRef<FlatList<Slide>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -133,7 +129,7 @@ export default function SeekerOnboarding() {
             onPress={() => router.replace('/house_seekers_login_signup')}
           >
             <Text style={[styles.skipText, { color: currentAccent }]}>
-              {t('seekerOnboarding.skip')}
+              Skip
             </Text>
           </TouchableOpacity>
         )}
@@ -162,7 +158,7 @@ export default function SeekerOnboarding() {
           activeOpacity={0.85}
         >
           <Text style={styles.nextBtnText}>
-            {isLast ? t('seekerOnboarding.cta') : t('common.next')}
+            {isLast ? 'Get Started' : 'Next'}
           </Text>
           <Feather name={isLast ? 'check' : 'arrow-right'} size={18} color="#fff" />
         </TouchableOpacity>
@@ -171,7 +167,7 @@ export default function SeekerOnboarding() {
   );
 }
 
-// ─── Styles (unchanged) ───────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FAFAFA' },
   topBar: {

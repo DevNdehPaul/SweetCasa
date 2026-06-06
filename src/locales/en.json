@@ -488,6 +488,8 @@
     "purpose_buying_sub": "Looking to own a property",
     "q_facilities_title": "Which nearby facilities matter most?",
     "no_results_title": "No matches found",
+    "filter_for_sale":    "For Sale",
+"no_filter_results":  "No listings match this filter.",
 "no_results_desc":  "Try adjusting your budget or city and run the quiz again.",
     "q_facilities_desc": "Select everything you'd like your property to have nearby.",
     "q_desc_title": "Describe your dream home",

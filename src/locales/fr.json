@@ -493,6 +493,8 @@
     "q_desc_placeholder": "Ex. : Je veux un quartier calme proche des écoles, de préférence avec un jardin…",
     "q_dealbreakers_title": "Des critères rédhibitoires ?",
     "no_results_title": "Aucun résultat trouvé",
+    "filter_for_sale":    "À vendre",
+"no_filter_results":  "Aucune annonce ne correspond à ce filtre.",
 "no_results_desc":  "Essayez d'ajuster votre budget ou votre ville et relancez le quiz.",
     "q_dealbreakers_desc": "Nous excluerons les annonces présentant ces problèmes.",
     "nextStep": "Étape suivante",

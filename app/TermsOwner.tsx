@@ -6,8 +6,6 @@ import {
   TouchableOpacity, View,
 } from 'react-native';
 
-import { useTranslation } from 'react-i18next';
-
 const PURPLE       = '#7C5CFC';
 const PURPLE_LIGHT = '#F0EBFF';
 const TEXT_DARK    = '#111827';
@@ -15,52 +13,71 @@ const TEXT_MID     = '#6B7280';
 const BG           = '#F5F6FA';
 const GRAY_BORDER  = '#E5E7EB';
 
-// ─── Section data — all text pulled from i18n ─────────────────────────────────
-// Keys follow the pattern: terms.owner.tos.sN.title / terms.owner.tos.sN.body
-// For sections with bold+text pairs: terms.owner.tos.sN.bold1 / terms.owner.tos.sN.text1
-
-const TOS_SECTION_KEYS = [
+// ─── Section data ─────────────────────────────────────────────────────────────
+const TOS_SECTIONS = [
   {
     num: '1',
-    titleKey: 'terms.owner.tos.s1.title',
+    title: 'Eligibility & Registration',
     content: [
-      { boldKey: 'terms.owner.tos.s1.bold1', textKey: 'terms.owner.tos.s1.text1' },
-      { boldKey: 'terms.owner.tos.s1.bold2', textKey: 'terms.owner.tos.s1.text2' },
+      { bold: 'Who can register: ', text: 'You must be at least 18 years old and a legal owner or authorized representative of the property you wish to list.' },
+      { bold: 'Accurate information: ', text: 'You agree to provide truthful, accurate, and up-to-date information about yourself and your properties at all times.' },
     ],
   },
   {
     num: '2',
-    titleKey: 'terms.owner.tos.s2.title',
-    content: [{ boldKey: '', textKey: 'terms.owner.tos.s2.body' }],
+    title: 'Property Listings',
+    content: [
+      { bold: '', text: 'All listings must accurately represent the property. Misleading descriptions, fake photos, or fraudulent listings are strictly prohibited and may result in permanent account suspension.' },
+    ],
   },
   {
     num: '3',
-    titleKey: 'terms.owner.tos.s3.title',
-    content: [{ boldKey: '', textKey: 'terms.owner.tos.s3.body' }],
+    title: 'Payments & Payouts',
+    content: [
+      { bold: '', text: 'Rental payments are collected via our secure escrow system and disbursed to owners on the 14th of each month. A service fee applies to each successful transaction as outlined in your agreement.' },
+    ],
   },
   {
     num: '4',
-    titleKey: 'terms.owner.tos.s4.title',
-    content: [{ boldKey: '', textKey: 'terms.owner.tos.s4.body' }],
+    title: 'Owner Responsibilities',
+    content: [
+      { bold: '', text: 'You are responsible for maintaining the property in a habitable condition, complying with all local housing laws, and responding promptly to tenant communications and maintenance requests.' },
+    ],
   },
   {
     num: '5',
-    titleKey: 'terms.owner.tos.s5.title',
-    content: [{ boldKey: '', textKey: 'terms.owner.tos.s5.body' }],
+    title: 'Termination',
+    content: [
+      { bold: '', text: 'We reserve the right to suspend or terminate your account for violations of these terms, fraudulent activity, or failure to meet platform standards without prior notice.' },
+    ],
   },
 ];
 
-const PRIVACY_SECTION_KEYS = [
-  { num: '1', titleKey: 'terms.owner.privacy.s1.title', bodyKey: 'terms.owner.privacy.s1.body' },
-  { num: '2', titleKey: 'terms.owner.privacy.s2.title', bodyKey: 'terms.owner.privacy.s2.body' },
-  { num: '3', titleKey: 'terms.owner.privacy.s3.title', bodyKey: 'terms.owner.privacy.s3.body' },
-  { num: '4', titleKey: 'terms.owner.privacy.s4.title', bodyKey: 'terms.owner.privacy.s4.body' },
+const PRIVACY_SECTIONS = [
+  {
+    num: '1',
+    title: 'Data We Collect',
+    body: 'We collect personal information including your name, email, phone number, company details, national ID, and property information necessary to operate the platform.',
+  },
+  {
+    num: '2',
+    title: 'How We Use Your Data',
+    body: 'Your data is used to verify your identity, manage listings, process payments, and communicate important account updates. We do not sell your data to third parties.',
+  },
+  {
+    num: '3',
+    title: 'Data Security',
+    body: 'We use industry-standard encryption and secure servers to protect your personal information. Your national ID is stored securely and used solely for identity verification purposes.',
+  },
+  {
+    num: '4',
+    title: 'Your Rights',
+    body: 'You have the right to access, correct, or delete your personal data at any time by contacting our support team. Deleting your account will remove all associated personal data within 30 days.',
+  },
 ];
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
-
 export default function TermsOwner() {
-  const { t } = useTranslation();
   const [accepted, setAccepted] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -71,7 +88,7 @@ export default function TermsOwner() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Feather name="arrow-left" size={22} color="#111827" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>{t('terms.title')}</Text>
+        <Text style={s.headerTitle}>Terms & Privacy</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -79,34 +96,40 @@ export default function TermsOwner() {
 
         {/* Hero */}
         <View style={s.hero}>
-          <Text style={s.heroTitle}>{t('terms.agreementTitle')}</Text>
-          <Text style={s.heroSub}>{t('terms.owner.heroSub')}</Text>
-          <Text style={s.heroDate}>{t('terms.lastUpdated')}</Text>
-          <Text style={s.heroDesc}>{t('terms.owner.heroDesc')}</Text>
+          <Text style={s.heroTitle}>Owner Agreement</Text>
+          <Text style={s.heroSub}>House Owner / Property Manager</Text>
+          <Text style={s.heroDate}>Last updated: January 2025</Text>
+          <Text style={s.heroDesc}>
+            Please read these terms carefully before listing your property. By creating an account,
+            you agree to be bound by these terms and our privacy policy.
+          </Text>
         </View>
 
-        {/* Warning banner — owner-specific */}
+        {/* Warning banner */}
         <View style={s.warningBanner}>
           <Text style={s.warningIcon}>⚠️</Text>
-          <Text style={s.warningTxt}>{t('terms.owner.warning')}</Text>
+          <Text style={s.warningTxt}>
+            As a property owner, you are legally responsible for the accuracy of your listings and
+            compliance with local housing regulations. Violations may result in account suspension.
+          </Text>
         </View>
 
         {/* Terms of Service */}
         <View style={s.groupHeader}>
           <View style={s.groupDot} />
-          <Text style={s.groupTitle}>{t('terms.tosLabel')}</Text>
+          <Text style={s.groupTitle}>Terms of Service</Text>
         </View>
 
-        {TOS_SECTION_KEYS.map(sec => (
+        {TOS_SECTIONS.map(sec => (
           <View key={sec.num} style={s.card}>
             <View style={s.cardHeader}>
               <View style={s.numBadge}><Text style={s.numTxt}>{sec.num}</Text></View>
-              <Text style={s.cardTitle}>{t(sec.titleKey)}</Text>
+              <Text style={s.cardTitle}>{sec.title}</Text>
             </View>
             {sec.content.map((item, i) => (
               <Text key={i} style={s.cardBody}>
-                {item.boldKey ? <Text style={s.bold}>{t(item.boldKey)}</Text> : null}
-                {t(item.textKey)}
+                {item.bold ? <Text style={s.bold}>{item.bold}</Text> : null}
+                {item.text}
               </Text>
             ))}
           </View>
@@ -115,16 +138,16 @@ export default function TermsOwner() {
         {/* Privacy Policy */}
         <View style={[s.groupHeader, { marginTop: 8 }]}>
           <View style={[s.groupDot, { backgroundColor: '#8B5CF6' }]} />
-          <Text style={s.groupTitle}>{t('terms.privacyLabel')}</Text>
+          <Text style={s.groupTitle}>Privacy Policy</Text>
         </View>
 
-        {PRIVACY_SECTION_KEYS.map(sec => (
+        {PRIVACY_SECTIONS.map(sec => (
           <View key={sec.num} style={s.card}>
             <View style={s.cardHeader}>
               <View style={s.numBadge}><Text style={s.numTxt}>{sec.num}</Text></View>
-              <Text style={s.cardTitle}>{t(sec.titleKey)}</Text>
+              <Text style={s.cardTitle}>{sec.title}</Text>
             </View>
-            <Text style={s.cardBody}>{t(sec.bodyKey)}</Text>
+            <Text style={s.cardBody}>{sec.body}</Text>
           </View>
         ))}
 
@@ -137,7 +160,7 @@ export default function TermsOwner() {
           style={s.declineBtn}
           onPress={() => router.push('/house_owners_login_signup?termsAccepted=false&tab=signup')}
         >
-          <Text style={s.declineTxt}>{t('terms.decline')}</Text>
+          <Text style={s.declineTxt}>Decline</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.acceptBtn, accepted && s.acceptedBtn]}
@@ -147,7 +170,7 @@ export default function TermsOwner() {
           }}
         >
           <Text style={s.acceptTxt}>
-            {accepted ? t('terms.accepted') : t('terms.acceptContinue')}
+            {accepted ? '✓ Accepted' : 'Accept & Continue'}
           </Text>
         </TouchableOpacity>
       </View>

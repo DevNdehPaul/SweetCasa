@@ -4,7 +4,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
@@ -108,15 +107,10 @@ function NationalIdUpload({
   file: NationalIdFile;
   onFileSelected: (f: NationalIdFile) => void;
 }) {
-  const { t } = useTranslation();
-
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        t('auth.permissionRequired'),
-        t('auth.galleryPermissionDesc'),
-      );
+      Alert.alert('Permission Required', 'Please allow access to your photo library to upload your ID.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -138,10 +132,7 @@ function NationalIdUpload({
   const handlePickCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        t('auth.permissionRequired'),
-        t('auth.cameraPermissionDesc'),
-      );
+      Alert.alert('Permission Required', 'Please allow camera access to take a photo of your ID.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -177,13 +168,13 @@ function NationalIdUpload({
 
   const showPicker = () => {
     Alert.alert(
-      t('auth.uploadNationalId'),
-      t('auth.uploadNationalIdDesc'),
+      'Upload National ID',
+      'Choose how you would like to upload your identity document.',
       [
-        { text: t('auth.takePhoto'),    onPress: handlePickCamera },
-        { text: t('auth.chooseGallery'), onPress: handlePickImage },
-        { text: t('auth.choosePdf'),     onPress: handlePickDocument },
-        { text: t('common.cancel'),      style: 'cancel' },
+        { text: 'Take Photo',          onPress: handlePickCamera },
+        { text: 'Choose from Gallery', onPress: handlePickImage },
+        { text: 'Upload PDF',          onPress: handlePickDocument },
+        { text: 'Cancel',              style: 'cancel' },
       ],
     );
   };
@@ -194,20 +185,20 @@ function NationalIdUpload({
   return (
     <View style={styles.fieldGroup}>
       <View style={styles.fieldLabelRow}>
-        <RegLabel>{t('auth.nationalId')}</RegLabel>
+        <RegLabel>NATIONAL ID</RegLabel>
         <View style={styles.requiredBadge}>
-          <Text style={styles.requiredBadgeTxt}>{t('auth.required')}</Text>
+          <Text style={styles.requiredBadgeTxt}>REQUIRED</Text>
         </View>
       </View>
 
-      {/* Info card */}
       <View style={styles.idInfoCard}>
         <Feather name="shield" size={13} color="#7C3AED" style={{ marginTop: 1 }} />
-        <Text style={styles.idInfoText}>{t('auth.nationalIdInfo')}</Text>
+        <Text style={styles.idInfoText}>
+          Your national ID is used solely for identity verification and is stored securely.
+        </Text>
       </View>
 
       {file ? (
-        /* ── File selected state ── */
         <View style={styles.idSelectedWrap}>
           <View style={styles.idSelectedIcon}>
             <Feather name={isPdf ? 'file-text' : 'image'} size={22} color="#7C3AED" />
@@ -218,17 +209,16 @@ function NationalIdUpload({
           </View>
           <TouchableOpacity onPress={showPicker} style={styles.idChangeBtn}>
             <Feather name="refresh-cw" size={14} color="#7C3AED" />
-            <Text style={styles.idChangeBtnTxt}>{t('auth.change')}</Text>
+            <Text style={styles.idChangeBtnTxt}>Change</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        /* ── Empty state ── */
         <TouchableOpacity style={styles.idUploadBtn} onPress={showPicker} activeOpacity={0.7}>
           <View style={styles.idUploadIconWrap}>
             <Feather name="upload" size={20} color="#7C3AED" />
           </View>
-          <Text style={styles.idUploadTitle}>{t('auth.uploadNationalId')}</Text>
-          <Text style={styles.idUploadSub}>{t('auth.uploadNationalIdFormats')}</Text>
+          <Text style={styles.idUploadTitle}>Upload National ID</Text>
+          <Text style={styles.idUploadSub}>JPG, PNG or PDF accepted</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -242,13 +232,12 @@ function LoginTab({ email, setEmail, password, setPassword }: {
   password: string;
   setPassword: (v: string) => void;
 }) {
-  const { t } = useTranslation();
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert(t('auth.missingFields'), t('auth.missingFieldsDesc'));
+      Alert.alert('Missing Fields', 'Please enter your email and password.');
       return;
     }
     setLoading(true);
@@ -262,8 +251,8 @@ function LoginTab({ email, setEmail, password, setPassword }: {
       await persistAuthSession({ token, role, profile });
       router.replace(routeForRole(role) as any);
     } catch (err: any) {
-      const message = err.response?.data?.error || t('auth.loginFailedGeneric');
-      Alert.alert(t('auth.loginFailed'), message);
+      const message = err.response?.data?.error || 'Login failed. Please check your credentials.';
+      Alert.alert('Login Failed', message);
     } finally {
       setLoading(false);
     }
@@ -275,13 +264,15 @@ function LoginTab({ email, setEmail, password, setPassword }: {
         <View style={styles.shieldWrap}>
           <Ionicons name="shield-checkmark-outline" size={30} color="#7C3AED" />
         </View>
-        <Text style={styles.authHeroTitle}>{t('auth.welcomeBack')}</Text>
-        <Text style={styles.authHeroDesc}>{t('auth.seekerDesc')}</Text>
+        <Text style={styles.authHeroTitle}>Welcome Back</Text>
+        <Text style={styles.authHeroDesc}>
+          Sign in to browse verified properties and connect with trusted owners.
+        </Text>
       </View>
 
       <Field
-        label={t('auth.email')}
-        placeholder={t('auth.emailPlaceholder')}
+        label="Email Address"
+        placeholder="e.g. john@example.com"
         value={email}
         onChangeText={setEmail}
         icon="mail"
@@ -289,15 +280,15 @@ function LoginTab({ email, setEmail, password, setPassword }: {
       />
 
       <Field
-        label={t('auth.password')}
-        placeholder={t('auth.passwordPlaceholder')}
+        label="Password"
+        placeholder="Enter your password"
         value={password}
         onChangeText={setPassword}
         icon="lock"
         secure={!showPass}
         topRight={
           <TouchableOpacity onPress={() => {}}>
-            <Text style={styles.forgotLink}>{t('auth.forgotPassword')}</Text>
+            <Text style={styles.forgotLink}>Forgot password?</Text>
           </TouchableOpacity>
         }
         rightEl={
@@ -314,7 +305,7 @@ function LoginTab({ email, setEmail, password, setPassword }: {
       >
         {loading ? <ActivityIndicator color="#fff" /> : (
           <>
-            <Text style={styles.primaryBtnTxt}>{t('auth.secureLogin')}</Text>
+            <Text style={styles.primaryBtnTxt}>Secure Login</Text>
             <Feather name="arrow-right" size={17} color="#fff" />
           </>
         )}
@@ -322,26 +313,26 @@ function LoginTab({ email, setEmail, password, setPassword }: {
 
       <View style={styles.orDivider}>
         <View style={styles.dividerLine} />
-        <Text style={styles.orTxt}>{t('auth.orContinueWith')}</Text>
+        <Text style={styles.orTxt}>OR CONTINUE WITH</Text>
         <View style={styles.dividerLine} />
       </View>
 
       <View style={styles.socialRow}>
         <TouchableOpacity style={styles.socialBtn}>
           <Feather name="globe" size={17} color="#374151" />
-          <Text style={styles.socialBtnTxt}>{t('auth.google')}</Text>
+          <Text style={styles.socialBtnTxt}>Google</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.socialBtn}>
           <Feather name="smartphone" size={17} color="#374151" />
-          <Text style={styles.socialBtnTxt}>{t('auth.apple')}</Text>
+          <Text style={styles.socialBtnTxt}>Apple</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.tipCard}>
         <Feather name="info" size={13} color="#9CA3AF" style={{ marginTop: 2 }} />
         <Text style={styles.tipText}>
-          <Text style={{ fontWeight: '700' }}>{t('auth.tipTitle')}</Text>{' '}
-          {t('auth.seekerTip')}
+          <Text style={{ fontWeight: '700' }}>Tip: </Text>
+          Use the same email you registered with to access your saved properties and messages.
         </Text>
       </View>
     </ScrollView>
@@ -358,7 +349,6 @@ function SignupTab({
   form: typeof EMPTY_FORM;
   setForm: React.Dispatch<React.SetStateAction<typeof EMPTY_FORM>>;
 }) {
-  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [nationalIdFile, setNationalIdFile] = useState<NationalIdFile>(null);
 
@@ -368,41 +358,40 @@ function SignupTab({
   const handleSignup = async () => {
     if (!termsAccepted) {
       Alert.alert(
-        t('auth.agreementRequired'),
-        t('auth.agreementDesc'),
+        'Agreement Required',
+        'You must read and accept the Terms & Privacy Policy before creating an account.',
         [
-          { text: t('auth.readTerms'), onPress: () => router.push('/TermsSeeker') },
-          { text: t('common.cancel'), style: 'cancel' },
+          { text: 'Read Terms', onPress: () => router.push('/TermsSeeker') },
+          { text: 'Cancel', style: 'cancel' },
         ]
       );
       return;
     }
     if (!form.fullName.trim() || !form.email.trim() || !form.password.trim()) {
-      Alert.alert(t('auth.missingFields'), t('auth.signupMissingFieldsDesc'));
+      Alert.alert('Missing Fields', 'Please fill in your full name, email, and password.');
       return;
     }
     if (form.password !== form.confirmPassword) {
-      Alert.alert(t('auth.passwordMismatch'), t('auth.passwordMismatchDesc'));
+      Alert.alert('Password Mismatch', 'The passwords you entered do not match. Please try again.');
       return;
     }
     if (!nationalIdFile) {
-      Alert.alert(t('auth.missingFields'), t('auth.nationalIdRequired'));
+      Alert.alert('Missing Fields', 'Please upload your national ID to verify your identity.');
       return;
     }
 
     setLoading(true);
     try {
-      // Build multipart/form-data payload
       const formData = new FormData();
-      formData.append('email',           form.email.trim());
-      formData.append('password',        form.password);
-      formData.append('role',            'BUYER');
-      formData.append('fullName',        form.fullName.trim());
-      formData.append('phone',           form.phone);
-      formData.append('country',         form.country.trim());
-      formData.append('region',          form.region.trim());
-      formData.append('city',            form.city.trim());
-      formData.append('street',          form.street.trim());
+      formData.append('email',    form.email.trim());
+      formData.append('password', form.password);
+      formData.append('role',     'BUYER');
+      formData.append('fullName', form.fullName.trim());
+      formData.append('phone',    form.phone);
+      formData.append('country',  form.country.trim());
+      formData.append('region',   form.region.trim());
+      formData.append('city',     form.city.trim());
+      formData.append('street',   form.street.trim());
       formData.append('nationalId', {
         uri:  nationalIdFile.uri,
         name: nationalIdFile.name,
@@ -418,11 +407,11 @@ function SignupTab({
       await AsyncStorage.setItem('role', role);
       if (profile) await AsyncStorage.setItem('profile', JSON.stringify(profile));
       await AsyncStorage.removeItem('signup_draft');
-await AsyncStorage.removeItem('seeker_welcome_seen'); // ← ADD THIS
-router.replace('/seeker-dashboard');
+      await AsyncStorage.removeItem('seeker_welcome_seen');
+      router.replace('/seeker-dashboard');
     } catch (err: any) {
-      const message = err.response?.data?.error || t('auth.signupFailedGeneric');
-      Alert.alert(t('auth.signupFailed'), message);
+      const message = err.response?.data?.error || 'Registration failed. Please try again.';
+      Alert.alert('Sign Up Failed', message);
     } finally {
       setLoading(false);
     }
@@ -430,11 +419,11 @@ router.replace('/seeker-dashboard');
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
-      <Text style={styles.stepTitle}>{t('auth.findDreamHome')}</Text>
+      <Text style={styles.stepTitle}>Find Your Dream Home</Text>
 
-      <SectionCard icon="user" title={t('account.personalDetails')}>
+      <SectionCard icon="user" title="Personal Details">
         <View style={styles.fieldGroup}>
-          <RegLabel>{t('account.fullName')}</RegLabel>
+          <RegLabel>FULL NAME</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="user" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="John Doe"
@@ -443,7 +432,7 @@ router.replace('/seeker-dashboard');
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>{t('account.emailAddress')}</RegLabel>
+          <RegLabel>EMAIL ADDRESS</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="mail" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="john@example.com"
@@ -453,27 +442,27 @@ router.replace('/seeker-dashboard');
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>{t('auth.password')}</RegLabel>
+          <RegLabel>PASSWORD</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="lock" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder={t('auth.passwordHint')}
+            <TextInput style={styles.fieldInput} placeholder="Min. 8 characters"
               placeholderTextColor="#9CA3AF" value={form.password} onChangeText={set('password')}
               secureTextEntry />
           </View>
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>{t('auth.confirmPassword')}</RegLabel>
+          <RegLabel>CONFIRM PASSWORD</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="lock" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder={t('auth.confirmPasswordPlaceholder')}
+            <TextInput style={styles.fieldInput} placeholder="Repeat your password"
               placeholderTextColor="#9CA3AF" value={form.confirmPassword}
               onChangeText={set('confirmPassword')} secureTextEntry />
           </View>
         </View>
 
         <View style={styles.fieldGroup}>
-          <RegLabel>{t('account.phoneNumber')}</RegLabel>
+          <RegLabel>PHONE NUMBER</RegLabel>
           <View style={styles.phoneWrap}>
             <View style={styles.phonePrefix}>
               <Feather name="globe" size={13} color="#374151" />
@@ -481,7 +470,7 @@ router.replace('/seeker-dashboard');
             </View>
             <View style={[styles.inputWrap, { flex: 1 }]}>
               <Feather name="phone" size={14} color="#9CA3AF" />
-              <TextInput style={styles.fieldInput} placeholder={t('auth.phonePlaceholder')}
+              <TextInput style={styles.fieldInput} placeholder="6XXXXXXXX"
                 placeholderTextColor="#9CA3AF" value={form.phone} onChangeText={set('phone')}
                 keyboardType="phone-pad" />
             </View>
@@ -489,10 +478,10 @@ router.replace('/seeker-dashboard');
         </View>
       </SectionCard>
 
-      <SectionCard icon="map-pin" title={t('account.locationDetails')}>
+      <SectionCard icon="map-pin" title="Location Details">
         <View style={styles.twoCol}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>{t('account.country')}</RegLabel>
+            <RegLabel>COUNTRY</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="globe" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Cameroon"
@@ -500,7 +489,7 @@ router.replace('/seeker-dashboard');
             </View>
           </View>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>{t('account.region')}</RegLabel>
+            <RegLabel>REGION</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="map" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Littoral"
@@ -511,7 +500,7 @@ router.replace('/seeker-dashboard');
 
         <View style={styles.twoCol}>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>{t('account.city')}</RegLabel>
+            <RegLabel>CITY</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="grid" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Douala"
@@ -519,7 +508,7 @@ router.replace('/seeker-dashboard');
             </View>
           </View>
           <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>{t('account.streetName')}</RegLabel>
+            <RegLabel>STREET NAME</RegLabel>
             <View style={styles.inputWrap}>
               <Feather name="navigation" size={13} color="#9CA3AF" />
               <TextInput style={styles.fieldInput} placeholder="Street 1024"
@@ -530,7 +519,7 @@ router.replace('/seeker-dashboard');
       </SectionCard>
 
       {/* ── National ID Upload ── */}
-      <SectionCard icon="credit-card" title={t('auth.identityVerification')}>
+      <SectionCard icon="credit-card" title="Identity Verification">
         <NationalIdUpload file={nationalIdFile} onFileSelected={setNationalIdFile} />
       </SectionCard>
 
@@ -538,13 +527,13 @@ router.replace('/seeker-dashboard');
       <View style={styles.termsCard}>
         <Feather name="file-text" size={16} color="#7C3AED" style={{ marginTop: 1 }} />
         <View style={{ flex: 1 }}>
-          <Text style={styles.termsCardLabel}>{t('auth.termsRequired')}</Text>
+          <Text style={styles.termsCardLabel}>TERMS REQUIRED</Text>
           <Text style={styles.termsCardBody}>
-            {t('auth.termsCardBodyPre')}{' '}
+            By registering, you agree to our{' '}
             <Text style={styles.termsLink} onPress={() => router.push('/TermsSeeker')}>
-              {t('auth.termsLinkText')}
+              Terms of Service & Privacy Policy
             </Text>{' '}
-            {t('auth.termsCardBodyPost')}
+            which govern your use of the platform.
           </Text>
         </View>
       </View>
@@ -559,20 +548,24 @@ router.replace('/seeker-dashboard');
           {termsAccepted && <Feather name="check" size={12} color="#fff" />}
         </View>
         <Text style={styles.termsText}>
-          {termsAccepted ? t('auth.termsAccepted') : t('auth.termsNotAccepted')}
+          {termsAccepted
+            ? 'You have accepted the Terms & Privacy Policy.'
+            : 'I have read and agree to the Terms & Privacy Policy.'}
         </Text>
       </TouchableOpacity>
 
       {!termsAccepted && (
         <View style={styles.termsWarning}>
           <Feather name="alert-circle" size={13} color="#D97706" />
-          <Text style={styles.termsWarningTxt}>{t('auth.termsWarning')}</Text>
+          <Text style={styles.termsWarningTxt}>
+            You must accept the terms before creating your account.
+          </Text>
         </View>
       )}
       {termsAccepted && (
         <View style={styles.termsSuccess}>
           <Feather name="check-circle" size={13} color="#16A34A" />
-          <Text style={styles.termsSuccessTxt}>{t('auth.termsAcceptedMsg')}</Text>
+          <Text style={styles.termsSuccessTxt}>Terms & Privacy Policy accepted.</Text>
         </View>
       )}
 
@@ -584,7 +577,7 @@ router.replace('/seeker-dashboard');
         >
           {loading ? <ActivityIndicator color="#fff" /> : (
             <>
-              <Text style={styles.nextBtnTxt}>{t('auth.createAccount')}</Text>
+              <Text style={styles.nextBtnTxt}>Create Account</Text>
               <Feather name="arrow-right" size={15} color="#fff" />
             </>
           )}
@@ -596,7 +589,6 @@ router.replace('/seeker-dashboard');
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function HouseSeekersLoginSignup() {
-  const { t } = useTranslation();
   const params = useLocalSearchParams<{ tab?: string; termsAccepted?: string }>();
 
   const [activeTab, setActiveTab] = useState<Tab>(
@@ -658,7 +650,7 @@ export default function HouseSeekersLoginSignup() {
             activeOpacity={0.8}
           >
             <Text style={[styles.tabBtnTxt, activeTab === tab && styles.tabBtnTxtActive]}>
-              {tab === 'login' ? t('auth.login') : t('auth.signUp')}
+              {tab === 'login' ? 'Login' : 'Sign Up'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -666,9 +658,9 @@ export default function HouseSeekersLoginSignup() {
 
       <View style={styles.formHeader}>
         <Text style={styles.formHeaderTitle}>
-          {activeTab === 'login' ? t('auth.welcomeBackSeeker') : t('auth.createSeekerTitle')}
+          {activeTab === 'login' ? 'Welcome Back, Seeker' : 'Create Seeker Account'}
         </Text>
-        <Text style={styles.formHeaderSub}>{t('auth.houseSeekersPortal')}</Text>
+        <Text style={styles.formHeaderSub}>House Seekers Portal</Text>
       </View>
 
       {activeTab === 'login' && (
@@ -767,7 +759,6 @@ const styles = StyleSheet.create({
   },
   phonePrefixTxt: { fontSize: 13, fontWeight: '600', color: '#374151' },
   twoCol: { flexDirection: 'row', gap: 10 },
-  // ── National ID ──
   requiredBadge: {
     backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
   },
@@ -801,7 +792,6 @@ const styles = StyleSheet.create({
   idSelectedSize: { fontSize: 11, color: '#9CA3AF' },
   idChangeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6 },
   idChangeBtnTxt: { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
-  // ── Terms ──
   termsCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
     backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#EDE9FE',

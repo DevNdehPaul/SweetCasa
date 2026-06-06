@@ -1,7 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Dimensions,
@@ -23,32 +22,31 @@ const PURPLE_LIGHT = '#F0EBFF';
 interface Slide {
   id: string;
   image: any;
-  headlineKey: string;
-  bodyKey: string;
+  headline: string;
+  body: string;
   accentColor: string;
 }
 
-// Static slide data — only translation keys and assets here, no hardcoded strings
 const SLIDES: Slide[] = [
   {
     id: '1',
     image: require('../assets/owner_list.png'),
-    headlineKey: 'ownerOnboarding.slide1_headline',
-    bodyKey:     'ownerOnboarding.slide1_body',
+    headline: 'Reach Verified Tenants',
+    body: 'List your property to thousands of serious seekers. We background-check our users so you only deal with high-intent, verified tenants who are ready to move.',
     accentColor: '#7C3AED',
   },
   {
     id: '2',
     image: require('../assets/owner_payout.png'),
-    headlineKey: 'ownerOnboarding.slide2_headline',
-    bodyKey:     'ownerOnboarding.slide2_body',
+    headline: 'Guaranteed Payouts',
+    body: 'Stop chasing payments. All transactions happen in-app and are disbursed directly to your account 7 days after the tenant moves in.',
     accentColor: '#6D28D9',
   },
   {
     id: '3',
     image: require('../assets/owner_dashboard.png'),
-    headlineKey: 'ownerOnboarding.slide3_headline',
-    bodyKey:     'ownerOnboarding.slide3_body',
+    headline: 'Manage from Anywhere',
+    body: 'Manage your listings, viewings, and earnings all in one dashboard. SweetCasa makes being a landlord simple, digital, and secure.',
     accentColor: '#5B21B6',
   },
 ];
@@ -74,7 +72,6 @@ const DotIndicator = ({
 
 // ─── Slide Item ───────────────────────────────────────────────────────────────
 const SlideItem = ({ item }: { item: Slide }) => {
-  const { t } = useTranslation();
   return (
     <View style={[styles.slide, { width }]}>
       <View style={[styles.blob, { backgroundColor: item.accentColor + '18' }]} />
@@ -84,11 +81,11 @@ const SlideItem = ({ item }: { item: Slide }) => {
       <View style={styles.textBlock}>
         <View style={[styles.pill, { backgroundColor: item.accentColor + '15' }]}>
           <Text style={[styles.pillText, { color: item.accentColor }]}>
-            {t('ownerOnboarding.pill')}
+            FOR OWNERS
           </Text>
         </View>
-        <Text style={styles.headline}>{t(item.headlineKey)}</Text>
-        <Text style={styles.body}>{t(item.bodyKey)}</Text>
+        <Text style={styles.headline}>{item.headline}</Text>
+        <Text style={styles.body}>{item.body}</Text>
       </View>
     </View>
   );
@@ -96,7 +93,6 @@ const SlideItem = ({ item }: { item: Slide }) => {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function OwnerOnboarding() {
-  const { t } = useTranslation();
   const flatListRef = useRef<FlatList<Slide>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -133,7 +129,7 @@ export default function OwnerOnboarding() {
             onPress={() => router.replace('/house_owners_login_signup')}
           >
             <Text style={[styles.skipText, { color: currentAccent }]}>
-              {t('ownerOnboarding.skip')}
+              Skip
             </Text>
           </TouchableOpacity>
         )}
@@ -162,7 +158,7 @@ export default function OwnerOnboarding() {
           activeOpacity={0.85}
         >
           <Text style={styles.nextBtnText}>
-            {isLast ? t('ownerOnboarding.cta') : t('common.next')}
+            {isLast ? 'Get Started' : 'Next'}
           </Text>
           <Feather name={isLast ? 'check' : 'arrow-right'} size={18} color="#fff" />
         </TouchableOpacity>
@@ -171,7 +167,7 @@ export default function OwnerOnboarding() {
   );
 }
 
-// ─── Styles (unchanged) ───────────────────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#FAFAFA' },
   topBar: {

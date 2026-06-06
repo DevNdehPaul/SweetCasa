@@ -1,7 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router, Stack } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
 import {
   Animated,
   Dimensions,
@@ -17,8 +16,6 @@ import {
 const { width } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
-  const { t } = useTranslation();
-
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const card1Anim = useRef(new Animated.Value(50)).current;
@@ -63,8 +60,8 @@ export default function WelcomeScreen() {
 
         {/* Title */}
         <Animated.View style={[styles.titleBlock, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <Text style={styles.title}>{t('portal.title')}</Text>
-          <Text style={styles.subtitle}>{t('portal.subtitle')}</Text>
+          <Text style={styles.title}>Find Your Perfect Home</Text>
+          <Text style={styles.subtitle}>What brings you here today?</Text>
         </Animated.View>
 
         {/* House Seekers Card */}
@@ -77,8 +74,8 @@ export default function WelcomeScreen() {
             <View style={styles.iconWrapPrimary}>
               <Feather name="search" size={30} color="#fff" />
             </View>
-            <Text style={styles.cardTitlePrimary}>{t('portal.seekerTitle')}</Text>
-            <Text style={styles.cardDescPrimary}>{t('portal.seekerDesc')}</Text>
+            <Text style={styles.cardTitlePrimary}>House Seekers</Text>
+            <Text style={styles.cardDescPrimary}>Browse listings and find your ideal property to rent or buy.</Text>
             <View style={styles.arrowBtnPrimary}>
               <Feather name="arrow-right" size={16} color="rgba(255,255,255,0.85)" />
             </View>
@@ -95,8 +92,8 @@ export default function WelcomeScreen() {
             <View style={styles.iconWrapSecondary}>
               <Feather name="key" size={28} color="#7C3AED" />
             </View>
-            <Text style={styles.cardTitleSecondary}>{t('portal.ownerTitle')}</Text>
-            <Text style={styles.cardDescSecondary}>{t('portal.ownerDesc')}</Text>
+            <Text style={styles.cardTitleSecondary}>House Owners</Text>
+            <Text style={styles.cardDescSecondary}>List your property and connect with verified tenants or buyers.</Text>
             <View style={styles.arrowBtnSecondary}>
               <Feather name="arrow-right" size={16} color="#7C3AED" />
             </View>

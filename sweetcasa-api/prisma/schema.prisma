@@ -26,6 +26,9 @@ model User {
   savedListings       SavedListing[]
   listingReviews      ListingReview[]
   reports             Report[]
+  buyerConversations  Conversation[]     @relation("BuyerConversations")
+  sellerConversations Conversation[]     @relation("SellerConversations")
+  sentMessages        Message[]          @relation("SentMessages")
 
   @@map("users")
 }
@@ -80,6 +83,7 @@ model Listing {
   images               ListingImage[]
   videos               ListingVideo[]
   savedListings        SavedListing[]
+  conversations        Conversation[]
 
   @@map("listings")
 }
@@ -143,4 +147,33 @@ model ListingReview {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("listing_reviews")
+}
+
+model Conversation {
+  id          Int       @id @default(autoincrement())
+  listingId   Int?      @map("listing_id")
+  buyerId     Int       @map("buyer_id")
+  sellerId    Int       @map("seller_id")
+  createdAt   DateTime? @default(now()) @map("created_at")
+  updatedAt   DateTime? @updatedAt @map("updated_at")
+  buyer       User      @relation("BuyerConversations", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller      User      @relation("SellerConversations", fields: [sellerId], references: [id], onDelete: Cascade)
+  listing     Listing?  @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  messages    Message[]
+
+  @@unique([listingId, buyerId, sellerId])
+  @@map("conversations")
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  conversationId Int          @map("conversation_id")
+  senderId       Int          @map("sender_id")
+  text           String
+  seen           Boolean      @default(false)
+  createdAt      DateTime?    @default(now()) @map("created_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
 }

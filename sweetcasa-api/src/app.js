@@ -2,8 +2,10 @@ require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
 
-const authRoutes = require('./routes/auth.routes')
+const authRoutes    = require('./routes/auth.routes')
 const listingRoutes = require('./routes/listing.routes')
+const reportRoutes  = require('./routes/Reportroutes')
+const messageRoutes = require('./routes/message.routes')
 const { ensureDatabaseCompatibility } = require('./lib/db-compat')
 const { getPrisma } = require('./lib/prisma')
 
@@ -14,28 +16,31 @@ app.use(cors({ origin: '*' }))
 // ✅ Do NOT use express.json() globally — it consumes the stream before
 //    multer can parse multipart/form-data requests (listings upload).
 //    Apply JSON parsing only to routes that need it.
-app.use('/auth', express.json(), authRoutes)
+app.use('/auth',     express.json(), authRoutes)
+app.use('/reports',  reportRoutes)
+app.use('/messages/conversations', messageRoutes)
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
-const reportRoutes = require('./routes/Reportroutes');
-app.use('/reports', reportRoutes);
+
 // Listings route handles its own body parsing via multer middleware
 app.use('/listings', listingRoutes)
 
-process.on('uncaughtException', (err) => console.error('UNCAUGHT:', err))
+process.on('uncaughtException',  (err) => console.error('UNCAUGHT:', err))
 process.on('unhandledRejection', (err) => console.error('REJECTION:', err))
 
 app.get('/db-test', async (_req, res) => {
   try {
     const prisma = getPrisma()
     await prisma.$queryRawUnsafe('SELECT 1')
-    const userCount = await prisma.user.count()
+    const userCount    = await prisma.user.count()
     const listingCount = await prisma.listing.count()
+    const msgCount     = await prisma.message.count()
 
     res.json({
       db: 'connected',
       users: userCount,
       listings: listingCount,
+      messages: msgCount,
     })
   } catch (err) {
     res.status(500).json({ db: 'failed', error: err.message })

@@ -1,4 +1,4 @@
-import { QuizState } from '../app/casamatch'; // adjust import path
+import { QuizState } from '../app/casamatch'; // adjust path if needed
 
 export interface MatchResult {
   id:          string;
@@ -10,6 +10,7 @@ export interface MatchResult {
   tags:        string[];
   badge:       string | null;
   images:      string[];
+  listingType: 'rent' | 'sale'; // ← used by filter tabs in ResultsScreen
 }
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://your-api.com';
