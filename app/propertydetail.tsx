@@ -1,4 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResizeMode, Video } from 'expo-av';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -459,6 +460,7 @@ export default function PropertyDetailScreen() {
   const [saved, setSaved]         = useState(false);
   const [fsIndex, setFsIndex]     = useState(0);
   const [fsVisible, setFsVisible] = useState(false);
+  const [contacting, setContacting] = useState(false);
 
   const fetchListing = async () => {
     setLoading(true);
@@ -514,6 +516,59 @@ export default function PropertyDetailScreen() {
   useEffect(() => {
     fetchListing();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Contact seller ──
+  const handleContact = async () => {
+    if (!listing?.agent?.id || contacting) return;
+    setContacting(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        router.push('/login' as any);
+        return;
+      }
+
+      // Start or retrieve existing conversation
+      const convRes = await fetch(BASE_URL + '/messages/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          listingId:   listing.id,
+          recipientId: listing.agent.id,
+        }),
+      });
+
+      if (!convRes.ok) throw new Error('Could not start conversation.');
+      const convData = await convRes.json();
+      const conversationId = convData.conversationId;
+
+      // Send pre-drafted welcome message
+      const loc = [listing.neighborhood, listing.city, listing.region].filter(Boolean).join(', ');
+      const welcomeText =
+        'Hello! I came across your listing "' + listing.title + '" in ' + loc +
+        ' on SweetCasa and I am very interested. ' +
+        'Could you please share more details and let me know when a viewing would be possible? Thank you!';
+
+      await fetch(BASE_URL + '/messages/conversations/' + conversationId + '/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token,
+        },
+        body: JSON.stringify({ text: welcomeText }),
+      });
+
+      // Navigate to the chat screen
+      router.push({ pathname: '/MessagesScreen', params: { conversationId } } as any);
+    } catch (err: any) {
+      console.error('handleContact error:', err.message);
+    } finally {
+      setContacting(false);
+    }
+  };
 
   // ── Loading ──
   if (loading) {
@@ -855,7 +910,8 @@ export default function PropertyDetailScreen() {
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.contactBtn}
-          onPress={() => router.push('/messages' as any)}
+          onPress={handleContact}
+          disabled={contacting || !listing?.agent?.id}
         >
           <Feather name="message-square" size={16} color={PURPLE} />
           <Text style={styles.contactBtnTxt}>{t('propertyDetail.message')}</Text>

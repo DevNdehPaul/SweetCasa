@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -12,7 +13,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const C = {
   purple:      '#6B4EFF',
@@ -204,7 +204,7 @@ export default function MessagesInbox() {
               item={item}
               onPress={() =>
                 router.push({
-                  pathname: '/message',
+                  pathname: '/MessagesScreen',
                   params: { conversationId: item.id },
                 })
               }

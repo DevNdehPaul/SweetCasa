@@ -320,7 +320,7 @@ export default function HomeScreen() {
   const QUICK_ACTIONS = [
     { id: '1', icon: 'search',         label: t('seekerDashboard.findHouse'),    sub: t('seekerDashboard.findHouseSub'),    iconColor: '#7C3AED', bg: '#F3F0FF', link: '/search' },
     { id: '2', icon: 'plus-circle',    label: t('seekerDashboard.favourites'),   sub: t('seekerDashboard.favouritesSub'),   iconColor: '#7C3AED', bg: '#F3F0FF', link: '/favourites' },
-    { id: '3', icon: 'message-circle', label: t('seekerDashboard.messages'),     sub: t('seekerDashboard.messagesSub'),     iconColor: '#0891B2', bg: '#ECFEFF', link: '/MessagesScreen' },
+    { id: '3', icon: 'message-circle', label: t('seekerDashboard.messages'),     sub: t('seekerDashboard.messagesSub'),     iconColor: '#0891B2', bg: '#ECFEFF', link: '/MessagesInbox' },
     { id: '4', icon: 'credit-card',    label: t('seekerDashboard.secureWallet'), sub: t('seekerDashboard.secureWalletSub'), iconColor: '#D97706', bg: '#FFFBEB', link: '/wallet' },
   ];
 
