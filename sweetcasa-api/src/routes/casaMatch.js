@@ -1,11 +1,11 @@
-const express  = require('express');
-const Anthropic = require('@anthropic-ai/sdk');
-const router   = express.Router();
+const express = require('express');
+const Groq    = require('groq-sdk');
+const router  = express.Router();
 const { getPrisma } = require('../lib/prisma');
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// POST /casa-match
+// POST /api/casa-match
 router.post('/', async (req, res) => {
   try {
     const { quiz } = req.body;
@@ -15,27 +15,24 @@ router.post('/', async (req, res) => {
 
     // ── 1. Map budget id → numeric range ────────────────────────────────────
     const budgetMap = {
-      u50k:    { min: 0,       max: 50000      },
-      '50_150':  { min: 50000,   max: 150000    },
-      '150_500': { min: 150000,  max: 500000    },
-      '500_1m':  { min: 500000,  max: 1000000   },
-      above1m:   { min: 1000000, max: 999999999 },
+      u50k:      { min: 0,       max: 50000      },
+      '50_150':  { min: 50000,   max: 150000     },
+      '150_500': { min: 150000,  max: 500000     },
+      '500_1m':  { min: 500000,  max: 1000000    },
+      above1m:   { min: 1000000, max: 999999999  },
     };
     const budget = budgetMap[quiz.budget] ?? { min: 0, max: 999999999 };
 
     // ── 2. Prisma pre-filter (hard constraints only) ─────────────────────────
-    //    We keep the filter broad and let Claude do the nuanced ranking.
     const where = {
       status: 'Approved',
       price:  { gte: budget.min, lte: budget.max },
     };
 
-    // City filter (case-insensitive)
     if (quiz.city) {
       where.city = { equals: quiz.city, mode: 'insensitive' };
     }
 
-    // Property type filter
     if (quiz.propertyType) {
       where.type = { equals: quiz.propertyType, mode: 'insensitive' };
     }
@@ -57,7 +54,7 @@ router.post('/', async (req, res) => {
       return res.json({ results: [], message: 'no_listings_found' });
     }
 
-    // ── 3. Build Claude prompt ───────────────────────────────────────────────
+    // ── 3. Build prompt ──────────────────────────────────────────────────────
     const userPrefsBlock = `
 USER PREFERENCES:
 - Budget range: ${quiz.budget}
@@ -72,9 +69,11 @@ USER PREFERENCES:
 `.trim();
 
     const listingsBlock = listings.map((p, i) => {
-      const facilities = Array.isArray(p.facilities) ? p.facilities : (
-        p.facilities ? (() => { try { return JSON.parse(p.facilities); } catch { return []; } })() : []
-      );
+      const facilities = Array.isArray(p.facilities)
+        ? p.facilities
+        : (p.facilities
+            ? (() => { try { return JSON.parse(p.facilities); } catch { return []; } })()
+            : []);
       return (
         `[${i}] id=${p.id} | "${p.title}" | ` +
         `${p.bedrooms}bd ${p.bathrooms}ba ${p.toilets}wc ${p.parlors}pr | ` +
@@ -86,11 +85,15 @@ USER PREFERENCES:
       );
     }).join('\n');
 
-    // ── 4. Call Claude ───────────────────────────────────────────────────────
-    const aiResponse = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1500,
-      system: `
+    // ── 4. Call Groq ─────────────────────────────────────────────────────────
+    const chatResponse = await client.chat.completions.create({
+      model:       'llama-3.3-70b-versatile',   // free, fast, very capable
+      max_tokens:  1500,
+      temperature: 0.3,
+      messages: [
+        {
+          role: 'system',
+          content: `
 You are CasaMatch AI, a real estate matching engine for Cameroon.
 You receive a user's housing preferences and a list of available properties.
 Your job: rank the TOP 5 best matches and explain WHY each one fits.
@@ -110,24 +113,26 @@ Response schema (array of up to 5 objects):
     "matchReason": "<one sentence why this is a great fit, max 120 chars>"
   }
 ]
-      `.trim(),
-      messages: [{
-        role:    'user',
-        content: `${userPrefsBlock}\n\nAVAILABLE LISTINGS:\n${listingsBlock}`,
-      }],
+          `.trim(),
+        },
+        {
+          role:    'user',
+          content: `${userPrefsBlock}\n\nAVAILABLE LISTINGS:\n${listingsBlock}`,
+        },
+      ],
     });
 
-    // ── 5. Parse Claude's ranking ────────────────────────────────────────────
-    let raw = aiResponse.content[0]?.text?.trim() ?? '[]';
+    // ── 5. Parse Groq's ranking ──────────────────────────────────────────────
+    let raw = chatResponse.choices[0]?.message?.content?.trim() ?? '[]';
 
-    // Strip markdown code fences if Claude added them despite instructions
+    // Strip markdown code fences if added despite instructions
     raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
 
     let ranking;
     try {
       ranking = JSON.parse(raw);
     } catch {
-      console.error('Claude returned invalid JSON:', raw);
+      console.error('Groq returned invalid JSON:', raw);
       return res.status(500).json({ error: 'matching_failed' });
     }
 
@@ -140,14 +145,15 @@ Response schema (array of up to 5 objects):
       .filter(r => r.index >= 0 && r.index < listings.length)
       .map(r => {
         const prop = listings[r.index];
-        const facilities = Array.isArray(prop.facilities) ? prop.facilities : (
-          prop.facilities ? (() => { try { return JSON.parse(prop.facilities); } catch { return []; } })() : []
-        );
+        const facilities = Array.isArray(prop.facilities)
+          ? prop.facilities
+          : (prop.facilities
+              ? (() => { try { return JSON.parse(prop.facilities); } catch { return []; } })()
+              : []);
 
-        // Derive rent vs sale from paymentFrequency
         const freq = (prop.paymentFrequency ?? '').toLowerCase();
-        const listingType = ['monthly', 'weekly', 'daily', 'per month', 'per week'].some(k => freq.includes(k))
-          ? 'rent' : 'sale';
+        const listingType = ['monthly', 'weekly', 'daily', 'per month', 'per week']
+          .some(k => freq.includes(k)) ? 'rent' : 'sale';
 
         return {
           id:          String(prop.id),
