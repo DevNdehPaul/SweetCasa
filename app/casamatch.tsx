@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ActivityIndicator,
   Animated,
   SafeAreaView,
   ScrollView,
@@ -13,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { fetchCasaMatches, MatchResult } from '../services/casaMatchService';
+import { fetchCasaMatches, MatchResult } from '../sweetcasa-api/src/services/casaMatchService';
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
 const C = {
@@ -497,21 +498,56 @@ function ResultsScreen({
 }) {
   const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState<'all' | 'for_rent' | 'for_sale'>('all');
-
+  const [loadingId, setLoadingId]       = useState<string | null>(null);  // tracks which card is loading
+ 
   const filters: Array<{ id: 'all' | 'for_rent' | 'for_sale'; label: string }> = [
     { id: 'all',      label: t('casaMatch.filter_all') },
     { id: 'for_rent', label: t('casaMatch.filter_for_rent') },
     { id: 'for_sale', label: t('casaMatch.filter_for_sale') },
   ];
-
-  // ── FIX 3: Filter tabs now actually filter the results list ───────────────
+ 
   const filteredResults = results.filter(r => {
     if (activeFilter === 'for_rent') return r.listingType === 'rent';
     if (activeFilter === 'for_sale') return r.listingType === 'sale';
-    return true; // 'all'
+    return true;
   });
-
-  // ── FIX 1: Error / empty state — backBtn pinned top-left, content centered ─
+ 
+  // ── Navigate to property detail ──────────────────────────────────────────
+  const handleViewProperty = async (r: MatchResult) => {
+    try {
+      setLoadingId(r.id);
+ 
+      // Fetch full listing data from your API
+      const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
+      const response = await fetch(`${BASE_URL}/listings/${r.id}`);
+ 
+      if (!response.ok) {
+        throw new Error(`Failed to fetch listing: ${response.status}`);
+      }
+ 
+      const listingData = await response.json();
+ 
+      // Navigate exactly like your other screens do
+      router.push({
+        pathname: '/propertydetail',
+        params: {
+          id:          String(r.id),
+          listingData: JSON.stringify(listingData),
+        },
+      });
+    } catch (err) {
+      console.error('Failed to navigate to property:', err);
+      // Fallback: navigate with just the id if full fetch fails
+      router.push({
+        pathname: '/propertydetail',
+        params: { id: String(r.id) },
+      });
+    } finally {
+      setLoadingId(null);
+    }
+  };
+ 
+  // ── Error / empty state ──────────────────────────────────────────────────
   if (error || results.length === 0) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -529,19 +565,19 @@ function ResultsScreen({
       </SafeAreaView>
     );
   }
-
+ 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
-
+ 
       <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
         <Feather name="arrow-left" size={18} color={C.textDark} />
       </TouchableOpacity>
-
+ 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         <Text style={styles.resultsHeading}>{t('casaMatch.results_heading')}</Text>
         <Text style={styles.resultsSubheading}>{t('casaMatch.results_sub')}</Text>
-
+ 
         {/* Filter tabs */}
         <ScrollView
           horizontal
@@ -561,56 +597,71 @@ function ResultsScreen({
             </TouchableOpacity>
           ))}
         </ScrollView>
-
+ 
         {/* Empty filter state */}
         {filteredResults.length === 0 && (
           <View style={styles.filterEmpty}>
             <Text style={styles.filterEmptyTxt}>{t('casaMatch.no_filter_results')}</Text>
           </View>
         )}
-
-        {/* Cards — driven by real filtered results */}
-        {filteredResults.map(r => (
-          <View key={r.id} style={styles.resultCard}>
-            <View style={styles.resultImgPlaceholder}>
-              <Ionicons name="home-outline" size={32} color="#C4B5FD" />
-              {r.badge && (
-                <View style={[styles.resultBadge, { backgroundColor: C.purple }]}>
-                  <Text style={styles.resultBadgeTxt}>{r.badge}</Text>
-                </View>
-              )}
-              <View style={styles.scoreChip}>
-                <Text style={styles.scoreChipTxt}>{r.score}% {t('casaMatch.match')}</Text>
-              </View>
-            </View>
-
-            <View style={styles.resultBody}>
-              <Text style={styles.resultName}>{r.name}</Text>
-              <Text style={styles.resultLocation}>
-                <Ionicons name="location-outline" size={12} color={C.textGray} /> {r.location}
-              </Text>
-              <Text style={styles.resultPrice}>{r.price}</Text>
-
-              <View style={styles.tagRow}>
-                {r.tags.map(tag => (
-                  <View key={tag} style={styles.tag}>
-                    <Text style={styles.tagTxt}>{tag}</Text>
+ 
+        {/* Cards */}
+        {filteredResults.map(r => {
+          const isLoading = loadingId === r.id;
+ 
+          return (
+            <View key={r.id} style={styles.resultCard}>
+              <View style={styles.resultImgPlaceholder}>
+                <Ionicons name="home-outline" size={32} color="#C4B5FD" />
+                {r.badge && (
+                  <View style={[styles.resultBadge, { backgroundColor: C.purple }]}>
+                    <Text style={styles.resultBadgeTxt}>{r.badge}</Text>
                   </View>
-                ))}
+                )}
+                <View style={styles.scoreChip}>
+                  <Text style={styles.scoreChipTxt}>{r.score}% {t('casaMatch.match')}</Text>
+                </View>
               </View>
-
-              <View style={styles.quoteBox}>
-                <Ionicons name="sparkles" size={12} color={C.purpleMid} style={{ marginRight: 6 }} />
-                <Text style={styles.quoteTxt}>"{r.matchReason}"</Text>
+ 
+              <View style={styles.resultBody}>
+                <Text style={styles.resultName}>{r.name}</Text>
+                <Text style={styles.resultLocation}>
+                  <Ionicons name="location-outline" size={12} color={C.textGray} /> {r.location}
+                </Text>
+                <Text style={styles.resultPrice}>{r.price}</Text>
+ 
+                <View style={styles.tagRow}>
+                  {r.tags.map(tag => (
+                    <View key={tag} style={styles.tag}>
+                      <Text style={styles.tagTxt}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
+ 
+                <View style={styles.quoteBox}>
+                  <Ionicons name="sparkles" size={12} color={C.purpleMid} style={{ marginRight: 6 }} />
+                  <Text style={styles.quoteTxt}>"{r.matchReason}"</Text>
+                </View>
+ 
+                {/* ── View Property Button ── */}
+                <TouchableOpacity
+                  style={[styles.viewBtn, isLoading && { opacity: 0.7 }]}
+                  activeOpacity={0.85}
+                  disabled={isLoading}
+                  onPress={() => handleViewProperty(r)}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.viewBtnTxt}>{t('casaMatch.viewProperty')}</Text>
+                  )}
+                </TouchableOpacity>
+ 
               </View>
-
-              <TouchableOpacity style={styles.viewBtn} activeOpacity={0.85}>
-                <Text style={styles.viewBtnTxt}>{t('casaMatch.viewProperty')}</Text>
-              </TouchableOpacity>
             </View>
-          </View>
-        ))}
-
+          );
+        })}
+ 
         <Text style={styles.verifiedNote}>{t('casaMatch.verifiedNote')}</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
