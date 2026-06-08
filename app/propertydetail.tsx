@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next'; // adjust path as needed
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   Modal,
@@ -519,14 +520,37 @@ export default function PropertyDetailScreen() {
 
   // ── Contact seller ──
   const handleContact = async () => {
-    if (!listing?.agent?.id || contacting) return;
+    if (contacting) return;
+
+    // Guard: agent must be linked to this listing
+    if (!listing?.agent?.id) {
+      Alert.alert(
+        'Agent not available',
+        'This listing does not have a contact agent yet. Please try again later.',
+      );
+      return;
+    }
+
     setContacting(true);
     try {
-      const token = await AsyncStorage.getItem('token');
+      const [token, userRaw] = await Promise.all([
+        AsyncStorage.getItem('token'),
+        AsyncStorage.getItem('user'),
+      ]);
+
       if (!token) {
         router.push('/login' as any);
         return;
       }
+
+      // Resolve buyer's display name — try multiple common storage keys
+      let buyerName = 'A potential buyer';
+      try {
+        if (userRaw) {
+          const u = JSON.parse(userRaw);
+          buyerName = u.name || u.fullName || u.companyName || buyerName;
+        }
+      } catch {}
 
       // Start or retrieve existing conversation
       const convRes = await fetch(BASE_URL + '/messages/conversations', {
@@ -541,16 +565,19 @@ export default function PropertyDetailScreen() {
         }),
       });
 
-      if (!convRes.ok) throw new Error('Could not start conversation.');
+      if (!convRes.ok) {
+        const errBody = await convRes.json().catch(() => ({}));
+        throw new Error((errBody as any).error || 'Could not start conversation (HTTP ' + convRes.status + ').');
+      }
       const convData = await convRes.json();
       const conversationId = convData.conversationId;
 
-      // Send pre-drafted welcome message
+      // Send pre-drafted welcome message with buyer's name
       const loc = [listing.neighborhood, listing.city, listing.region].filter(Boolean).join(', ');
       const welcomeText =
-        'Hello! I came across your listing "' + listing.title + '" in ' + loc +
-        ' on SweetCasa and I am very interested. ' +
-        'Could you please share more details and let me know when a viewing would be possible? Thank you!';
+        'Hello! My name is ' + buyerName + ' and I came across your listing "' + listing.title + '" in ' + loc +
+        ' on SweetCasa. I am very interested in this property and would love to get more details. ' +
+        'Could you please let me know when a viewing would be possible? Thank you!';
 
       await fetch(BASE_URL + '/messages/conversations/' + conversationId + '/messages', {
         method: 'POST',
@@ -564,7 +591,7 @@ export default function PropertyDetailScreen() {
       // Navigate to the chat screen
       router.push({ pathname: '/MessagesScreen', params: { conversationId } } as any);
     } catch (err: any) {
-      console.error('handleContact error:', err.message);
+      Alert.alert('Could not send message', err.message || 'Something went wrong. Please try again.');
     } finally {
       setContacting(false);
     }
@@ -911,7 +938,7 @@ export default function PropertyDetailScreen() {
         <TouchableOpacity
           style={styles.contactBtn}
           onPress={handleContact}
-          disabled={contacting || !listing?.agent?.id}
+          disabled={contacting}
         >
           <Feather name="message-square" size={16} color={PURPLE} />
           <Text style={styles.contactBtnTxt}>{t('propertyDetail.message')}</Text>

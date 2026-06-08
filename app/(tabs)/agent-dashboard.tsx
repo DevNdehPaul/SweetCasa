@@ -205,7 +205,7 @@ export default function AgentHubScreen() {
           <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.actionCard, styles.actionCardMessages]} activeOpacity={0.85} onPress={() => router.push('/messages')}>
+        <TouchableOpacity style={[styles.actionCard, styles.actionCardMessages]} activeOpacity={0.85} onPress={() => router.push('/MessagesInbox')}>
           <View style={[styles.actionIconWrap, styles.actionIconMessages]}>
             <Feather name="message-circle" size={22} color="#fff" />
           </View>

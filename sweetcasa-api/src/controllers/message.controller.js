@@ -1,7 +1,5 @@
 const { getPrisma } = require('../lib/prisma')
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
 function formatTime(date) {
   if (!date) return ''
   const d = new Date(date)
@@ -12,17 +10,14 @@ function formatConvTime(date) {
   if (!date) return ''
   const d = new Date(date)
   const now = new Date()
-  const diffMs = now - d
-  const diffDays = Math.floor(diffMs / 86400000)
+  const diffDays = Math.floor((now - d) / 86400000)
   if (diffDays === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7) return d.toLocaleDateString([], { weekday: 'long' })
+  if (diffDays < 7)  return d.toLocaleDateString([], { weekday: 'long' })
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 // ─── GET /messages/conversations ─────────────────────────────────────────────
-// Returns all conversations for the authenticated user, with last message and
-// unread count, sorted by most-recent activity.
 exports.getConversations = async (req, res) => {
   const prisma = getPrisma()
   const userId = req.user.id
@@ -37,12 +32,8 @@ exports.getConversations = async (req, res) => {
         seller: { select: { id: true, name: true, companyName: true } },
         listing: {
           select: {
-            id: true,
-            title: true,
-            city: true,
-            region: true,
-            price: true,
-            type: true,
+            id: true, title: true, city: true, region: true,
+            price: true, type: true,
             images: {
               where: { isPrimary: true },
               select: { imageUrl: true },
@@ -55,14 +46,24 @@ exports.getConversations = async (req, res) => {
           take: 1,
           select: { id: true, text: true, senderId: true, seen: true, createdAt: true },
         },
+        // Actual unread count: messages from the OTHER user that are unseen
+        _count: {
+          select: {
+            messages: {
+              where: {
+                senderId: { not: userId },
+                seen: false,
+              },
+            },
+          },
+        },
       },
       orderBy: { updatedAt: 'desc' },
     })
 
     const result = conversations.map((conv) => {
-      const other = conv.buyerId === userId ? conv.seller : conv.buyer
+      const other   = conv.buyerId === userId ? conv.seller : conv.buyer
       const lastMsg = conv.messages[0] ?? null
-      const unreadCount = 0
 
       return {
         id: conv.id,
@@ -82,13 +83,13 @@ exports.getConversations = async (req, res) => {
           : null,
         lastMessage: lastMsg
           ? {
-              text:     lastMsg.text,
-              fromMe:   lastMsg.senderId === userId,
-              seen:     lastMsg.seen,
-              time:     formatConvTime(lastMsg.createdAt),
+              text:   lastMsg.text,
+              fromMe: lastMsg.senderId === userId,
+              seen:   lastMsg.seen,
+              time:   formatConvTime(lastMsg.createdAt),
             }
           : null,
-        unreadCount,
+        unreadCount: conv._count.messages,   // ← real count now
         updatedAt: conv.updatedAt,
       }
     })
@@ -101,7 +102,6 @@ exports.getConversations = async (req, res) => {
 }
 
 // ─── GET /messages/conversations/:id ─────────────────────────────────────────
-// Returns all messages in a conversation. Marks unseen messages as seen.
 exports.getMessages = async (req, res) => {
   const prisma = getPrisma()
   const userId = req.user.id
@@ -122,11 +122,7 @@ exports.getMessages = async (req, res) => {
         seller: { select: { id: true, name: true, companyName: true } },
         listing: {
           select: {
-            id: true,
-            title: true,
-            city: true,
-            region: true,
-            price: true,
+            id: true, title: true, city: true, region: true, price: true,
             images: {
               where: { isPrimary: true },
               select: { imageUrl: true },
@@ -136,29 +132,17 @@ exports.getMessages = async (req, res) => {
         },
         messages: {
           orderBy: { createdAt: 'asc' },
-          select: {
-            id: true,
-            text: true,
-            senderId: true,
-            seen: true,
-            createdAt: true,
-          },
+          select: { id: true, text: true, senderId: true, seen: true, createdAt: true },
         },
       },
     })
 
-    if (!conv) {
-      return res.status(404).json({ error: 'Conversation not found.' })
-    }
+    if (!conv) return res.status(404).json({ error: 'Conversation not found.' })
 
     // Mark received messages as seen
     await prisma.message.updateMany({
-      where: {
-        conversationId,
-        senderId: { not: userId },
-        seen: false,
-      },
-      data: { seen: true },
+      where: { conversationId, senderId: { not: userId }, seen: false },
+      data:  { seen: true },
     })
 
     const other = conv.buyerId === userId ? conv.seller : conv.buyer
@@ -166,10 +150,7 @@ exports.getMessages = async (req, res) => {
     res.json({
       conversation: {
         id: conv.id,
-        otherUser: {
-          id:   other.id,
-          name: other.companyName || other.name,
-        },
+        otherUser: { id: other.id, name: other.companyName || other.name },
         listing: conv.listing
           ? {
               id:       conv.listing.id,
@@ -195,36 +176,27 @@ exports.getMessages = async (req, res) => {
 }
 
 // ─── POST /messages/conversations ────────────────────────────────────────────
-// Start or retrieve an existing conversation.
-// Body: { listingId, recipientId }
 exports.startConversation = async (req, res) => {
   const prisma = getPrisma()
   const userId = req.user.id
   const { listingId, recipientId } = req.body
 
-  if (!recipientId) {
-    return res.status(400).json({ error: 'recipientId is required.' })
-  }
+  if (!recipientId) return res.status(400).json({ error: 'recipientId is required.' })
 
-  const parsedListingId   = listingId   ? Number(listingId)   : null
+  const parsedListingId   = listingId ? Number(listingId) : null
   const parsedRecipientId = Number(recipientId)
-
-  if (!Number.isFinite(parsedRecipientId)) {
-    return res.status(400).json({ error: 'Invalid recipientId.' })
-  }
+  if (!Number.isFinite(parsedRecipientId)) return res.status(400).json({ error: 'Invalid recipientId.' })
 
   try {
-    // Determine buyer/seller order
     const requester = await prisma.user.findUnique({
       where: { id: userId },
       select: { role: true },
     })
 
-    const isBuyer = requester?.role !== 'SELLER'
+    const isBuyer  = requester?.role !== 'SELLER'
     const buyerId  = isBuyer ? userId : parsedRecipientId
     const sellerId = isBuyer ? parsedRecipientId : userId
 
-    // Upsert conversation
     let conv = await prisma.conversation.findFirst({
       where: parsedListingId
         ? { listingId: parsedListingId, buyerId, sellerId }
@@ -233,11 +205,7 @@ exports.startConversation = async (req, res) => {
 
     if (!conv) {
       conv = await prisma.conversation.create({
-        data: {
-          listingId: parsedListingId,
-          buyerId,
-          sellerId,
-        },
+        data: { listingId: parsedListingId, buyerId, sellerId },
       })
     }
 
@@ -249,43 +217,25 @@ exports.startConversation = async (req, res) => {
 }
 
 // ─── POST /messages/conversations/:id/messages ───────────────────────────────
-// Send a message in a conversation.
-// Body: { text }
 exports.sendMessage = async (req, res) => {
   const prisma = getPrisma()
   const userId = req.user.id
   const conversationId = Number(req.params.id)
   const { text } = req.body
 
-  if (!Number.isFinite(conversationId)) {
-    return res.status(400).json({ error: 'Invalid conversation id.' })
-  }
-
-  if (!text || !String(text).trim()) {
-    return res.status(400).json({ error: 'Message text is required.' })
-  }
+  if (!Number.isFinite(conversationId)) return res.status(400).json({ error: 'Invalid conversation id.' })
+  if (!text || !String(text).trim()) return res.status(400).json({ error: 'Message text is required.' })
 
   try {
     const conv = await prisma.conversation.findFirst({
-      where: {
-        id: conversationId,
-        OR: [{ buyerId: userId }, { sellerId: userId }],
-      },
+      where: { id: conversationId, OR: [{ buyerId: userId }, { sellerId: userId }] },
     })
-
-    if (!conv) {
-      return res.status(404).json({ error: 'Conversation not found.' })
-    }
+    if (!conv) return res.status(404).json({ error: 'Conversation not found.' })
 
     const message = await prisma.message.create({
-      data: {
-        conversationId,
-        senderId: userId,
-        text: String(text).trim(),
-      },
+      data: { conversationId, senderId: userId, text: String(text).trim() },
     })
 
-    // Bump conversation updatedAt
     await prisma.conversation.update({
       where: { id: conversationId },
       data:  { updatedAt: new Date() },
@@ -306,30 +256,46 @@ exports.sendMessage = async (req, res) => {
   }
 }
 
-// ─── PATCH /messages/conversations/:id/read ───────────────────────────────────
-// Mark all received messages in a conversation as seen.
+// ─── PATCH /messages/conversations/:id/read ──────────────────────────────────
 exports.markAsRead = async (req, res) => {
   const prisma = getPrisma()
   const userId = req.user.id
   const conversationId = Number(req.params.id)
 
-  if (!Number.isFinite(conversationId)) {
-    return res.status(400).json({ error: 'Invalid conversation id.' })
-  }
+  if (!Number.isFinite(conversationId)) return res.status(400).json({ error: 'Invalid conversation id.' })
 
   try {
     await prisma.message.updateMany({
-      where: {
-        conversationId,
-        senderId: { not: userId },
-        seen: false,
-      },
-      data: { seen: true },
+      where: { conversationId, senderId: { not: userId }, seen: false },
+      data:  { seen: true },
     })
-
     res.json({ ok: true })
   } catch (err) {
     console.error('markAsRead error:', err)
     res.status(500).json({ error: 'Failed to mark messages as read.' })
+  }
+}
+
+// ─── DELETE /messages/conversations/:id ──────────────────────────────────────
+exports.deleteConversation = async (req, res) => {
+  const prisma = getPrisma()
+  const userId = req.user.id
+  const conversationId = Number(req.params.id)
+
+  if (!Number.isFinite(conversationId)) return res.status(400).json({ error: 'Invalid conversation id.' })
+
+  try {
+    const conv = await prisma.conversation.findFirst({
+      where: { id: conversationId, OR: [{ buyerId: userId }, { sellerId: userId }] },
+    })
+    if (!conv) return res.status(404).json({ error: 'Conversation not found.' })
+
+    // Cascade deletes messages automatically (schema: onDelete: Cascade)
+    await prisma.conversation.delete({ where: { id: conversationId } })
+
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('deleteConversation error:', err)
+    res.status(500).json({ error: 'Failed to delete conversation.' })
   }
 }

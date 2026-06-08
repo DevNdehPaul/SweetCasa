@@ -3,8 +3,8 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
-  Image,
   RefreshControl,
   SafeAreaView,
   StatusBar,
@@ -51,41 +51,77 @@ type Conversation = {
   updatedAt: string;
 };
 
+// ─── Avatar: always shows the other person's initial, never the house photo ──
+function UserAvatar({ name }: { name: string }) {
+  const initial = name ? name.charAt(0).toUpperCase() : '?';
+  // Pick a consistent colour from the name's char code
+  const colors = ['#7C3AED', '#6B4EFF', '#0EA5E9', '#10B981', '#F59E0B', '#EF4444'];
+  const color  = colors[(name.charCodeAt(0) || 0) % colors.length];
+
+  return (
+    <View style={[s.avatar, { backgroundColor: color + '22', borderWidth: 2, borderColor: color + '44', alignItems: 'center', justifyContent: 'center' }]}>
+      <Text style={{ color, fontWeight: '800', fontSize: 20, lineHeight: 24 }}>{initial}</Text>
+    </View>
+  );
+}
+
+// ─── Conversation row ─────────────────────────────────────────────────────────
 const ConversationRow = ({
   item,
   onPress,
+  onDelete,
 }: {
   item: Conversation;
   onPress: () => void;
+  onDelete: () => void;
 }) => {
   const hasUnread = item.unreadCount > 0;
-  const tag     = item.listing
-    ? `${item.listing.type.toUpperCase()}, ${item.listing.location.toUpperCase()}`
+  const tag       = item.listing
+    ? `${item.listing.type.toUpperCase()} · ${item.listing.location}`
     : 'SWEETCASA';
-  const preview = item.lastMessage?.text ?? 'No messages yet.';
-  const time    = item.lastMessage?.time ?? '';
+  const preview   = item.lastMessage?.text ?? 'No messages yet.';
+  const time      = item.lastMessage?.time ?? '';
+
+  const handleLongPress = () => {
+    Alert.alert(
+      'Delete conversation',
+      `Delete your conversation with ${item.otherUser.name}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: onDelete },
+      ],
+    );
+  };
 
   return (
-    <TouchableOpacity activeOpacity={0.7} style={s.row} onPress={onPress}>
+    <TouchableOpacity
+      activeOpacity={0.7}
+      style={s.row}
+      onPress={onPress}
+      onLongPress={handleLongPress}
+      delayLongPress={400}
+    >
+      {/* Avatar — seller/buyer initial, never the house image */}
       <View style={s.avatarWrap}>
-        {item.listing?.imageUrl ? (
-          <Image source={{ uri: item.listing.imageUrl }} style={s.avatar} />
-        ) : (
-          <View style={[s.avatar, { backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' }]}>
-            <Text style={{ color: C.purple, fontWeight: '700', fontSize: 18 }}>
-              {item.otherUser.name.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
+        <UserAvatar name={item.otherUser.name} />
         <View style={s.onlineDot} />
       </View>
 
       <View style={s.rowBody}>
+        {/* Name + time */}
         <View style={s.rowTop}>
-          <Text style={[s.rowName, hasUnread && s.rowNameBold]}>{item.otherUser.name}</Text>
+          <Text style={[s.rowName, hasUnread && s.rowNameBold]} numberOfLines={1}>
+            {item.otherUser.name}
+          </Text>
           <Text style={[s.rowTime, hasUnread && s.rowTimePurple]}>{time}</Text>
         </View>
-        <Text style={s.rowTag}>{tag}</Text>
+
+        {/* Listing tag (property info stays as a subtitle) */}
+        {item.listing && (
+          <Text style={s.rowTag} numberOfLines={1}>{tag}</Text>
+        )}
+
+        {/* Preview + unread badge */}
         <View style={s.rowBottomRow}>
           <Text
             style={[s.rowPreview, hasUnread && s.rowPreviewBold]}
@@ -105,6 +141,7 @@ const ConversationRow = ({
   );
 };
 
+// ─── Main screen ──────────────────────────────────────────────────────────────
 export default function MessagesInbox() {
   const [activeTab, setActiveTab]         = useState<Tab>('all');
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -141,6 +178,21 @@ export default function MessagesInbox() {
     setRefreshing(false);
   };
 
+  const handleDelete = async (conversationId: number) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/messages/conversations/${conversationId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Delete failed');
+      // Remove locally for instant feedback
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+    } catch {
+      Alert.alert('Error', 'Could not delete the conversation. Please try again.');
+    }
+  };
+
   const unreadCount = conversations.filter((c) => c.unreadCount > 0).length;
   const displayed   =
     activeTab === 'unread'
@@ -151,6 +203,7 @@ export default function MessagesInbox() {
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
 
+      {/* ── Header ── */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} activeOpacity={0.7} onPress={() => router.back()}>
           <Text style={s.backArrow}>‹</Text>
@@ -161,6 +214,7 @@ export default function MessagesInbox() {
         </TouchableOpacity>
       </View>
 
+      {/* ── Tabs ── */}
       <View style={s.tabs}>
         <TouchableOpacity
           activeOpacity={0.85}
@@ -175,11 +229,12 @@ export default function MessagesInbox() {
           onPress={() => setActiveTab('unread')}
         >
           <Text style={[s.tabTxt, activeTab === 'unread' && s.tabTxtActive]}>
-            Unread ({unreadCount})
+            Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}
           </Text>
         </TouchableOpacity>
       </View>
 
+      {/* ── Content ── */}
       {loading ? (
         <View style={s.center}><ActivityIndicator size="large" color={C.purple} /></View>
       ) : error ? (
@@ -208,6 +263,7 @@ export default function MessagesInbox() {
                   params: { conversationId: item.id },
                 })
               }
+              onDelete={() => handleDelete(item.id)}
             />
           )}
           ItemSeparatorComponent={() => <View style={s.separator} />}
@@ -222,40 +278,72 @@ export default function MessagesInbox() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.bg },
+
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12, backgroundColor: C.bg,
   },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
+  backBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
+  },
   backArrow: { fontSize: 30, color: C.purple, lineHeight: 36, fontWeight: '300', marginTop: -2 },
   headerTitle: { fontSize: 22, fontWeight: '800', color: C.textDark, letterSpacing: -0.5 },
-  searchBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
+  searchBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
+  },
   searchIcon: { fontSize: 22, color: C.purple, lineHeight: 26 },
+
   tabs: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, paddingBottom: 14 },
   tab: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 30, backgroundColor: C.purpleLight },
   tabActive: { backgroundColor: C.purple },
   tabTxt: { fontSize: 14, fontWeight: '600', color: C.purple },
   tabTxtActive: { color: '#FFFFFF' },
+
   separator: { height: 1, backgroundColor: C.divider, marginLeft: 84 },
   listContent: { paddingBottom: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: C.bg },
+
+  row: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 14, backgroundColor: C.bg,
+  },
   avatarWrap: { position: 'relative', marginRight: 14 },
-  avatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: C.purpleLight },
-  onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 13, height: 13, borderRadius: 6.5, backgroundColor: C.green, borderWidth: 2, borderColor: C.bg },
+  avatar: { width: 54, height: 54, borderRadius: 27 },
+  onlineDot: {
+    position: 'absolute', bottom: 1, right: 1,
+    width: 13, height: 13, borderRadius: 6.5,
+    backgroundColor: C.green, borderWidth: 2, borderColor: C.bg,
+  },
+
   rowBody: { flex: 1 },
-  rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 },
+  rowTop: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 2,
+  },
   rowName: { fontSize: 15, fontWeight: '600', color: C.textDark, flex: 1, marginRight: 8 },
   rowNameBold: { fontWeight: '800' },
   rowTime: { fontSize: 12, color: C.textLight, fontWeight: '400' },
   rowTimePurple: { color: C.purple, fontWeight: '600' },
-  rowTag: { fontSize: 11, fontWeight: '700', color: C.purple, letterSpacing: 0.3, marginBottom: 3, textTransform: 'uppercase' },
-  rowBottomRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rowTag: {
+    fontSize: 11, fontWeight: '600', color: C.purple,
+    letterSpacing: 0.2, marginBottom: 3,
+  },
+  rowBottomRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
   rowPreview: { fontSize: 13, color: C.textMid, fontWeight: '400', flex: 1, marginRight: 8 },
   rowPreviewBold: { fontWeight: '600', color: C.textDark },
-  badge: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.badgeBg, alignItems: 'center', justifyContent: 'center' },
+
+  badge: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: C.badgeBg, alignItems: 'center', justifyContent: 'center',
+  },
   badgeTxt: { color: '#FFF', fontSize: 11, fontWeight: '800' },
+
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   errorTxt: { color: '#EF4444', fontSize: 14, textAlign: 'center', marginBottom: 12 },
   emptyTxt: { color: C.textLight, fontSize: 14, textAlign: 'center' },
