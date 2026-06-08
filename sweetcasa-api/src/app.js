@@ -1,13 +1,14 @@
 require('dotenv').config()
 const express = require('express')
-const cors = require('cors')
+const cors    = require('cors')
 
-const authRoutes    = require('./routes/auth.routes')
-const listingRoutes = require('./routes/listing.routes')
-const reportRoutes  = require('./routes/Reportroutes')
-const messageRoutes = require('./routes/message.routes')
+const authRoutes      = require('./routes/auth.routes')
+const listingRoutes   = require('./routes/listing.routes')
+const reportRoutes    = require('./routes/Reportroutes')
+const messageRoutes   = require('./routes/message.routes')
+const casaMatchRoute  = require('./routes/casaMatch')
 const { ensureDatabaseCompatibility } = require('./lib/db-compat')
-const { getPrisma } = require('./lib/prisma')
+const { getPrisma }   = require('./lib/prisma')
 
 const app = express()
 
@@ -16,9 +17,10 @@ app.use(cors({ origin: '*' }))
 // ✅ Do NOT use express.json() globally — it consumes the stream before
 //    multer can parse multipart/form-data requests (listings upload).
 //    Apply JSON parsing only to routes that need it.
-app.use('/auth',     express.json(), authRoutes)
-app.use('/reports',  reportRoutes)
+app.use('/auth',       express.json(), authRoutes)
+app.use('/reports',    reportRoutes)
 app.use('/messages/conversations', messageRoutes)
+app.use('/casa-match', express.json(), casaMatchRoute)  // ← CasaMatch AI
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 
@@ -35,13 +37,7 @@ app.get('/db-test', async (_req, res) => {
     const userCount    = await prisma.user.count()
     const listingCount = await prisma.listing.count()
     const msgCount     = await prisma.message.count()
-
-    res.json({
-      db: 'connected',
-      users: userCount,
-      listings: listingCount,
-      messages: msgCount,
-    })
+    res.json({ db: 'connected', users: userCount, listings: listingCount, messages: msgCount })
   } catch (err) {
     res.status(500).json({ db: 'failed', error: err.message })
   }
@@ -52,7 +48,6 @@ const PORT = process.env.PORT || 3000
 async function bootstrap() {
   await ensureDatabaseCompatibility()
   await getPrisma().$connect()
-
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`SweetCasa API running on port ${PORT}`)
   })

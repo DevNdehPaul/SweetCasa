@@ -1,7 +1,7 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Animated,
@@ -86,30 +86,15 @@ export default function AgentHubScreen() {
   const [listings, setListings]       = useState<any[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
 
-  // ── Live stats ──────────────────────────────────────────────────────────────
-  const [unreadMessages,   setUnreadMessages]   = useState<number | null>(null);
-  const [leadConversion,   setLeadConversion]   = useState<string | null>(null);
+  // Live stats derived from existing endpoints — no new backend needed
+  const [unreadMessages, setUnreadMessages] = useState<number>(0);
+  const [leadConversion, setLeadConversion] = useState<string>('0%');
+  const [statsReady,     setStatsReady]     = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('profile').then((p) => { if (p) setProfile(JSON.parse(p)); });
-    loadListings();
-    loadStats();
     checkWelcome();
-  }, []);
-
-  const loadStats = useCallback(async () => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`${API_BASE}/messages/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setUnreadMessages(data.unreadMessages ?? 0);
-      setLeadConversion(data.leadConversion ?? '0.0%');
-    } catch {
-      // keep nulls — will show dashes
-    }
+    loadAll();
   }, []);
 
   const checkWelcome = async () => {
@@ -122,20 +107,63 @@ export default function AgentHubScreen() {
     } catch { /* ignore */ }
   };
 
-  const loadListings = async () => {
+  // Fetch listings + conversations in parallel; derive stats from both
+  const loadAll = async () => {
     try {
-      const res = await api.get('/listings/mine');
-      const mapped = (res.data?.listings || []).map((l: any) => ({
-        id:       String(l.id),
-        title:    l.title,
-        price:    `${Number(l.price).toLocaleString()} XAF`,
-        status:   l.status === 'Available' ? t('dashboard.available') : l.status,
-        views:    l.views ?? 0,
-        messages: l.messageCount ?? 0,
-      }));
-      setListings(mapped);
+      const token = await AsyncStorage.getItem('token');
+      const authHeader = { Authorization: `Bearer ${token}` };
+
+      const [listingsRes, convsRes] = await Promise.allSettled([
+        api.get('/listings/mine'),
+        fetch(`${API_BASE}/messages/conversations`, { headers: authHeader }).then((r) =>
+          r.ok ? r.json() : Promise.reject(r.status),
+        ),
+      ]);
+
+      // ── Listings ──────────────────────────────────────────────────────────
+      let mappedListings: any[] = [];
+      if (listingsRes.status === 'fulfilled') {
+        mappedListings = (listingsRes.value.data?.listings || []).map((l: any) => ({
+          id:       String(l.id),
+          title:    l.title,
+          price:    `${Number(l.price).toLocaleString()} XAF`,
+          status:   l.status === 'Available' ? 'Available' : l.status,
+          views:    l.views ?? 0,
+          messages: l.messageCount ?? 0,
+        }));
+        setListings(mappedListings);
+      }
+
+      // ── Conversations → stats ─────────────────────────────────────────────
+      if (convsRes.status === 'fulfilled') {
+        const conversations: any[] = (convsRes.value as any).conversations ?? [];
+
+        // Total unread: sum of unreadCount across all conversations
+        const totalUnread = conversations.reduce(
+          (sum: number, c: any) => sum + (c.unreadCount ?? 0),
+          0,
+        );
+        setUnreadMessages(totalUnread);
+
+        // Lead conversion: listings that have ≥1 conversation / total listings × 100
+        const total = mappedListings.length;
+        if (total > 0) {
+          // Group conversation listingIds
+          const listingIdsWithConvs = new Set(
+            conversations.map((c: any) => c.listing?.id).filter(Boolean),
+          );
+          const withLeads = mappedListings.filter((l) =>
+            listingIdsWithConvs.has(Number(l.id)),
+          ).length;
+          setLeadConversion(((withLeads / total) * 100).toFixed(1) + '%');
+        } else {
+          setLeadConversion('0%');
+        }
+      }
     } catch {
-      // silently ignore
+      // Stats stay at defaults (0 / 0%)
+    } finally {
+      setStatsReady(true);
     }
   };
 
@@ -151,7 +179,7 @@ export default function AgentHubScreen() {
         <Text style={styles.headerTitle}>{t('agentHub.title')}</Text>
         <TouchableOpacity style={styles.bellBtn} onPress={() => router.push('/MessagesInbox')}>
           <Feather name="bell" size={22} color="#111" />
-          {(unreadMessages ?? 0) > 0 && <View style={styles.bellDot} />}
+          {unreadMessages > 0 && <View style={styles.bellDot} />}
         </TouchableOpacity>
       </View>
 
@@ -190,21 +218,24 @@ export default function AgentHubScreen() {
           </Link>
         </View>
 
-        {/* ── Stats Row — live data ── */}
+        {/* ── Stats Row — derived from live data ── */}
         <View style={styles.statsRow}>
+
           {/* Lead Conversion */}
           <View style={styles.statCard}>
             <View style={styles.statIconWrap}>
               <Feather name="trending-up" size={18} color={PURPLE} />
             </View>
-            <Text style={styles.statNum}>
-              {leadConversion !== null ? leadConversion : '—'}
-            </Text>
+            {statsReady ? (
+              <Text style={styles.statNum}>{leadConversion}</Text>
+            ) : (
+              <View style={styles.skeleton} />
+            )}
             <Text style={styles.statLabel}>{t('agentHub.leadConversion')}</Text>
             <Text style={styles.statHint}>Listings w/ enquiries</Text>
           </View>
 
-          {/* Unread Messages */}
+          {/* Unread Messages — tappable */}
           <TouchableOpacity
             style={styles.statCard}
             activeOpacity={0.8}
@@ -213,12 +244,13 @@ export default function AgentHubScreen() {
             <View style={styles.statIconWrap}>
               <Feather name="message-circle" size={18} color={PURPLE} />
             </View>
-            <Text style={[
-              styles.statNum,
-              (unreadMessages ?? 0) > 0 && styles.statNumAlert,
-            ]}>
-              {unreadMessages !== null ? unreadMessages : '—'}
-            </Text>
+            {statsReady ? (
+              <Text style={[styles.statNum, unreadMessages > 0 && styles.statNumAlert]}>
+                {unreadMessages}
+              </Text>
+            ) : (
+              <View style={styles.skeleton} />
+            )}
             <Text style={styles.statLabel}>{t('agentHub.unreadMessages')}</Text>
             <Text style={styles.statHint}>Tap to view inbox</Text>
           </TouchableOpacity>
@@ -254,9 +286,9 @@ export default function AgentHubScreen() {
             <Text style={styles.actionTitle}>{t('agentHub.messages')}</Text>
             <Text style={styles.actionSub}>{t('agentHub.messagesSub')}</Text>
           </View>
-          {(unreadMessages ?? 0) > 0 && (
-            <View style={styles.inlineUnreadBadge}>
-              <Text style={styles.inlineUnreadTxt}>{unreadMessages}</Text>
+          {unreadMessages > 0 && (
+            <View style={styles.inlineBadge}>
+              <Text style={styles.inlineBadgeTxt}>{unreadMessages}</Text>
             </View>
           )}
           <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
@@ -368,6 +400,7 @@ const styles = StyleSheet.create({
   statIconWrap: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F3F0FF', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   statNum: { fontSize: 28, fontWeight: '800', color: '#111', letterSpacing: -0.8, marginBottom: 4 },
   statNumAlert: { color: PURPLE },
+  skeleton: { height: 32, width: 60, borderRadius: 8, backgroundColor: '#EDEDED', marginBottom: 4 },
   statLabel: { fontSize: 12, color: '#A0A0A0', fontWeight: '500' },
   statHint: { fontSize: 10, color: '#C0C0C0', fontWeight: '400', marginTop: 2 },
   sectionLabel: { fontSize: 11, fontWeight: '700', color: '#A0A0A0', letterSpacing: 1.2, paddingHorizontal: H_PAD, marginBottom: 10 },
@@ -378,8 +411,8 @@ const styles = StyleSheet.create({
   actionText: { flex: 1 },
   actionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2, marginBottom: 3 },
   actionSub: { fontSize: 12, color: '#A0A0A0', lineHeight: 17 },
-  inlineUnreadBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
-  inlineUnreadTxt: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  inlineBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  inlineBadgeTxt: { color: '#fff', fontSize: 11, fontWeight: '800' },
   tableCard: { marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2, marginBottom: 16 },
   tableHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FAFAFA', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   tableHeaderTxt: { fontSize: 10, fontWeight: '700', color: '#B0B0B0', letterSpacing: 0.8 },
