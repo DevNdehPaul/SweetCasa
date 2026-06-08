@@ -6,7 +6,7 @@ const authRoutes      = require('./routes/auth.routes')
 const listingRoutes   = require('./routes/listing.routes')
 const reportRoutes    = require('./routes/Reportroutes')
 const messageRoutes   = require('./routes/message.routes')
-const casaMatchRoute  = require('./routes/casaMatch')
+const casaMatchRoute  = require('./routes/casaMatch')           // ✅ correct path
 const { ensureDatabaseCompatibility } = require('./lib/db-compat')
 const { getPrisma }   = require('./lib/prisma')
 
@@ -17,10 +17,10 @@ app.use(cors({ origin: '*' }))
 // ✅ Do NOT use express.json() globally — it consumes the stream before
 //    multer can parse multipart/form-data requests (listings upload).
 //    Apply JSON parsing only to routes that need it.
-app.use('/auth',       express.json(), authRoutes)
-app.use('/reports',    reportRoutes)
+app.use('/auth',                   express.json(), authRoutes)
+app.use('/reports',                reportRoutes)
 app.use('/messages/conversations', messageRoutes)
-app.use('/casa-match', express.json(), casaMatchRoute)  // ← CasaMatch AI
+app.use('/api/casa-match',         express.json(), casaMatchRoute)  // ✅ /api prefix added
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 
