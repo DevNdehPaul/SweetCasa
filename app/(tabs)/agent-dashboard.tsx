@@ -1,7 +1,7 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Animated,
@@ -20,16 +20,18 @@ import api from '../../constants/api';
 const H_PAD = 20;
 const PURPLE = '#7C3AED';
 
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+
 // ─── Welcome Modal ────────────────────────────────────────────────────────────
 function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useTranslation();
-  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+  const scaleAnim   = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(scaleAnim, { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
+        Animated.spring(scaleAnim,  { toValue: 1, tension: 60, friction: 8, useNativeDriver: true }),
         Animated.timing(opacityAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
       ]).start();
     }
@@ -84,18 +86,32 @@ export default function AgentHubScreen() {
   const [listings, setListings]       = useState<any[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
 
+  // ── Live stats ──────────────────────────────────────────────────────────────
+  const [unreadMessages,   setUnreadMessages]   = useState<number | null>(null);
+  const [leadConversion,   setLeadConversion]   = useState<string | null>(null);
+
   useEffect(() => {
     AsyncStorage.getItem('profile').then((p) => { if (p) setProfile(JSON.parse(p)); });
     loadListings();
+    loadStats();
     checkWelcome();
   }, []);
 
-  // ── Show modal on every fresh signup.
-  // ── The signup screen must call:
-  // ──   await AsyncStorage.removeItem('agent_welcome_seen');
-  // ── before navigating here. This function then detects the absent key
-  // ── and shows the modal, setting the key so it won't show again on
-  // ── subsequent visits (until the next signup clears it again).
+  const loadStats = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/messages/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setUnreadMessages(data.unreadMessages ?? 0);
+      setLeadConversion(data.leadConversion ?? '0.0%');
+    } catch {
+      // keep nulls — will show dashes
+    }
+  }, []);
+
   const checkWelcome = async () => {
     try {
       const seen = await AsyncStorage.getItem('agent_welcome_seen');
@@ -103,25 +119,23 @@ export default function AgentHubScreen() {
         setShowWelcome(true);
         await AsyncStorage.setItem('agent_welcome_seen', 'true');
       }
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   };
 
   const loadListings = async () => {
     try {
       const res = await api.get('/listings/mine');
       const mapped = (res.data?.listings || []).map((l: any) => ({
-        id: String(l.id),
-        title: l.title,
-        price: `${Number(l.price).toLocaleString()} XAF`,
-        status: l.status === 'Available' ? t('dashboard.available') : l.status,
-        views: 0,
-        messages: 0,
+        id:       String(l.id),
+        title:    l.title,
+        price:    `${Number(l.price).toLocaleString()} XAF`,
+        status:   l.status === 'Available' ? t('dashboard.available') : l.status,
+        views:    l.views ?? 0,
+        messages: l.messageCount ?? 0,
       }));
       setListings(mapped);
     } catch {
-      console.log('Could not load listings.');
+      // silently ignore
     }
   };
 
@@ -135,9 +149,9 @@ export default function AgentHubScreen() {
       {/* ── Header ── */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('agentHub.title')}</Text>
-        <TouchableOpacity style={styles.bellBtn}>
+        <TouchableOpacity style={styles.bellBtn} onPress={() => router.push('/MessagesInbox')}>
           <Feather name="bell" size={22} color="#111" />
-          <View style={styles.bellDot} />
+          {(unreadMessages ?? 0) > 0 && <View style={styles.bellDot} />}
         </TouchableOpacity>
       </View>
 
@@ -146,7 +160,10 @@ export default function AgentHubScreen() {
         {/* ── User Row ── */}
         <View style={styles.userRow}>
           <View style={styles.avatarWrap}>
-            <Image source={{ uri: 'https://randomuser.me/api/portraits/men/45.jpg' }} style={styles.avatar} />
+            <Image
+              source={{ uri: 'https://randomuser.me/api/portraits/men/45.jpg' }}
+              style={styles.avatar}
+            />
             <View style={styles.onlineDot} />
           </View>
           <View style={styles.userInfo}>
@@ -173,28 +190,48 @@ export default function AgentHubScreen() {
           </Link>
         </View>
 
-        {/* ── Stats Row ── */}
+        {/* ── Stats Row — live data ── */}
         <View style={styles.statsRow}>
+          {/* Lead Conversion */}
           <View style={styles.statCard}>
             <View style={styles.statIconWrap}>
               <Feather name="trending-up" size={18} color={PURPLE} />
             </View>
-            <Text style={styles.statNum}>14.2%</Text>
+            <Text style={styles.statNum}>
+              {leadConversion !== null ? leadConversion : '—'}
+            </Text>
             <Text style={styles.statLabel}>{t('agentHub.leadConversion')}</Text>
+            <Text style={styles.statHint}>Listings w/ enquiries</Text>
           </View>
-          <View style={styles.statCard}>
+
+          {/* Unread Messages */}
+          <TouchableOpacity
+            style={styles.statCard}
+            activeOpacity={0.8}
+            onPress={() => router.push('/MessagesInbox')}
+          >
             <View style={styles.statIconWrap}>
               <Feather name="message-circle" size={18} color={PURPLE} />
             </View>
-            <Text style={styles.statNum}>12</Text>
+            <Text style={[
+              styles.statNum,
+              (unreadMessages ?? 0) > 0 && styles.statNumAlert,
+            ]}>
+              {unreadMessages !== null ? unreadMessages : '—'}
+            </Text>
             <Text style={styles.statLabel}>{t('agentHub.unreadMessages')}</Text>
-          </View>
+            <Text style={styles.statHint}>Tap to view inbox</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Quick Actions ── */}
         <Text style={styles.sectionLabel}>{t('agentHub.quickActions')}</Text>
 
-        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85} onPress={() => router.push('/upload')}>
+        <TouchableOpacity
+          style={styles.actionCard}
+          activeOpacity={0.85}
+          onPress={() => router.push('/upload')}
+        >
           <View style={styles.actionIconWrap}>
             <Feather name="plus" size={22} color="#fff" />
           </View>
@@ -205,7 +242,11 @@ export default function AgentHubScreen() {
           <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.actionCard, styles.actionCardMessages]} activeOpacity={0.85} onPress={() => router.push('/MessagesInbox')}>
+        <TouchableOpacity
+          style={[styles.actionCard, styles.actionCardMessages]}
+          activeOpacity={0.85}
+          onPress={() => router.push('/MessagesInbox')}
+        >
           <View style={[styles.actionIconWrap, styles.actionIconMessages]}>
             <Feather name="message-circle" size={22} color="#fff" />
           </View>
@@ -213,6 +254,11 @@ export default function AgentHubScreen() {
             <Text style={styles.actionTitle}>{t('agentHub.messages')}</Text>
             <Text style={styles.actionSub}>{t('agentHub.messagesSub')}</Text>
           </View>
+          {(unreadMessages ?? 0) > 0 && (
+            <View style={styles.inlineUnreadBadge}>
+              <Text style={styles.inlineUnreadTxt}>{unreadMessages}</Text>
+            </View>
+          )}
           <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
         </TouchableOpacity>
 
@@ -260,7 +306,11 @@ export default function AgentHubScreen() {
           )}
         </View>
 
-        <TouchableOpacity style={styles.viewAllBtn} activeOpacity={0.85} onPress={() => router.push('/listings')}>
+        <TouchableOpacity
+          style={styles.viewAllBtn}
+          activeOpacity={0.85}
+          onPress={() => router.push('/listings')}
+        >
           <Feather name="list" size={18} color="#fff" />
           <Text style={styles.viewAllTxt}>{t('agentHub.viewAllListings')}</Text>
           <Feather name="arrow-right" size={18} color="#fff" />
@@ -272,6 +322,7 @@ export default function AgentHubScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const wm = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   card: { width: '100%', backgroundColor: '#fff', borderRadius: 28, overflow: 'hidden', paddingBottom: 28 },
@@ -316,7 +367,9 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 18, padding: 18, shadowColor: PURPLE, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   statIconWrap: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F3F0FF', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   statNum: { fontSize: 28, fontWeight: '800', color: '#111', letterSpacing: -0.8, marginBottom: 4 },
+  statNumAlert: { color: PURPLE },
   statLabel: { fontSize: 12, color: '#A0A0A0', fontWeight: '500' },
+  statHint: { fontSize: 10, color: '#C0C0C0', fontWeight: '400', marginTop: 2 },
   sectionLabel: { fontSize: 11, fontWeight: '700', color: '#A0A0A0', letterSpacing: 1.2, paddingHorizontal: H_PAD, marginBottom: 10 },
   actionCard: { flexDirection: 'row', alignItems: 'center', gap: 16, marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   actionCardMessages: { marginBottom: 24 },
@@ -325,6 +378,8 @@ const styles = StyleSheet.create({
   actionText: { flex: 1 },
   actionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2, marginBottom: 3 },
   actionSub: { fontSize: 12, color: '#A0A0A0', lineHeight: 17 },
+  inlineUnreadBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  inlineUnreadTxt: { color: '#fff', fontSize: 11, fontWeight: '800' },
   tableCard: { marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2, marginBottom: 16 },
   tableHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FAFAFA', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   tableHeaderTxt: { fontSize: 10, fontWeight: '700', color: '#B0B0B0', letterSpacing: 0.8 },

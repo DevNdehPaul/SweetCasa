@@ -299,3 +299,60 @@ exports.deleteConversation = async (req, res) => {
     res.status(500).json({ error: 'Failed to delete conversation.' })
   }
 }
+
+// ─── GET /messages/stats ─────────────────────────────────────────────────────
+exports.getStats = async (req, res) => {
+  const prisma = getPrisma()
+  const userId = req.user.id
+
+  try {
+    // All conversations this user is part of
+    const conversations = await prisma.conversation.findMany({
+      where: { OR: [{ buyerId: userId }, { sellerId: userId }] },
+      select: {
+        id: true,
+        listingId: true,
+        _count: {
+          select: {
+            messages: {
+              where: { senderId: { not: userId }, seen: false },
+            },
+          },
+        },
+      },
+    })
+
+    // Total unread messages across all conversations
+    const unreadMessages = conversations.reduce(
+      (sum, c) => sum + c._count.messages,
+      0,
+    )
+
+    // Lead conversion: how many of this seller's listings have at least one conversation
+    const totalListings = await prisma.listing.count({
+      where: { sellerId: userId },
+    })
+
+    const listingsWithLeads = totalListings
+      ? await prisma.listing.count({
+          where: {
+            sellerId: userId,
+            conversations: { some: {} },
+          },
+        })
+      : 0
+
+    const leadConversion =
+      totalListings > 0
+        ? ((listingsWithLeads / totalListings) * 100).toFixed(1) + '%'
+        : '0.0%'
+
+    // Total conversations (useful for the client)
+    const totalConversations = conversations.length
+
+    res.json({ unreadMessages, leadConversion, totalConversations, totalListings })
+  } catch (err) {
+    console.error('getStats error:', err)
+    res.status(500).json({ error: 'Failed to fetch stats.' })
+  }
+}

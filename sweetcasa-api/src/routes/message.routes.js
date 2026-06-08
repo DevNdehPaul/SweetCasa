@@ -8,11 +8,15 @@ const {
   sendMessage,
   markAsRead,
   deleteConversation,
+  getStats,
 } = require('../controllers/message.controller')
 
 const requireRole = require('../middleware/requireRole')
 
 router.use(requireRole())
+
+// stats must come before /:id so it isn't swallowed by the param route
+router.get('/stats', getStats)
 
 router.get('/',  getConversations)
 router.post('/', express.json(), startConversation)
