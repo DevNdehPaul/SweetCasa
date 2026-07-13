@@ -34,18 +34,32 @@ const TOS_SECTIONS = [
     num: '3',
     title: 'Payments & Escrow',
     content: [
-      { bold: '', text: 'All payments made through the platform are secured via our escrow system. Funds are only released to the owner once you confirm satisfactory receipt of the property or service.' },
+      { bold: '', text: 'Rental payments are securely held in escrow and distributed to the house owner exactly 7 days after the house seeker has moved in.' },
     ],
   },
   {
     num: '4',
+    title: 'Platform Disintermediation Protection',
+    content: [
+      { bold: '', text: 'House owners and agents are strictly prohibited from collecting direct cash or off-platform payments from house seekers. Any transaction conducted outside the SWEETCASA platform is not backed, secured, or recognized by SweetCasa. SweetCasa accepts zero liability for losses or disputes arising from off-platform agreements.' },
+    ],
+  },
+  {
+    num: '5',
+    title: 'Negotiated Price Updates',
+    content: [
+      { bold: '', text: 'If a house seeker and house owner agree on a customized price, the house owner must update the listing price inside the app before payment is processed. This ensures the SWEETCASA matching and escrow flow uses the newly agreed, accurate amount.' },
+    ],
+  },
+  {
+    num: '6',
     title: 'Seeker Responsibilities',
     content: [
       { bold: '', text: 'You are responsible for maintaining rented properties in good condition, paying rent on time, and communicating respectfully with property owners and our support team.' },
     ],
   },
   {
-    num: '5',
+    num: '7',
     title: 'Termination',
     content: [
       { bold: '', text: 'We reserve the right to suspend or terminate your account for violations of these terms, fraudulent activity, or abusive behaviour without prior notice.' },
@@ -73,6 +87,11 @@ const PRIVACY_SECTIONS = [
     num: '4',
     title: 'Your Rights',
     body: 'You have the right to access, correct, or delete your personal data at any time by contacting our support team. Deleting your account will remove all associated personal data within 30 days.',
+  },
+  {
+    num: '5',
+    title: 'Payments & Escrow Data',
+    body: 'We process escrow balances, payout records, and payment references only to operate the SweetCasa wallet, reconcile transactions, prevent fraud, and resolve disputes. This information is not used for unrelated marketing purposes.',
   },
 ];
 

@@ -51,11 +51,10 @@ const HOW_IT_WORKS_STEPS = [
 ];
 
 // Quick action i18n keys (icon stays the same)
-const QUICK_ACTIONS = [
-  { icon: 'arrow-up-circle',  labelKey: 'escrow.deposit'  },
-  { icon: 'arrow-down-circle', labelKey: 'escrow.withdraw' },
-  { icon: 'refresh-cw',        labelKey: 'escrow.refund'   },
-];
+const PRIMARY_ACTIONS = [
+  { icon: 'arrow-up-circle', labelKey: 'escrow.deposit', variant: 'deposit' },
+  { icon: 'arrow-down-circle', labelKey: 'escrow.withdraw', variant: 'withdraw' },
+] as const;
 
 // ─── Protection Card ──────────────────────────────────────────────────────────
 
@@ -128,7 +127,7 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
     } else {
       Animated.timing(slideAnim, { toValue: height, duration: 260, useNativeDriver: true }).start();
     }
-  }, [visible]);
+  }, [visible, slideAnim]);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
@@ -224,6 +223,13 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
                   {' '}{t('escrow.priceCeilingLabelDesc')}
                 </Text>
               </View>
+              <View style={styles.whyRow}>
+                <View style={styles.whyDot} />
+                <Text style={styles.whyTxt}>
+                  <Text style={{ fontWeight: '700' }}>{t('escrow.refundRationaleTitle')}</Text>
+                  {' '}{t('escrow.refundRationaleDesc')}
+                </Text>
+              </View>
             </View>
           </View>
 
@@ -291,20 +297,35 @@ export default function EscrowWalletScreen() {
               <Text style={styles.balanceSubAmount}>850,500 XAF</Text>
             </View>
           </View>
+
+          <View style={styles.feeBanner}>
+            <Feather name="alert-circle" size={14} color="rgba(255,255,255,0.95)" />
+            <Text style={styles.feeBannerTxt}>{t('escrow.processingFeeNote')}</Text>
+          </View>
         </View>
 
-        {/* ── Quick Actions ── */}
-        <View style={styles.quickActions}>
-          {QUICK_ACTIONS.map(a => (
-            <TouchableOpacity key={a.labelKey} style={styles.actionBtn} activeOpacity={0.75}>
-              <View style={styles.actionIconWrap}>
-                <Feather
-                  name={a.icon as any}
-                  size={22}
-                  color={a.labelKey === 'escrow.withdraw' ? '#111' : '#7C3AED'}
-                />
-              </View>
-              <Text style={styles.actionLabel}>{t(a.labelKey)}</Text>
+        {/* ── Primary Actions ── */}
+        <View style={styles.primaryActions}>
+          {PRIMARY_ACTIONS.map(a => (
+            <TouchableOpacity
+              key={a.labelKey}
+              style={[
+                styles.primaryActionBtn,
+                a.variant === 'deposit' ? styles.depositBtn : styles.withdrawBtn,
+              ]}
+              activeOpacity={0.85}
+            >
+              <Feather
+                name={a.icon as any}
+                size={18}
+                color={a.variant === 'deposit' ? '#7C3AED' : '#fff'}
+              />
+              <Text style={[
+                styles.primaryActionTxt,
+                a.variant === 'deposit' ? styles.primaryActionTxtDeposit : styles.primaryActionTxtWithdraw,
+              ]}>
+                {t(a.labelKey)}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -396,10 +417,15 @@ const styles = StyleSheet.create({
   balanceSubLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   balanceSubLabel: { fontSize: 10.5, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
   balanceSubAmount: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: -0.3, lineHeight: 20 },
-  quickActions: { flexDirection: 'row', justifyContent: 'space-around', marginHorizontal: H_PAD, marginBottom: 24, backgroundColor: '#fff', borderRadius: 18, paddingVertical: 16, borderWidth: 1, borderColor: '#EFEFEF' },
-  actionBtn: { alignItems: 'center', gap: 8, flex: 1 },
-  actionIconWrap: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#F5F3FF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#EDE9FE' },
-  actionLabel: { fontSize: 12, fontWeight: '600', color: '#333' },
+  feeBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 14, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 12 },
+  feeBannerTxt: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 17, fontWeight: '500' },
+  primaryActions: { flexDirection: 'row', gap: 12, marginHorizontal: H_PAD, marginBottom: 24 },
+  primaryActionBtn: { flex: 1, minHeight: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 6, flexDirection: 'row', borderWidth: 1.5 },
+  depositBtn: { backgroundColor: '#F5F3FF', borderColor: '#DDD6FE' },
+  withdrawBtn: { backgroundColor: '#7C3AED', borderColor: '#6D28D9' },
+  primaryActionTxt: { fontSize: 13.5, fontWeight: '800', letterSpacing: -0.1 },
+  primaryActionTxtDeposit: { color: '#7C3AED' },
+  primaryActionTxtWithdraw: { color: '#fff' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 14 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
   seeAll: { fontSize: 12.5, color: '#7C3AED', fontWeight: '600' },

@@ -39,7 +39,7 @@ const SLIDES: Slide[] = [
     id: '2',
     image: require('../assets/seeker_security.png'),
     headline: 'Your Money is Secured',
-    body: 'We hold your payment in a secure escrow. The landlord only gets paid 7 days after you move in, giving you time to ensure the house matches exactly what you paid for.',
+    body: 'We hold your payment in a secure escrow. The house owner is paid exactly 7 days after you move in, and any agreed custom price must be updated in-app before payment is processed.',
     accentColor: '#6D28D9',
   },
   {

@@ -86,6 +86,39 @@ function ListingCard({ item, t }: { item: Listing; t: (key: string) => string })
   );
 }
 
+function CompactCard({ item, t }: { item: Listing; t: (key: string) => string }) {
+  const img = getPrimaryImage(item.images);
+  const location = [item.neighborhood, item.city, item.region].filter(Boolean).join(', ');
+
+  return (
+    <TouchableOpacity style={styles.compactCard} activeOpacity={0.88} onPress={() => router.push({
+      pathname: '/propertydetail',
+      params: {
+        id: String(item.id),
+        listingData: JSON.stringify(item),
+      },
+    })}>
+      <View style={styles.compactImgWrap}>
+        {img
+          ? <Image source={{ uri: img }} style={styles.compactImg} resizeMode="cover" />
+          : <View style={[styles.compactImg, styles.cardImgPlaceholder]}><Text style={{ fontSize: 28 }}>🏠</Text></View>
+        }
+        <View style={styles.compactPricePill}>
+          <Text style={styles.pricePillTxt}>{formatPrice(item.price, item.paymentFrequency, t)}</Text>
+        </View>
+      </View>
+      <View style={styles.compactBody}>
+        <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+        <Text style={styles.compactLocation} numberOfLines={1}>{location}</Text>
+        <View style={styles.compactFooter}>
+          <Text style={styles.compactType}>{item.type}</Text>
+          <Feather name="arrow-right" size={14} color={PURPLE} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function SearchResultsScreen() {
   const { t } = useTranslation();
 
@@ -95,10 +128,7 @@ export default function SearchResultsScreen() {
   }>();
 
   const paramsRef = useRef(raw);
-  useEffect(() => { paramsRef.current = raw; }, [
-    raw.region, raw.city, raw.neighborhood,
-    raw.type, raw.status, raw.maxBudget, raw.facilities,
-  ]);
+  useEffect(() => { paramsRef.current = raw; }, [raw]);
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -106,6 +136,38 @@ export default function SearchResultsScreen() {
   const [total, setTotal]       = useState(0);
   const [page, setPage]         = useState(1);
   const [hasMore, setHasMore]   = useState(false);
+  const [otherOptions, setOtherOptions] = useState<Listing[]>([]);
+  const [otherOptionsLoading, setOtherOptionsLoading] = useState(false);
+
+  const fetchOtherOptions = async (strictListings: Listing[]) => {
+    setOtherOptionsLoading(true);
+    try {
+      const p = paramsRef.current;
+      const query = new URLSearchParams();
+      if (p.region) query.set('region', p.region);
+      if (p.city) query.set('city', p.city);
+      if (p.maxBudget) {
+        const relaxedBudget = Math.max(30_000, Math.round(Number(p.maxBudget) * 1.25));
+        query.set('maxBudget', String(relaxedBudget));
+      }
+      query.set('state', 'Available');
+      query.set('page', '1');
+      query.set('limit', '8');
+
+      const res = await fetch(`${BASE_URL}/listings?${query.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t('errors.serverError'));
+
+      const strictIds = new Set(strictListings.map(item => item.id));
+      const relaxed = (data.listings as Listing[])
+        .filter(item => item.status !== 'Unavailable' && !strictIds.has(item.id));
+      setOtherOptions(relaxed);
+    } catch {
+      setOtherOptions([]);
+    } finally {
+      setOtherOptionsLoading(false);
+    }
+  };
 
   const fetchListings = async (pg = 1) => {
     if (pg === 1) setLoading(true);
@@ -118,9 +180,9 @@ export default function SearchResultsScreen() {
       if (p.city)         query.set('city',         p.city);
       if (p.neighborhood) query.set('neighborhood', p.neighborhood);
       if (p.type)         query.set('type',         p.type);
+      query.set('state', p.state && p.state !== 'Unavailable' ? p.state : 'Available');
       if (p.status)       query.set('status',       p.status);
       if (p.maxBudget)    query.set('maxBudget',    p.maxBudget);
-      if (p.state)        query.set('state',        p.state);
       if (p.facilities)   query.set('facilities',   p.facilities);
       query.set('page',  String(pg));
       query.set('limit', '20');
@@ -129,12 +191,20 @@ export default function SearchResultsScreen() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('errors.serverError'));
 
-      setListings(pg === 1 ? data.listings : prev => [...prev, ...data.listings]);
+      const visibleListings = (data.listings as Listing[]).filter(item => item.status !== 'Unavailable');
+      setListings(pg === 1 ? visibleListings : prev => [...prev, ...visibleListings]);
       setTotal(data.total);
       setHasMore(pg < data.pages);
       setPage(pg);
+
+      if (pg === 1) {
+        void fetchOtherOptions(visibleListings);
+      }
     } catch (err: any) {
       setError(err.message || t('errors.error'));
+      if (pg === 1) {
+        void fetchOtherOptions([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -229,6 +299,28 @@ export default function SearchResultsScreen() {
               </Text>
             </>
           )}
+
+          {otherOptions.length > 0 && (
+            <View style={styles.altSection}>
+              <View style={styles.altHeader}>
+                <Text style={styles.altTitle}>{t('searchResults.otherOptionsTitle')}</Text>
+                <Text style={styles.altSub}>{t('searchResults.otherOptionsSub')}</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.altRow}>
+                {otherOptions.map(item => (
+                  <CompactCard key={`alt-${item.id}`} item={item} t={t} />
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {otherOptionsLoading && listings.length === 0 && (
+            <View style={styles.altLoadingBox}>
+              <ActivityIndicator size="small" color={PURPLE} />
+              <Text style={styles.altLoadingTxt}>{t('searchResults.loadingAlternatives')}</Text>
+            </View>
+          )}
+
           <View style={{ height: 80 }} />
         </ScrollView>
       )}
@@ -288,6 +380,34 @@ const styles = StyleSheet.create({
   seeMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderColor: PURPLE, borderRadius: 30, paddingVertical: 14, marginTop: 20 },
   seeMoreTxt: { fontSize: 14, fontWeight: '700', color: PURPLE },
   showingTxt: { textAlign: 'center', fontSize: 12, color: '#B0B0B0', marginTop: 10 },
+
+  altSection: { marginTop: 28, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  altHeader: { marginBottom: 12 },
+  altTitle: { fontSize: 16, fontWeight: '800', color: '#111', marginBottom: 4 },
+  altSub: { fontSize: 12, color: '#9CA3AF', lineHeight: 17 },
+  altRow: { gap: 12, paddingRight: 20 },
+  compactCard: {
+    width: 240,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#EFEFEF',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  compactImgWrap: { height: 150, position: 'relative' },
+  compactImg: { width: '100%', height: '100%' },
+  compactPricePill: { position: 'absolute', top: 10, left: 10, backgroundColor: PURPLE, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4 },
+  compactBody: { padding: 12, gap: 4 },
+  compactLocation: { fontSize: 11.5, color: '#8B8B8B' },
+  compactFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
+  compactType: { fontSize: 10.5, color: '#6B7280', fontWeight: '600' },
+  altLoadingBox: { marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  altLoadingTxt: { fontSize: 12, color: '#6B7280' },
 
   filterFab: { position: 'absolute', bottom: 30, right: 20, width: 52, height: 52, borderRadius: 26, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', shadowColor: PURPLE, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
 });

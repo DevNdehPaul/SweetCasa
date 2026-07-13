@@ -2,12 +2,12 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import * as WebBrowser from 'expo-web-browser';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -21,8 +21,24 @@ import api from '../constants/api';
 import { persistAuthSession, routeForRole } from '../constants/auth';
 
 const PURPLE_LIGHT = '#F0EBFF';
-const { width } = Dimensions.get('window');
 const H_PAD = 20;
+const GOOGLE_EMAIL_SIGNUP_URL =
+  'https://accounts.google.com/signup/v2/webcreateaccount?flowName=GlifWebSignIn&flowEntry=SignUp';
+const YAHOO_EMAIL_SIGNUP_URL = 'https://login.yahoo.com/account/create';
+
+async function openEmailSignupOptions() {
+  Alert.alert('Create an email', 'Choose a provider to continue in your browser.', [
+    {
+      text: 'Google',
+      onPress: () => WebBrowser.openBrowserAsync(GOOGLE_EMAIL_SIGNUP_URL),
+    },
+    {
+      text: 'Yahoo',
+      onPress: () => WebBrowser.openBrowserAsync(YAHOO_EMAIL_SIGNUP_URL),
+    },
+    { text: 'Cancel', style: 'cancel' },
+  ]);
+}
 
 type Tab = 'login' | 'signup';
 
@@ -351,12 +367,23 @@ function SignupTab({
 }) {
   const [loading, setLoading] = useState(false);
   const [nationalIdFile, setNationalIdFile] = useState<NationalIdFile>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const set = (k: keyof typeof EMPTY_FORM) => (v: string) =>
     setForm(p => ({ ...p, [k]: v }));
 
+  const clearSensitiveRegistrationState = useCallback(() => {
+    setForm(EMPTY_FORM);
+    setNationalIdFile(null);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    AsyncStorage.removeItem('signup_draft');
+  }, [setForm]);
+
   const handleSignup = async () => {
     if (!termsAccepted) {
+      clearSensitiveRegistrationState();
       Alert.alert(
         'Agreement Required',
         'You must read and accept the Terms & Privacy Policy before creating an account.',
@@ -368,14 +395,17 @@ function SignupTab({
       return;
     }
     if (!form.fullName.trim() || !form.email.trim() || !form.password.trim()) {
+      clearSensitiveRegistrationState();
       Alert.alert('Missing Fields', 'Please fill in your full name, email, and password.');
       return;
     }
     if (form.password !== form.confirmPassword) {
+      clearSensitiveRegistrationState();
       Alert.alert('Password Mismatch', 'The passwords you entered do not match. Please try again.');
       return;
     }
     if (!nationalIdFile) {
+      clearSensitiveRegistrationState();
       Alert.alert('Missing Fields', 'Please upload your national ID to verify your identity.');
       return;
     }
@@ -410,6 +440,7 @@ function SignupTab({
       await AsyncStorage.removeItem('seeker_welcome_seen');
       router.replace('/seeker-dashboard');
     } catch (err: any) {
+      clearSensitiveRegistrationState();
       const message = err.response?.data?.error || 'Registration failed. Please try again.';
       Alert.alert('Sign Up Failed', message);
     } finally {
@@ -439,6 +470,11 @@ function SignupTab({
               placeholderTextColor="#9CA3AF" value={form.email} onChangeText={set('email')}
               keyboardType="email-address" autoCapitalize="none" />
           </View>
+          <TouchableOpacity style={styles.emailHelpLink} onPress={openEmailSignupOptions} activeOpacity={0.8}>
+            <Text style={styles.emailHelpText}>
+              Don&apos;t have an email? <Text style={styles.emailHelpTextBold}>Create one here.</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.fieldGroup}>
@@ -447,7 +483,10 @@ function SignupTab({
             <Feather name="lock" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="Min. 8 characters"
               placeholderTextColor="#9CA3AF" value={form.password} onChangeText={set('password')}
-              secureTextEntry />
+              secureTextEntry={!showPassword} />
+            <TouchableOpacity onPress={() => setShowPassword(v => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+              <Feather name={showPassword ? 'eye-off' : 'eye'} size={15} color="#9CA3AF" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -457,7 +496,10 @@ function SignupTab({
             <Feather name="lock" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="Repeat your password"
               placeholderTextColor="#9CA3AF" value={form.confirmPassword}
-              onChangeText={set('confirmPassword')} secureTextEntry />
+              onChangeText={set('confirmPassword')} secureTextEntry={!showConfirmPassword} />
+            <TouchableOpacity onPress={() => setShowConfirmPassword(v => !v)} accessibilityRole="button" accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}>
+              <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={15} color="#9CA3AF" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -723,6 +765,9 @@ const styles = StyleSheet.create({
   },
   fieldInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
   fieldHint: { fontSize: 11.5, color: '#9CA3AF', marginTop: 5, fontStyle: 'italic', paddingLeft: 2 },
+  emailHelpLink: { marginTop: 8, alignSelf: 'flex-start' },
+  emailHelpText: { fontSize: 12, color: '#7C3AED', fontWeight: '500' },
+  emailHelpTextBold: { fontWeight: '700', textDecorationLine: 'underline' },
   primaryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: '#6D28D9', borderRadius: 18, paddingVertical: 17, marginBottom: 18,

@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Dimensions,
+  Linking,
   Image,
   Pressable,
   SafeAreaView,
@@ -19,9 +19,7 @@ import {
 import LanguageModal from '../../components/LanguageModal'; // adjust path if needed
 import { clearAuthSession } from '../../constants/auth';
 
-const { width } = Dimensions.get('window');
 const H_PAD = 20;
-const RECENT_CARD_W = (width - H_PAD * 2 - 12) / 3;
 
 type MenuItem = {
   id: string;
@@ -93,6 +91,14 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     await clearAuthSession();
     router.replace('/portal');
+  };
+
+  const handleSupport = async () => {
+    try {
+      await Linking.openURL('mailto:support@sweetcasa.cm?subject=SweetCasa%20Support');
+    } catch {
+      // Keep the footer functional even if the mail client is unavailable.
+    }
   };
 
   if (loading) {
@@ -249,10 +255,10 @@ export default function ProfileScreen() {
         <View style={styles.footer}>
           <Text style={styles.footerVersion}>{t('common.version')}</Text>
           <View style={styles.footerLinks}>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push(isSeller ? '/PrivacyOwner' : '/PrivacySeeker')}>
               <Text style={styles.footerLink}>{t('profile.privacyPolicy')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={handleSupport}>
               <Text style={styles.footerLink}>{t('profile.supportCenter')}</Text>
             </TouchableOpacity>
           </View>

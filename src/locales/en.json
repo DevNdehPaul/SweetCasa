@@ -128,6 +128,27 @@
     "agentModeSub": "List properties & track leads"
   },
 
+  "settings": {
+    "title": "Settings",
+    "accountSection": "ACCOUNT & SUPPORT",
+    "preferencesSection": "PREFERENCES",
+    "legalSection": "LEGAL",
+    "accountManagement": "Account Management",
+    "accountManagementSub": "Edit your profile and business details",
+    "support": "Support",
+    "supportSub": "Contact SweetCasa support",
+    "darkMode": "Dark Mode",
+    "darkModeSub": "Use a dark color palette",
+    "notifications": "Notification Preferences",
+    "notificationsSub": "Escrow updates and property alerts",
+    "language": "Language",
+    "languageSub": "English (Cameroon)",
+    "privacyPolicy": "Privacy Policy",
+    "privacyPolicySub": "Review how your data is handled",
+    "termsOfService": "Terms of Service",
+    "termsOfServiceSub": "Read the platform rules"
+  },
+
   "account": {
     "title": "Account Information",
     "ownerAccount": "House Owner Account",
@@ -356,17 +377,17 @@
     "country": "Cameroon",
     "fixed": "Fixed",
     "selectRegion": "Select Region",
-    "autoFilledCity": "Auto-filled from region",
-    "auto": "Auto",
+    "regionHint": "Choose the region you want to search manually.",
+    "neighborhoodLabel": "Neighborhood / Quarter / Street",
+    "city": "City",
+    "cityPlaceholder": "City (optional)",
     "neighborhoodPlaceholder": "Neighborhood (optional)",
     "propertyState": "Property State",
-    "propertyStateSub": "Filter by whether the property is currently available.",
+    "propertyStateSub": "Show only listings that are ready now or currently in progress.",
     "available": "Available",
     "availableSub": "Ready to rent or buy",
     "pending": "Pending",
     "pendingSub": "Transaction in progress",
-    "unavailable": "Unavailable",
-    "unavailableSub": "Off the market",
     "houseType": "House Type",
     "budget": "Budget Range",
     "upTo": "Up to",
@@ -420,9 +441,12 @@
     "step1Title": "Deposit",
     "step1Desc": "You move funds to your secure SweetCasa escrow wallet. Your money is protected at all times.",
     "step2Title": "Reserve",
-    "step2Desc": "You pay SweetCasa directly — not the owner — to hold the house. We act as a trusted middleman.",
+    "step2Desc": "You pay SweetCasa directly — not the owner — to hold the house. A flat 500 FRS processing fee is added to the amount required to secure the property.",
     "step3Title": "The 1-Week Rule",
-    "step3Desc": "We hold funds for 1 week after move-in. If you leave within that week, a small processing fee is deducted and the rest is refunded to you automatically.",
+    "step3Desc": "We hold funds in escrow for 7 days after move-in. If a dispute is resolved in the seeker's favor within that window, the money remains in escrow and can be withdrawn back to the seeker's Mobile Money (Momo/OM) wallet.",
+    "processingFeeNote": "A flat 500 FRS processing fee is added to every escrow purchase or reservation.",
+    "refundRationaleTitle": "Dispute Refund",
+    "refundRationaleDesc": "If a dispute is decided in the seeker’s favor within the 7-day window, the money stays in escrow and the seeker can Withdraw it back to their Mobile Money (Momo/OM) wallet.",
     "priceCeilingTitle": "Price Ceiling Rule",
     "priceCeilingBody1": "The price listed on this page is the",
     "priceCeilingMax": "Maximum Allowed",
@@ -542,7 +566,7 @@
     "fullScreen": "Full Screen",
     "tapToExpand": "Tap to expand",
     "escrowTitle": "Secure Escrow Protection",
-    "escrowDesc": "Your deposit is held by SweetCasa Escrow and only released to the landlord after you verify the property upon move-in.",
+    "escrowDesc": "Your deposit is held by SweetCasa Escrow and only released exactly 7 days after you move in, once the property has been verified.",
     "neighborhood": "Neighborhood",
     "viewMap": "View Map",
     "interactiveMap": "Interactive Map",
@@ -571,6 +595,9 @@
     "noPropertiesDesc": "Try adjusting your filters — change the region, budget, or house type.",
     "adjustFilters": "Adjust Filters",
     "loadMore": "Load More",
+    "otherOptionsTitle": "Other Options You Might Like",
+    "otherOptionsSub": "A few strong alternatives that are close to your search.",
+    "loadingAlternatives": "Loading alternative suggestions…",
     "showing": "Showing",
     "of": "of",
     "results": "results",
@@ -606,17 +633,17 @@
       "s4_title": "4. Legal Documents",
       "s4_body": "You are required to upload valid proof of ownership or authorisation (title deed, lease agreement, power of attorney, etc.) when submitting a listing. SweetCasa reserves the right to reject any listing lacking adequate documentation.",
       "s5_title": "5. Pricing & Payments",
-      "s5_body": "All rental or sale prices must be stated in XAF (Central African Franc). Payments facilitated through the SweetCasa platform are processed via a secure escrow wallet. Funds are held until tenancy or sale conditions are met, protecting both parties.",
+      "s5_body": "All rental or sale prices must be stated in XAF (Central African Franc). Rental payments are securely held in escrow and distributed to the house owner exactly 7 days after the house seeker has moved in. If a house seeker and house owner agree on a customized price, the house owner must update the listing price inside the app before payment is processed so the escrow amount stays accurate.",
       "s6_title": "6. Communication",
       "s6_body": "House Seekers may contact you through the SweetCasa messaging system. You agree to respond to enquiries in good faith and within a reasonable timeframe. Harassment, discrimination, or abuse of any kind is strictly prohibited.",
       "s7_title": "7. Fees & Commission",
-      "s7_body": "SweetCasa charges a platform service fee on successful transactions. The applicable rate will be clearly communicated before any listing is published. Attempting to circumvent platform fees by conducting transactions outside SweetCasa is a violation of these terms.",
+      "s7_body": "SweetCasa charges a platform service fee on successful transactions. The applicable rate will be clearly communicated before any listing is published. House owners and agents are strictly prohibited from collecting direct cash or off-platform payments from house seekers. Any transaction conducted outside the SWEETCASA platform is not backed, secured, or recognized by SweetCasa, and SweetCasa accepts zero liability for losses or disputes arising from off-platform agreements.",
       "s8_title": "8. Removal of Listings",
       "s8_body": "SweetCasa reserves the right to remove any listing at any time for violations of these terms, inaccurate information, or reports from other users. Repeated violations may result in permanent account deactivation.",
       "s9_title": "9. Intellectual Property",
       "s9_body": "By uploading photos, videos, and other media to SweetCasa, you grant SweetCasa a non-exclusive, royalty-free licence to display and promote that content on our platform and in marketing materials. You retain full ownership of your content.",
       "s10_title": "10. Limitation of Liability",
-      "s10_body": "SweetCasa acts as a marketplace platform and is not responsible for disputes arising between House Owners and House Seekers once a transaction has been completed outside the platform. We strongly encourage all parties to use our in-platform escrow and messaging systems.",
+      "s10_body": "SweetCasa acts as a marketplace platform and is not responsible for disputes arising between House Owners and House Seekers once a transaction has been completed outside the platform. Any transaction conducted outside the SWEETCASA platform is not backed, secured, or recognized by SweetCasa, and SweetCasa accepts zero liability for losses or disputes arising from off-platform agreements.",
       "s11_title": "11. Privacy",
       "s11_body": "Your personal data is handled in accordance with the SweetCasa Privacy Policy. We do not sell or share your information with third parties for marketing purposes without your explicit consent.",
       "s12_title": "12. Amendments",
@@ -662,6 +689,10 @@
         "s4": {
           "title": "Audit Trail",
           "body": "SweetCasa maintains a record of all listings and transactions for government tax compliance and to protect against the listing of fraudulent or contested land/properties."
+        },
+        "s5": {
+          "title": "Payments & Escrow Data",
+          "body": "We process escrow balances, payout records, and payment references only to operate the SweetCasa wallet, reconcile transactions, prevent fraud, and resolve disputes. This information is not used for unrelated marketing purposes."
         }
       }
     },
@@ -675,7 +706,7 @@
       "s3_title": "3. Verified Listings",
       "s3_body": "All listings on SweetCasa undergo a 12-point verification process conducted by our local agents. While we strive for accuracy, SweetCasa does not guarantee the continued availability of any listed property and recommends you confirm details directly with the owner before making any payment.",
       "s4_title": "4. Payments & Escrow",
-      "s4_body": "Any payments made through the SweetCasa platform are processed via our secure escrow wallet. Funds are held safely until tenancy or purchase conditions are satisfied. SweetCasa strongly advises against making payments outside the platform, as these are not protected by our escrow system.",
+      "s4_body": "Any payments made through the SweetCasa platform are processed via our secure escrow wallet. Rental payments are securely held in escrow and distributed to the house owner exactly 7 days after the house seeker has moved in. Any transaction conducted outside the SWEETCASA platform is not backed, secured, or recognized by SweetCasa, and SweetCasa accepts zero liability for losses or disputes arising from off-platform agreements. If a custom price is agreed, the house owner must update the listing price inside the app before payment is processed so the escrow amount stays accurate.",
       "s5_title": "5. Booking & Viewings",
       "s5_body": "Requesting a viewing or showing interest in a listing does not constitute a binding agreement. A tenancy or purchase agreement is only formed when both parties have signed the relevant documents and payment has been confirmed through the platform.",
       "s6_title": "6. Communication Standards",
@@ -687,9 +718,9 @@
       "s9_title": "9. CasaMatch AI",
       "s9_body": "The CasaMatch AI quiz is a recommendation tool designed to help you find compatible properties based on your lifestyle preferences. Recommendations are suggestions only and do not constitute professional real estate advice.",
       "s10_title": "10. Prohibited Actions",
-      "s10_body": "You agree not to: (a) post false reviews or reports; (b) impersonate another person or entity; (c) attempt to access another user's account; (d) use the platform for any unlawful purpose; or (e) circumvent platform fees by arranging transactions outside of SweetCasa.",
+      "s10_body": "You agree not to: (a) post false reviews or reports; (b) impersonate another person or entity; (c) attempt to access another user's account; (d) use the platform for any unlawful purpose; or (e) arrange or accept direct cash, side payments, or any off-platform transaction outside of SweetCasa.",
       "s11_title": "11. Limitation of Liability",
-      "s11_body": "SweetCasa is a marketplace platform and is not a party to any tenancy or sale agreement between House Seekers and House Owners. We are not liable for any loss, damage, or dispute arising from transactions conducted outside our platform.",
+      "s11_body": "SweetCasa is a marketplace platform and is not a party to any tenancy or sale agreement between House Seekers and House Owners. We are not liable for any loss, damage, or dispute arising from transactions conducted outside our platform, and we do not recognize off-platform payment arrangements as protected or enforceable through SweetCasa.",
       "s12_title": "12. Amendments",
       "s12_body": "SweetCasa may update these Terms & Conditions at any time. You will be notified of significant changes via the app or email. Continued use of SweetCasa after changes take effect constitutes your acceptance of the revised terms.",
       "tos": {
@@ -733,9 +764,22 @@
         "s4": {
           "title": "Data Retention",
           "body": "Even if you delete your account, SweetCasa will archive transaction records and ID data for a period of 5 years to comply with Cameroonian anti-fraud and financial regulations."
+        },
+        "s5": {
+          "title": "Payments & Escrow Data",
+          "body": "We process escrow balances, payout records, and payment references only to operate the SweetCasa wallet, reconcile transactions, prevent fraud, and resolve disputes. This information is not used for unrelated marketing purposes."
         }
       }
     }
+  },
+
+  "privacy": {
+    "ownerTitle": "House Owner Privacy Policy",
+    "ownerSub": "How SweetCasa collects and protects owner data, verification documents, and wallet activity.",
+    "ownerFooter": "By using SweetCasa as a House Owner, you confirm that you have reviewed this Privacy Policy.",
+    "seekerTitle": "House Seeker Privacy Policy",
+    "seekerSub": "How SweetCasa collects and protects seeker data, search activity, and escrow information.",
+    "seekerFooter": "By using SweetCasa as a House Seeker, you confirm that you have reviewed this Privacy Policy."
   },
 
   "myListings": {
@@ -801,7 +845,7 @@
     "slide1_headline": "Reach Verified Tenants",
     "slide1_body": "List your property to thousands of serious seekers. We background-check our users so you only deal with high-intent, verified tenants.",
     "slide2_headline": "Guaranteed Payouts",
-    "slide2_body": "Stop chasing payments. All transactions happen in-app and are disbursed directly to your account 7 days after the tenant moves in.",
+    "slide2_body": "Stop chasing payments. Rental payments are securely held in escrow and distributed to you exactly 7 days after the house seeker has moved in.",
     "slide3_headline": "Manage from Anywhere",
     "slide3_body": "Manage your listings, viewings, and earnings all in one dashboard. SweetCasa makes being a landlord simple, digital, and secure."
   },
@@ -813,7 +857,7 @@
     "slide1_headline": "Verified Listings Only",
     "slide1_body": "Say goodbye to fake agents and \"ghost\" houses. Every listing on SweetCasa is pre-screened and document-verified by our team.",
     "slide2_headline": "Your Rent is Secured",
-    "slide2_body": "We hold your payment in a secure escrow. The landlord only gets paid 7 days after you move in, giving you time to verify everything.",
+    "slide2_body": "We hold your payment in a secure escrow. The house owner is paid exactly 7 days after you move in, and any agreed custom price must be updated in-app before payment is processed.",
     "slide3_headline": "Everything You Need, Nearby",
     "slide3_body": "Find the home that fits your life with our Casa-match AI. Discover properties near schools, hospitals, and markets."
   },

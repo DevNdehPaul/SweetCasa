@@ -128,6 +128,27 @@
     "agentModeSub": "Publier des biens et suivre les prospects"
   },
 
+  "settings": {
+    "title": "Paramètres",
+    "accountSection": "COMPTE ET ASSISTANCE",
+    "preferencesSection": "PRÉFÉRENCES",
+    "legalSection": "JURIDIQUE",
+    "accountManagement": "Gestion du compte",
+    "accountManagementSub": "Modifier votre profil et les informations de votre entreprise",
+    "support": "Assistance",
+    "supportSub": "Contacter l'assistance SweetCasa",
+    "darkMode": "Mode sombre",
+    "darkModeSub": "Utiliser une palette de couleurs sombres",
+    "notifications": "Préférences de notifications",
+    "notificationsSub": "Mises à jour d'escrow et alertes de biens",
+    "language": "Langue",
+    "languageSub": "Français (Cameroun)",
+    "privacyPolicy": "Politique de confidentialité",
+    "privacyPolicySub": "Vérifier comment vos données sont traitées",
+    "termsOfService": "Conditions d'utilisation",
+    "termsOfServiceSub": "Lire les règles de la plateforme"
+  },
+
   "account": {
     "title": "Informations du compte",
     "ownerAccount": "Compte Propriétaire",
@@ -356,17 +377,17 @@
     "country": "Cameroun",
     "fixed": "Fixé",
     "selectRegion": "Sélectionner une région",
-    "autoFilledCity": "Rempli automatiquement selon la région",
-    "auto": "Auto",
+    "regionHint": "Choisissez manuellement la région que vous souhaitez rechercher.",
+    "neighborhoodLabel": "Quartier / Rue",
+    "city": "Ville",
+    "cityPlaceholder": "Ville (facultatif)",
     "neighborhoodPlaceholder": "Quartier (facultatif)",
     "propertyState": "État du bien",
-    "propertyStateSub": "Filtrez selon la disponibilité actuelle du bien.",
+    "propertyStateSub": "Afficher uniquement les annonces prêtes maintenant ou déjà en cours.",
     "available": "Disponible",
     "availableSub": "Prêt à louer ou acheter",
     "pending": "En cours",
     "pendingSub": "Transaction en cours",
-    "unavailable": "Indisponible",
-    "unavailableSub": "Retiré du marché",
     "houseType": "Type de logement",
     "budget": "Budget",
     "upTo": "Jusqu'à",
@@ -420,9 +441,12 @@
     "step1Title": "Dépôt",
     "step1Desc": "Vous transférez des fonds vers votre portefeuille escrow sécurisé SweetCasa. Votre argent est protégé à tout moment.",
     "step2Title": "Réservation",
-    "step2Desc": "Vous payez SweetCasa directement — pas le propriétaire — pour réserver le logement. Nous agissons en tant qu'intermédiaire de confiance.",
+    "step2Desc": "Vous payez SweetCasa directement — pas le propriétaire — pour réserver le logement. Des frais fixes de traitement de 500 FRS sont ajoutés au montant nécessaire pour sécuriser le bien.",
     "step3Title": "La règle des 7 jours",
-    "step3Desc": "Nous conservons les fonds pendant 7 jours après l'emménagement. Si vous partez dans ce délai, de petits frais de traitement sont déduits et le reste vous est automatiquement remboursé.",
+    "step3Desc": "Nous conservons les fonds en escrow pendant 7 jours après l'emménagement. Si un litige est tranché en faveur du chercheur pendant cette période, l'argent reste en escrow et peut être retiré vers le portefeuille Mobile Money (Momo/OM) du chercheur.",
+    "processingFeeNote": "Des frais fixes de traitement de 500 FRS sont ajoutés à chaque achat ou réservation en escrow.",
+    "refundRationaleTitle": "Remboursement en litige",
+    "refundRationaleDesc": "Si un litige est tranché en faveur du chercheur dans la fenêtre de 7 jours, l'argent reste en escrow et le chercheur peut le retirer vers son portefeuille Mobile Money (Momo/OM).",
     "priceCeilingTitle": "Règle du plafond de prix",
     "priceCeilingBody1": "Le prix affiché sur cette page est le",
     "priceCeilingMax": "Maximum autorisé",
@@ -542,7 +566,7 @@
     "fullScreen": "Plein écran",
     "tapToExpand": "Appuyer pour agrandir",
     "escrowTitle": "Protection Escrow sécurisée",
-    "escrowDesc": "Votre dépôt est conservé par SweetCasa Escrow et n'est libéré au propriétaire qu'après vérification du bien lors de l'emménagement.",
+    "escrowDesc": "Votre dépôt est conservé par SweetCasa Escrow et n'est libéré exactement 7 jours après votre emménagement, une fois le bien vérifié.",
     "neighborhood": "Quartier",
     "viewMap": "Voir la carte",
     "interactiveMap": "Carte interactive",
@@ -571,6 +595,9 @@
     "noPropertiesDesc": "Essayez d'ajuster vos filtres — modifiez la région, le budget ou le type de logement.",
     "adjustFilters": "Ajuster les filtres",
     "loadMore": "Charger plus",
+    "otherOptionsTitle": "Autres options que vous aimerez peut-être",
+    "otherOptionsSub": "Quelques alternatives solides proches de votre recherche.",
+    "loadingAlternatives": "Chargement des suggestions alternatives…",
     "showing": "Affichage de",
     "of": "sur",
     "results": "résultats",
@@ -606,17 +633,17 @@
       "s4_title": "4. Documents légaux",
       "s4_body": "Vous êtes tenu de télécharger une preuve de propriété ou d'autorisation valide (titre foncier, contrat de bail, procuration, etc.) lors de la soumission d'une annonce. SweetCasa se réserve le droit de rejeter toute annonce ne disposant pas de documentation adéquate.",
       "s5_title": "5. Prix et paiements",
-      "s5_body": "Tous les prix de location ou de vente doivent être indiqués en XAF (Franc CFA). Les paiements effectués via la plateforme SweetCasa sont traités par un portefeuille escrow sécurisé. Les fonds sont retenus jusqu'à ce que les conditions de location ou de vente soient remplies, protégeant ainsi les deux parties.",
+      "s5_body": "Tous les prix de location ou de vente doivent être indiqués en XAF (Franc CFA). Les paiements de location sont conservés de manière sécurisée en escrow et versés au propriétaire exactement 7 jours après l'emménagement du chercheur. Si un chercheur et un propriétaire conviennent d'un prix personnalisé, le propriétaire doit mettre à jour le prix de l'annonce dans l'application avant le traitement du paiement afin que le montant d'escrow reste exact.",
       "s6_title": "6. Communication",
       "s6_body": "Les Chercheurs peuvent vous contacter via le système de messagerie SweetCasa. Vous acceptez de répondre aux demandes de bonne foi et dans un délai raisonnable. Le harcèlement, la discrimination ou tout abus de quelque nature que ce soit est strictement interdit.",
       "s7_title": "7. Frais et commissions",
-      "s7_body": "SweetCasa prélève des frais de service sur les transactions réussies. Le taux applicable sera clairement communiqué avant la publication de toute annonce. Toute tentative de contournement des frais de la plateforme en effectuant des transactions en dehors de SweetCasa constitue une violation de ces conditions.",
+      "s7_body": "SweetCasa prélève des frais de service sur les transactions réussies. Le taux applicable sera clairement communiqué avant la publication de toute annonce. Les propriétaires et agents sont strictement interdits de collecter des paiements en espèces ou hors plateforme auprès des chercheurs. Toute transaction effectuée en dehors de la plateforme SWEETCASA n'est ni soutenue, ni sécurisée, ni reconnue par SweetCasa, et SweetCasa décline toute responsabilité en cas de pertes ou litiges liés à des accords hors plateforme.",
       "s8_title": "8. Suppression d'annonces",
       "s8_body": "SweetCasa se réserve le droit de supprimer toute annonce à tout moment en cas de violation de ces conditions, d'informations inexactes ou de signalements d'autres utilisateurs. Les violations répétées peuvent entraîner la désactivation définitive du compte.",
       "s9_title": "9. Propriété intellectuelle",
       "s9_body": "En téléchargeant des photos, vidéos et autres médias sur SweetCasa, vous accordez à SweetCasa une licence non exclusive et libre de redevances pour afficher et promouvoir ce contenu sur notre plateforme et dans nos supports marketing. Vous conservez la pleine propriété de votre contenu.",
       "s10_title": "10. Limitation de responsabilité",
-      "s10_body": "SweetCasa agit en tant que plateforme de mise en relation et n'est pas responsable des litiges survenant entre Propriétaires et Chercheurs une fois qu'une transaction a été conclue en dehors de la plateforme. Nous encourageons vivement toutes les parties à utiliser nos systèmes d'escrow et de messagerie intégrés.",
+      "s10_body": "SweetCasa agit en tant que plateforme de mise en relation et n'est pas responsable des litiges survenant entre Propriétaires et Chercheurs une fois qu'une transaction a été conclue en dehors de la plateforme. Toute transaction effectuée en dehors de la plateforme SWEETCASA n'est ni soutenue, ni sécurisée, ni reconnue par SweetCasa, et SweetCasa décline toute responsabilité en cas de pertes ou litiges liés à des accords hors plateforme.",
       "s11_title": "11. Confidentialité",
       "s11_body": "Vos données personnelles sont traitées conformément à la Politique de confidentialité de SweetCasa. Nous ne vendons ni ne partageons vos informations avec des tiers à des fins marketing sans votre consentement explicite.",
       "s12_title": "12. Modifications",
@@ -662,6 +689,10 @@
         "s4": {
           "title": "Piste d'audit",
           "body": "SweetCasa conserve un historique de toutes les annonces et transactions pour la conformité fiscale gouvernementale et pour se prémunir contre la publication de biens frauduleux ou contestés."
+        },
+        "s5": {
+          "title": "Données de paiement et d'escrow",
+          "body": "Nous traitons les soldes d'escrow, les historiques de versement et les références de paiement uniquement pour faire fonctionner le portefeuille SweetCasa, rapprocher les transactions, prévenir la fraude et résoudre les litiges. Ces informations ne sont pas utilisées à des fins marketing sans rapport."
         }
       }
     },
@@ -675,7 +706,7 @@
       "s3_title": "3. Annonces vérifiées",
       "s3_body": "Toutes les annonces sur SweetCasa font l'objet d'un processus de vérification en 12 points par nos agents locaux. Bien que nous nous efforcions d'assurer l'exactitude, SweetCasa ne garantit pas la disponibilité continue d'un bien listé et recommande de confirmer les détails directement avec le propriétaire avant tout paiement.",
       "s4_title": "4. Paiements et escrow",
-      "s4_body": "Tout paiement effectué via la plateforme SweetCasa est traité par notre portefeuille escrow sécurisé. Les fonds sont retenus en toute sécurité jusqu'à ce que les conditions de location ou d'achat soient satisfaites. SweetCasa déconseille fortement d'effectuer des paiements en dehors de la plateforme, car ceux-ci ne sont pas protégés par notre système escrow.",
+      "s4_body": "Tout paiement effectué via la plateforme SweetCasa est traité par notre portefeuille escrow sécurisé. Les paiements de location sont conservés de manière sécurisée en escrow et versés au propriétaire exactement 7 jours après l'emménagement du chercheur. Toute transaction effectuée en dehors de la plateforme SWEETCASA n'est ni soutenue, ni sécurisée, ni reconnue par SweetCasa, et SweetCasa décline toute responsabilité en cas de pertes ou litiges liés à des accords hors plateforme. Si un prix personnalisé est convenu, le propriétaire doit mettre à jour le prix de l'annonce dans l'application avant le traitement du paiement afin que le montant d'escrow reste exact.",
       "s5_title": "5. Réservations et visites",
       "s5_body": "Demander une visite ou manifester un intérêt pour une annonce ne constitue pas un accord contraignant. Un contrat de location ou d'achat n'est formé que lorsque les deux parties ont signé les documents pertinents et que le paiement a été confirmé via la plateforme.",
       "s6_title": "6. Standards de communication",
@@ -687,9 +718,9 @@
       "s9_title": "9. Casa-Match IA",
       "s9_body": "Le quiz Casa-Match IA est un outil de recommandation conçu pour vous aider à trouver des biens compatibles en fonction de vos préférences de style de vie. Les recommandations sont des suggestions uniquement et ne constituent pas des conseils immobiliers professionnels.",
       "s10_title": "10. Actions interdites",
-      "s10_body": "Vous acceptez de ne pas : (a) publier de faux avis ou signalements ; (b) usurper l'identité d'une autre personne ou entité ; (c) tenter d'accéder au compte d'un autre utilisateur ; (d) utiliser la plateforme à des fins illégales ; ou (e) contourner les frais de la plateforme en organisant des transactions en dehors de SweetCasa.",
+      "s10_body": "Vous acceptez de ne pas : (a) publier de faux avis ou signalements ; (b) usurper l'identité d'une autre personne ou entité ; (c) tenter d'accéder au compte d'un autre utilisateur ; (d) utiliser la plateforme à des fins illégales ; ou (e) organiser ou accepter des paiements directs en espèces, des paiements de côté ou toute transaction hors plateforme en dehors de SweetCasa.",
       "s11_title": "11. Limitation de responsabilité",
-      "s11_body": "SweetCasa est une plateforme de mise en relation et n'est pas partie à un contrat de location ou de vente entre Chercheurs et Propriétaires. Nous ne sommes pas responsables de toute perte, dommage ou litige découlant de transactions effectuées en dehors de notre plateforme.",
+      "s11_body": "SweetCasa est une plateforme de mise en relation et n'est pas partie à un contrat de location ou de vente entre Chercheurs et Propriétaires. Nous ne sommes responsables d'aucune perte, d'aucun dommage ni d'aucun litige découlant de transactions effectuées en dehors de notre plateforme, et nous ne reconnaissons pas les accords de paiement hors plateforme comme protégés ou applicables via SweetCasa.",
       "s12_title": "12. Modifications",
       "s12_body": "SweetCasa peut mettre à jour ces Conditions générales à tout moment. Vous serez informé des changements importants via l'application ou par e-mail. L'utilisation continue de SweetCasa après l'entrée en vigueur des modifications vaut acceptation des conditions révisées.",
       "tos": {
@@ -733,9 +764,22 @@
         "s4": {
           "title": "Conservation des données",
           "body": "Même si vous supprimez votre compte, SweetCasa archivera les relevés de transactions et les données d'identité pendant 5 ans pour se conformer aux réglementations camerounaises anti-fraude et financières."
+        },
+        "s5": {
+          "title": "Données de paiement et d'escrow",
+          "body": "Nous traitons les soldes d'escrow, les historiques de versement et les références de paiement uniquement pour faire fonctionner le portefeuille SweetCasa, rapprocher les transactions, prévenir la fraude et résoudre les litiges. Ces informations ne sont pas utilisées à des fins marketing sans rapport."
         }
       }
     }
+  },
+
+  "privacy": {
+    "ownerTitle": "Politique de confidentialité des propriétaires",
+    "ownerSub": "Comment SweetCasa collecte et protège les données des propriétaires, les documents de vérification et l'activité du portefeuille.",
+    "ownerFooter": "En utilisant SweetCasa en tant que Propriétaire, vous confirmez avoir consulté cette politique de confidentialité.",
+    "seekerTitle": "Politique de confidentialité des chercheurs",
+    "seekerSub": "Comment SweetCasa collecte et protège les données des chercheurs, l'activité de recherche et les informations d'escrow.",
+    "seekerFooter": "En utilisant SweetCasa en tant que Chercheur, vous confirmez avoir consulté cette politique de confidentialité."
   },
 
   "myListings": {
@@ -801,7 +845,7 @@
     "slide1_headline": "Atteignez des locataires vérifiés",
     "slide1_body": "Publiez votre bien auprès de milliers de chercheurs sérieux. Nous vérifions nos utilisateurs pour que vous n'ayez affaire qu'à des locataires fiables.",
     "slide2_headline": "Paiements garantis",
-    "slide2_body": "Fini les retards de paiement. Toutes les transactions se font dans l'application et sont versées sur votre compte 7 jours après l'emménagement.",
+    "slide2_body": "Fini les retards de paiement. Les paiements de location sont conservés de manière sécurisée en escrow et vous sont versés exactement 7 jours après l'emménagement du chercheur.",
     "slide3_headline": "Gérez depuis n'importe où",
     "slide3_body": "Gérez vos annonces, visites et revenus depuis un seul tableau de bord. SweetCasa rend la gestion locative simple, numérique et sécurisée."
   },
@@ -813,7 +857,7 @@
     "slide1_headline": "Annonces vérifiées uniquement",
     "slide1_body": "Dites adieu aux faux agents et aux logements fantômes. Chaque annonce sur SweetCasa est présélectionnée et vérifiée par notre équipe.",
     "slide2_headline": "Votre loyer est sécurisé",
-    "slide2_body": "Nous conservons votre paiement en escrow sécurisé. Le propriétaire n'est payé que 7 jours après votre emménagement, vous laissant le temps de tout vérifier.",
+    "slide2_body": "Nous conservons votre paiement en escrow sécurisé. Le propriétaire est payé exactement 7 jours après votre emménagement, et tout prix personnalisé convenu doit être mis à jour dans l'application avant le traitement du paiement.",
     "slide3_headline": "Tout ce dont vous avez besoin, à proximité",
     "slide3_body": "Trouvez le logement qui correspond à votre style de vie grâce à notre IA Casa-match. Découvrez des biens proches des écoles, hôpitaux et marchés."
   },

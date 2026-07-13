@@ -39,7 +39,7 @@ const SLIDES: Slide[] = [
     id: '2',
     image: require('../assets/owner_payout.png'),
     headline: 'Guaranteed Payouts',
-    body: 'Stop chasing payments. All transactions happen in-app and are disbursed directly to your account 7 days after the tenant moves in.',
+    body: 'Stop chasing payments. Rental payments are securely held in escrow and distributed exactly 7 days after the house seeker has moved in.',
     accentColor: '#6D28D9',
   },
   {
