@@ -22,6 +22,7 @@ model User {
   nationalIdPublicId  String?            @map("national_id_public_id") @db.VarChar(255)
   createdAt           DateTime?          @default(now()) @map("created_at")
   casaMatchHistory    CasaMatchHistory[]
+  aiConversations     AiConversation[]
   listings            Listing[]
   savedListings       SavedListing[]
   listingReviews      ListingReview[]
@@ -34,16 +35,16 @@ model User {
 }
 
 model Report {
-  id          Int       @id @default(autoincrement())
-  userId      Int?      @map("user_id")
-  category    String    @db.VarChar(50)
-  subject     String    @db.VarChar(255)
-  description String
-  followUp    Boolean   @default(false)
-  evidenceUrls Json?    @map("evidence_urls")
-  status      String    @default("Pending") @db.VarChar(30)
-  createdAt   DateTime? @default(now()) @map("created_at")
-  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id           Int       @id @default(autoincrement())
+  userId       Int?      @map("user_id")
+  category     String    @db.VarChar(50)
+  subject      String    @db.VarChar(255)
+  description  String
+  followUp     Boolean   @default(false)
+  evidenceUrls Json?     @map("evidence_urls")
+  status       String    @default("Pending") @db.VarChar(30)
+  createdAt    DateTime? @default(now()) @map("created_at")
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("reports")
 }
@@ -137,6 +138,40 @@ model CasaMatchHistory {
 
   @@map("casamatch_history")
 }
+
+// ─── AI Chat (CasaMatch conversational agent) ─────────────────────────────────
+
+model AiConversation {
+  id        Int             @id @default(autoincrement())
+  userId    Int             @map("user_id")
+  title     String          @default("New Chat") @db.VarChar(200)
+  language  String          @default("en") @db.VarChar(10)
+  createdAt DateTime?       @default(now()) @map("created_at")
+  updatedAt DateTime?       @updatedAt @map("updated_at")
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AiChatMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AiChatMessage {
+  id              Int            @id @default(autoincrement())
+  conversationId  Int            @map("conversation_id")
+  /// 'user' | 'assistant'
+  role            String         @db.VarChar(20)
+  content         String
+  imageUrl        String?        @map("image_url")
+  audioUrl        String?        @map("audio_url")
+  audioTranscript String?        @map("audio_transcript")
+  /// JSON array of MatchResult objects when the AI returned listings
+  listingResults  Json?          @map("listing_results")
+  createdAt       DateTime?      @default(now()) @map("created_at")
+  conversation    AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("ai_chat_messages")
+}
+
+// ─── Existing buyer–seller messaging ──────────────────────────────────────────
 
 model ListingReview {
   id        Int       @id @default(autoincrement())

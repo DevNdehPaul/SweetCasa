@@ -36,17 +36,19 @@ export default function TabLayout() {
     );
   }
 
-  const tint = Colors[colorScheme ?? 'light'].tint;
+  const tint = Colors['light'].tint;
 
   const tabBarStyle = {
-    borderTopWidth: 0.5,
-    borderTopColor: '#F0F0F0',
-    elevation: 10,
-    shadowColor: '#7C3AED',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -3 },
-  };
+  backgroundColor: '#fff',
+  color : '#0000',
+  borderTopWidth: 0.5,
+  borderTopColor: '#F0F0F0',
+  elevation: 10,
+  shadowColor: '#7C3AED',
+  shadowOpacity: 0.08,
+  shadowRadius: 12,
+  shadowOffset: { width: 0, height: -3 },
+};
 
   // ── SELLER tabs (House Owners) ─────────────────────────────────────────────
   if (role === 'SELLER') {

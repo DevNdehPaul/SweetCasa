@@ -1,10 +1,35 @@
+/**
+ * CasaMatch — Conversational AI real-estate agent
+ *
+ * Screens:
+ *   HistoryScreen  — list of past AI conversations + "New Chat" button
+ *   ChatScreen     — active conversation (bubbles, input bar, typing indicator)
+ *
+ * Dependencies already used in the project:
+ *   expo-router, react-i18next, @expo/vector-icons, react-native
+ *
+ * New dependencies needed (add to your package.json):
+ *   expo-image-picker   — for image attachments
+ *   expo-av             — for voice recording & audio playback
+ *   expo-file-system    — used by expo-av
+ */
+
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { Audio, AVPlaybackStatus } from 'expo-av';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback, useEffect, useRef, useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,898 +37,978 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import { fetchCasaMatches, MatchResult } from '../sweetcasa-api/src/services/casaMatchService';
 
-// ─── Theme ────────────────────────────────────────────────────────────────────
+// ─── Theme (reused from existing app) ─────────────────────────────────────────
 const C = {
   purple:      '#6D28D9',
   purpleLight: '#F5F3FF',
   purpleMid:   '#7C3AED',
   purpleBorder:'#EDE9FE',
   purpleText:  '#5B21B6',
-  accent:      '#F59E0B',
   bg:          '#fff',
   card:        '#FAFAFA',
   border:      '#EFEFEF',
   textDark:    '#111827',
   textMid:     '#374151',
   textGray:    '#9CA3AF',
-  red:         '#EF4444',
-  redLight:    '#FEF2F2',
-  redBorder:   '#FECACA',
+  userBubble:  '#6D28D9',
+  aiBubble:    '#F5F3FF',
 };
-const H_PAD = 20;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Screen = 'quiz' | 'thinking' | 'results';
-
-export interface QuizState {
-  budget:       string | null;
-  city:         string | null;
-  propertyType: string | null;
-  bedrooms:     number;
-  bathrooms:    number;
-  toilets:      number;
-  kitchens:     number;
-  parlors:      number;
-  purpose:      'renting' | 'buying' | null;
-  facilities:   string[];
-  description:  string;
-  dealBreakers: string[];
+export interface MatchResult {
+  id:          string;
+  score:       number;
+  matchReason: string;
+  name:        string;
+  location:    string;
+  price:       string;
+  tags:        string[];
+  badge:       string | null;
+  images:      string[];
+  listingType: 'rent' | 'sale';
 }
 
-// ─── Step indicator ───────────────────────────────────────────────────────────
-const TOTAL_STEPS = 8;
+interface AiConversation {
+  id:        number;
+  title:     string;
+  language:  string;
+  createdAt: string;
+  updatedAt: string;
+  messages?: AiChatMessage[];
+}
 
-function ProgressBar({ step }: { step: number }) {
-  const { t } = useTranslation();
-  const pct = Math.round((step / TOTAL_STEPS) * 100);
+interface AiChatMessage {
+  id:              number;
+  conversationId:  number;
+  role:            'user' | 'assistant';
+  content:         string;
+  imageUrl?:       string | null;
+  audioUrl?:       string | null;
+  audioTranscript?:string | null;
+  listingResults?: MatchResult[] | null;
+  createdAt:       string;
+}
+
+type Screen = 'history' | 'chat';
+
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+
+// ─── API helpers ──────────────────────────────────────────────────────────────
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  // Reuse however you store the JWT in your app (AsyncStorage, SecureStore, context, etc.)
+  // Replace this with your actual token retrieval:
+  const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+const token = await AsyncStorage.getItem('token');
+  if (!token) throw new Error('Not authenticated');
+  return { Authorization: `Bearer ${token}` };
+}
+
+async function apiFetch(path: string, opts: RequestInit = {}) {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${BASE_URL}/api/casamatch-chat${path}`, {
+    ...opts,
+    headers: { ...headers, ...(opts.headers as Record<string, string> || {}) },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// ─── Typing indicator ─────────────────────────────────────────────────────────
+function TypingIndicator() {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animDot = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, { toValue: -6, duration: 300, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0,  duration: 300, useNativeDriver: true }),
+          Animated.delay(600),
+        ])
+      ).start();
+    animDot(dot1, 0);
+    animDot(dot2, 150);
+    animDot(dot3, 300);
+  }, []);
+
   return (
-    <View style={styles.progressWrap}>
-      <Text style={styles.progressLabel}>
-        {t('casaMatch.stepOf', { step, total: TOTAL_STEPS })}
-      </Text>
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${pct}%` as any }]} />
-      </View>
-      <Text style={styles.progressPct}>{pct}%</Text>
+    <View style={styles.typingWrap}>
+      {[dot1, dot2, dot3].map((d, i) => (
+        <Animated.View key={i} style={[styles.typingDot, { transform: [{ translateY: d }] }]} />
+      ))}
     </View>
   );
 }
 
-// ─── Chip ─────────────────────────────────────────────────────────────────────
-function Chip({
-  label,
-  selected,
-  onPress,
-  variant = 'default',
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  variant?: 'default' | 'red';
-}) {
-  const isRed = variant === 'red';
-  return (
-    <TouchableOpacity
-      style={[
-        styles.chip,
-        selected && (isRed ? styles.chipActiveRed : styles.chipActive),
-      ]}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
-      <Text
-        style={[
-          styles.chipTxt,
-          selected && (isRed ? styles.chipTxtActiveRed : styles.chipTxtActive),
-        ]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
+// ─── Audio Player (for voice messages) ───────────────────────────────────────
+function AudioPlayer({ uri }: { uri: string }) {
+  const [sound,     setSound]     = useState<Audio.Sound | null>(null);
+  const [playing,   setPlaying]   = useState(false);
+  const [duration,  setDuration]  = useState(0);
+  const [position,  setPosition]  = useState(0);
 
-// ─── PurposeCard ──────────────────────────────────────────────────────────────
-function PurposeCard({
-  icon,
-  label,
-  sublabel,
-  selected,
-  onPress,
-}: {
-  icon: string;
-  label: string;
-  sublabel: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.purposeCard, selected && styles.purposeCardActive]}
-      onPress={onPress}
-      activeOpacity={0.8}
-    >
-      <Text style={styles.purposeEmoji}>{icon}</Text>
-      <Text style={[styles.purposeLabel, selected && styles.purposeLabelActive]}>
-        {label}
-      </Text>
-      <Text style={styles.purposeSub}>{sublabel}</Text>
-    </TouchableOpacity>
-  );
-}
+  useEffect(() => () => { sound?.unloadAsync(); }, [sound]);
 
-// ─── Quiz Screen ──────────────────────────────────────────────────────────────
-function QuizScreen({ onFinish }: { onFinish: (quiz: QuizState) => void }) {
-  const { t } = useTranslation();
-  const [step, setStep] = useState(1);
-  const [quiz, setQuiz] = useState<QuizState>({
-    budget:       null,
-    city:         null,
-    propertyType: null,
-    bedrooms:     2,
-    bathrooms:    1,
-    toilets:      2,
-    kitchens:     1,
-    parlors:      1,
-    purpose:      null,
-    facilities:   [],
-    description:  '',
-    dealBreakers: [],
-  });
-
-  const budgets = [
-    { id: 'u50k',    label: t('casaMatch.budget_u50k') },
-    { id: '50_150',  label: t('casaMatch.budget_50_150') },
-    { id: '150_500', label: t('casaMatch.budget_150_500') },
-    { id: '500_1m',  label: t('casaMatch.budget_500_1m') },
-    { id: 'above1m', label: t('casaMatch.budget_above1m') },
-  ];
-
-  const cities = [
-    { id: 'douala',     label: 'Douala' },
-    { id: 'yaounde',    label: 'Yaoundé' },
-    { id: 'bafoussam',  label: 'Bafoussam' },
-    { id: 'limbe',      label: 'Limbe' },
-    { id: 'bamenda',    label: 'Bamenda' },
-    { id: 'buea',       label: 'Buea' },
-    { id: 'ngaoundere', label: 'Ngaoundéré' },
-    { id: 'maroua',     label: 'Maroua' },
-    { id: 'garoua',     label: 'Garoua' },
-    { id: 'bertoua',    label: 'Bertoua' },
-  ];
-
-  const propTypes = [
-    { id: 'Apartment',   label: t('casaMatch.type_apartment') },
-    { id: 'Studio',      label: t('casaMatch.type_studio') },
-    { id: 'Villa',       label: t('casaMatch.type_villa') },
-    { id: 'Office',      label: t('casaMatch.type_office') },
-    { id: 'Room',        label: t('casaMatch.type_room') },
-    { id: 'Duplex',      label: t('casaMatch.type_duplex') },
-    { id: 'Guest House', label: t('casaMatch.type_guesthouse') },
-    { id: 'Hotel',       label: t('casaMatch.type_hotel') },
-  ];
-
-  const facilities = [
-    { id: 'Wifi',         label: t('casaMatch.fac_wifi') },
-    { id: 'Electricity',  label: t('casaMatch.fac_electricity') },
-    { id: 'Water Supply', label: t('casaMatch.fac_water') },
-    { id: 'Gated',        label: t('casaMatch.fac_gated') },
-    { id: 'Parking',      label: t('casaMatch.fac_parking') },
-    { id: 'Green Area',   label: t('casaMatch.fac_green_area') },
-    { id: 'Generator',    label: t('casaMatch.fac_generator') },
-    { id: 'School',       label: t('casaMatch.fac_nearby_school') },
-    { id: 'Bank',         label: t('casaMatch.fac_bank') },
-    { id: 'Restaurant',   label: t('casaMatch.fac_restaurant') },
-    { id: 'Market',       label: t('casaMatch.fac_market') },
-    { id: 'Clinic',       label: t('casaMatch.fac_clinic') },
-    { id: 'Security',     label: t('casaMatch.fac_security') },
-  ];
-
-  const dealBreakers = [
-    { id: 'no_elevator',   label: t('casaMatch.db_no_elevator') },
-    { id: 'no_security',   label: t('casaMatch.db_no_security') },
-    { id: 'far_from_road', label: t('casaMatch.db_far_road') },
-    { id: 'noisy_area',    label: t('casaMatch.db_noisy') },
-    { id: 'ground_floor',  label: t('casaMatch.db_ground_floor') },
-  ];
-
-  const toggleArr = (arr: string[], id: string) =>
-    arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
-
-  const canAdvance = () => {
-    if (step === 1) return !!quiz.budget;
-    if (step === 2) return !!quiz.city;
-    if (step === 3) return !!quiz.propertyType;
-    if (step === 4) return true;
-    if (step === 5) return !!quiz.purpose;
-    if (step === 6) return quiz.facilities.length > 0;
-    if (step === 7) return quiz.description.trim().length > 10;
-    if (step === 8) return true;
-    return true;
+  const toggle = async () => {
+    if (!sound) {
+      const { sound: s } = await Audio.Sound.createAsync(
+        { uri },
+        { shouldPlay: true },
+        (status: AVPlaybackStatus) => {
+          if (status.isLoaded) {
+            setPosition(status.positionMillis ?? 0);
+            setDuration(status.durationMillis ?? 0);
+            if (status.didJustFinish) { setPlaying(false); setPosition(0); }
+          }
+        }
+      );
+      setSound(s);
+      setPlaying(true);
+    } else if (playing) {
+      await sound.pauseAsync();
+      setPlaying(false);
+    } else {
+      await sound.playAsync();
+      setPlaying(true);
+    }
   };
 
-  const advance = () => {
-    if (step < TOTAL_STEPS) setStep(s => s + 1);
-    else onFinish(quiz);
-  };
-
-  const stepperRows: Array<{
-    label: string;
-    key: 'bedrooms' | 'bathrooms' | 'toilets' | 'kitchens' | 'parlors';
-    min: number;
-  }> = [
-    { label: t('listing.bedrooms'),  key: 'bedrooms',  min: 1 },
-    { label: t('listing.bathrooms'), key: 'bathrooms', min: 1 },
-    { label: t('listing.toilets'),   key: 'toilets',   min: 1 },
-    { label: t('listing.kitchens'),  key: 'kitchens',  min: 1 },
-    { label: t('listing.parlors'),   key: 'parlors',   min: 0 },
-  ];
+  const progress = duration > 0 ? position / duration : 0;
+  const elapsed  = Math.floor(position / 1000);
+  const total    = Math.floor(duration / 1000);
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
-
-      <TouchableOpacity
-        style={styles.backBtn}
-        onPress={() => (step === 1 ? router.back() : setStep(s => s - 1))}
-      >
-        <Feather name="arrow-left" size={18} color={C.textDark} />
+    <View style={styles.audioPlayer}>
+      <TouchableOpacity onPress={toggle} style={styles.audioPlayBtn}>
+        <Feather name={playing ? 'pause' : 'play'} size={16} color={C.purpleMid} />
       </TouchableOpacity>
+      <View style={styles.audioTrack}>
+        <View style={styles.audioTrackBg}>
+          <View style={[styles.audioTrackFill, { width: `${progress * 100}%` as any }]} />
+        </View>
+      </View>
+      <Text style={styles.audioTime}>{fmt(elapsed)}/{fmt(total || 0)}</Text>
+    </View>
+  );
+}
 
-      <ProgressBar step={step} />
+// ─── Listing Card (inline, compact) ──────────────────────────────────────────
+function ListingCard({ item }: { item: MatchResult }) {
+  const [loading, setLoading] = useState(false);
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        {step === 1 && (
-          <View>
-            <StepHeader icon="💰" title={t('casaMatch.q_budget_title')} desc={t('casaMatch.q_budget_desc')} />
-            <View style={styles.chipGrid}>
-              {budgets.map(b => (
-                <Chip key={b.id} label={b.label} selected={quiz.budget === b.id}
-                  onPress={() => setQuiz(q => ({ ...q, budget: b.id }))} />
-              ))}
+  const handlePress = async () => {
+    try {
+      setLoading(true);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${BASE_URL}/listings/${item.id}`, { headers });
+      if (res.ok) {
+        const listingData = await res.json();
+        router.push({ pathname: '/propertydetail', params: { id: item.id, listingData: JSON.stringify(listingData) } });
+      } else {
+        router.push({ pathname: '/propertydetail', params: { id: item.id } });
+      }
+    } catch {
+      router.push({ pathname: '/propertydetail', params: { id: item.id } });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <TouchableOpacity style={styles.listingCard} onPress={handlePress} activeOpacity={0.85}>
+      <View style={styles.listingImgWrap}>
+        {item.images?.[0]
+          ? <Image source={{ uri: item.images[0] }} style={styles.listingImg} resizeMode="cover" />
+          : <View style={[styles.listingImg, styles.listingImgPlaceholder]}><Ionicons name="home-outline" size={24} color="#C4B5FD" /></View>
+        }
+        <View style={styles.scoreChip}>
+          <Text style={styles.scoreChipTxt}>{item.score}%</Text>
+        </View>
+        {item.badge && (
+          <View style={styles.listingBadge}>
+            <Text style={styles.listingBadgeTxt}>{item.badge}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.listingBody}>
+        <Text style={styles.listingName} numberOfLines={1}>{item.name}</Text>
+        <View style={styles.listingLocRow}>
+          <Ionicons name="location-outline" size={11} color={C.textGray} />
+          <Text style={styles.listingLoc} numberOfLines={1}>{item.location}</Text>
+        </View>
+        <Text style={styles.listingPrice}>{item.price}</Text>
+        <View style={styles.listingTagRow}>
+          {item.tags.slice(0, 3).map(tag => (
+            <View key={tag} style={styles.listingTag}>
+              <Text style={styles.listingTagTxt}>{tag}</Text>
             </View>
+          ))}
+        </View>
+        <View style={styles.matchReasonRow}>
+          <Ionicons name="sparkles" size={11} color={C.purpleMid} style={{ marginRight: 4 }} />
+          <Text style={styles.matchReasonTxt} numberOfLines={2}>"{item.matchReason}"</Text>
+        </View>
+        {loading
+          ? <ActivityIndicator size="small" color={C.purple} style={{ marginTop: 8 }} />
+          : <View style={styles.viewBtn}><Text style={styles.viewBtnTxt}>View Property</Text><Feather name="arrow-right" size={12} color={C.purpleMid} /></View>
+        }
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Message Bubble ───────────────────────────────────────────────────────────
+function MessageBubble({ msg }: { msg: AiChatMessage }) {
+  const isUser   = msg.role === 'user';
+  const listings = msg.listingResults ?? [];
+
+  return (
+    <View style={[styles.bubbleRow, isUser && styles.bubbleRowUser]}>
+      {!isUser && (
+        <View style={styles.avatarWrap}>
+          <Ionicons name="sparkles" size={14} color={C.purpleMid} />
+        </View>
+      )}
+      <View style={[styles.bubbleOuter, isUser && styles.bubbleOuterUser]}>
+        {/* Text content */}
+        {!!msg.content && (
+          <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
+            <Text style={[styles.bubbleTxt, isUser && styles.bubbleTxtUser]}>
+              {msg.content}
+            </Text>
           </View>
         )}
 
-        {step === 2 && (
-          <View>
-            <StepHeader icon="📍" title={t('casaMatch.q_city_title')} desc={t('casaMatch.q_city_desc')} />
-            <View style={styles.chipGrid}>
-              {cities.map(c => (
-                <Chip key={c.id} label={c.label} selected={quiz.city === c.id}
-                  onPress={() => setQuiz(q => ({ ...q, city: c.id }))} />
-              ))}
-            </View>
+        {/* Image attachment */}
+        {!!msg.imageUrl && (
+          <View style={styles.attachImgWrap}>
+            <Image source={{ uri: msg.imageUrl }} style={styles.attachImg} resizeMode="cover" />
           </View>
         )}
 
-        {step === 3 && (
-          <View>
-            <StepHeader icon="🏠" title={t('casaMatch.q_type_title')} desc={t('casaMatch.q_type_desc')} />
-            <View style={styles.chipGrid}>
-              {propTypes.map(p => (
-                <Chip key={p.id} label={p.label} selected={quiz.propertyType === p.id}
-                  onPress={() => setQuiz(q => ({ ...q, propertyType: p.id }))} />
-              ))}
-            </View>
+        {/* Audio attachment */}
+        {!!msg.audioUrl && (
+          <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI, { paddingVertical: 10 }]}>
+            <AudioPlayer uri={msg.audioUrl} />
+            {!!msg.audioTranscript && (
+              <Text style={[styles.transcriptTxt, isUser && { color: '#E9D5FF' }]}>
+                "{msg.audioTranscript}"
+              </Text>
+            )}
           </View>
         )}
 
-        {step === 4 && (
-          <View>
-            <StepHeader icon="🛏" title={t('casaMatch.q_bedrooms_title')} desc={t('casaMatch.q_bedrooms_desc')} />
-            {stepperRows.map(row => (
-              <View key={row.key} style={styles.stepperBlock}>
-                <Text style={styles.stepperLabel}>{row.label}</Text>
-                <View style={styles.stepperRow}>
-                  <TouchableOpacity
-                    style={styles.stepperBtn}
-                    onPress={() => setQuiz(q => ({ ...q, [row.key]: Math.max(row.min, q[row.key] - 1) }))}
-                  >
-                    <Feather name="minus" size={18} color={C.purpleMid} />
-                  </TouchableOpacity>
-                  <Text style={styles.stepperVal}>{quiz[row.key]}</Text>
-                  <TouchableOpacity
-                    style={styles.stepperBtn}
-                    onPress={() => setQuiz(q => ({ ...q, [row.key]: q[row.key] + 1 }))}
-                  >
-                    <Feather name="plus" size={18} color={C.purpleMid} />
-                  </TouchableOpacity>
-                </View>
-              </View>
+        {/* Inline listing cards */}
+        {listings.length > 0 && (
+          <View style={styles.listingsBlock}>
+            <Text style={styles.listingsHeading}>
+              {listings.length} {listings.length === 1 ? 'match' : 'matches'} found
+            </Text>
+            {listings.map(item => (
+              <ListingCard key={item.id} item={item} />
             ))}
           </View>
         )}
 
-        {step === 5 && (
-          <View>
-            <StepHeader icon="🎯" title={t('casaMatch.q_purpose_title')} desc={t('casaMatch.q_purpose_desc')} />
-            <View style={styles.purposeRow}>
-              <PurposeCard
-                icon="🏘" label={t('casaMatch.purpose_renting')} sublabel={t('casaMatch.purpose_renting_sub')}
-                selected={quiz.purpose === 'renting'} onPress={() => setQuiz(q => ({ ...q, purpose: 'renting' }))}
-              />
-              <PurposeCard
-                icon="🔑" label={t('casaMatch.purpose_buying')} sublabel={t('casaMatch.purpose_buying_sub')}
-                selected={quiz.purpose === 'buying'} onPress={() => setQuiz(q => ({ ...q, purpose: 'buying' }))}
-              />
-            </View>
-          </View>
-        )}
-
-        {step === 6 && (
-          <View>
-            <StepHeader icon="✅" title={t('casaMatch.q_facilities_title')} desc={t('casaMatch.q_facilities_desc')} />
-            <View style={styles.chipGrid}>
-              {facilities.map(f => (
-                <Chip key={f.id} label={f.label} selected={quiz.facilities.includes(f.id)}
-                  onPress={() => setQuiz(q => ({ ...q, facilities: toggleArr(q.facilities, f.id) }))} />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {step === 7 && (
-          <View>
-            <StepHeader icon="✍️" title={t('casaMatch.q_desc_title')} desc={t('casaMatch.q_desc_desc')} />
-            <TextInput
-              style={styles.textArea}
-              multiline
-              numberOfLines={5}
-              placeholder={t('casaMatch.q_desc_placeholder')}
-              placeholderTextColor={C.textGray}
-              value={quiz.description}
-              onChangeText={v => setQuiz(q => ({ ...q, description: v }))}
-              textAlignVertical="top"
-            />
-            <Text style={styles.charCount}>{quiz.description.length} / 500</Text>
-          </View>
-        )}
-
-        {step === 8 && (
-          <View>
-            <StepHeader icon="🚫" title={t('casaMatch.q_dealbreakers_title')} desc={t('casaMatch.q_dealbreakers_desc')} />
-            <View style={styles.chipGrid}>
-              {dealBreakers.map(d => (
-                <Chip key={d.id} label={d.label} selected={quiz.dealBreakers.includes(d.id)}
-                  onPress={() => setQuiz(q => ({ ...q, dealBreakers: toggleArr(q.dealBreakers, d.id) }))}
-                  variant="red" />
-              ))}
-            </View>
-          </View>
-        )}
-
-        <View style={{ height: 110 }} />
-      </ScrollView>
-
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={[styles.nextBtn, !canAdvance() && styles.nextBtnDisabled]}
-          disabled={!canAdvance()}
-          onPress={advance}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.nextBtnTxt}>
-            {step === TOTAL_STEPS ? t('casaMatch.findMyMatch') : t('casaMatch.nextStep')}
-          </Text>
-          {step < TOTAL_STEPS && (
-            <Feather name="arrow-right" size={18} color="#fff" style={{ marginLeft: 8 }} />
-          )}
-        </TouchableOpacity>
+        <Text style={[styles.timeStamp, isUser && styles.timeStampUser]}>
+          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
       </View>
-    </SafeAreaView>
-  );
-}
-
-// ─── Step Header ──────────────────────────────────────────────────────────────
-function StepHeader({ icon, title, desc }: { icon: string; title: string; desc: string }) {
-  return (
-    <View style={{ marginBottom: 24 }}>
-      <Text style={styles.stepEmoji}>{icon}</Text>
-      <Text style={styles.stepTitle}>{title}</Text>
-      <Text style={styles.stepDesc}>{desc}</Text>
     </View>
   );
 }
 
-// ─── Thinking Screen ──────────────────────────────────────────────────────────
-function ThinkingScreen({
-  quiz,
-  onDone,
-  onError,
+// ─── Chat Screen ──────────────────────────────────────────────────────────────
+function ChatScreen({
+  convId,
+  onBack,
 }: {
-  quiz:    QuizState;
-  onDone:  (results: MatchResult[]) => void;
-  onError: (err: string) => void;
+  convId: number;
+  onBack: () => void;
 }) {
   const { t } = useTranslation();
-  const spin  = useRef(new Animated.Value(0)).current;
-  const pulse = useRef(new Animated.Value(1)).current;
 
-  // ── FIX 2: Track min delay + API result separately so both must be
-  //           ready before we navigate — prevents the screen flashing away
-  const [minDelayDone, setMinDelayDone] = useState(false);
-  const [apiResults,   setApiResults]   = useState<MatchResult[] | null>(null);
-  const [apiError,     setApiError]     = useState<string | null>(null);
+  const [messages,  setMessages]  = useState<AiChatMessage[]>([]);
+  const [title,     setTitle]     = useState('CasaMatch AI');
+  const [loading,   setLoading]   = useState(true);
+  const [sending,   setSending]   = useState(false);
+  const [text,      setText]      = useState('');
+  const [pendingImg,setPendingImg] = useState<{ uri: string; base64?: string; mimeType: string } | null>(null);
 
+  // Voice recording state
+  const [recording,    setRecording]    = useState<Audio.Recording | null>(null);
+  const [isRecording,  setIsRecording]  = useState(false);
+  const [recordingSec, setRecordingSec] = useState(0);
+  const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const flatListRef = useRef<FlatList>(null);
+
+  // ── Load conversation ──────────────────────────────────────────────────────
   useEffect(() => {
-    // Animations
-    Animated.loop(
-      Animated.timing(spin, { toValue: 1, duration: 1800, useNativeDriver: true })
-    ).start();
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.12, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1,    duration: 700, useNativeDriver: true }),
-      ])
-    ).start();
+    (async () => {
+      try {
+        const data = await apiFetch(`/conversations/${convId}`);
+        setMessages(data.conversation.messages ?? []);
+        setTitle(data.conversation.title || 'CasaMatch AI');
+      } catch (err: any) {
+        Alert.alert('Error', err.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [convId]);
 
-    // Minimum 2.5 s so the animation always has time to breathe
-    const timer = setTimeout(() => setMinDelayDone(true), 2500);
-
-    // Real API call — runs in parallel with the timer
-    fetchCasaMatches(quiz)
-      .then(r => setApiResults(r))
-      .catch(err => {
-        console.error(err);
-        setApiError('matching_failed');
-      });
-
-    return () => clearTimeout(timer);
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
-  // Navigate only when BOTH the timer and the API are done
-  useEffect(() => {
-    if (!minDelayDone) return;
-    if (apiError)                    { onError(apiError);  return; }
-    if (apiResults !== null)         { onDone(apiResults); }
-  }, [minDelayDone, apiResults, apiError]);
+  useEffect(() => { if (!loading) scrollToBottom(); }, [messages.length, loading]);
 
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-
-  return (
-    <SafeAreaView style={[styles.safe, styles.centerFlex]}>
-      {/* FIX 4: removed marginBottom from logoCircle — spacing handled by thinkingIconWrap */}
-      <View style={styles.thinkingIconWrap}>
-        <Animated.View style={[styles.spinnerRing, { transform: [{ rotate }] }]} />
-        <Animated.View style={[styles.logoCircle, { transform: [{ scale: pulse }] }]}>
-          <Ionicons name="sparkles" size={32} color={C.purpleMid} />
-        </Animated.View>
-      </View>
-      <View style={styles.thinkingTextBlock}>
-        <Text style={styles.thinkingTitle}>{t('casaMatch.thinking_title')}</Text>
-        <Text style={styles.thinkingDesc}>{t('casaMatch.thinking_desc')}</Text>
-      </View>
-    </SafeAreaView>
-  );
-}
-
-// ─── Results Screen ───────────────────────────────────────────────────────────
-function ResultsScreen({
-  results,
-  error,
-  purpose,
-}: {
-  results: MatchResult[];
-  error:   string | null;
-  purpose: 'renting' | 'buying' | null;
-}) {
-  const { t } = useTranslation();
-  const [activeFilter, setActiveFilter] = useState<'all' | 'for_rent' | 'for_sale'>('all');
-  const [loadingId, setLoadingId]       = useState<string | null>(null);  // tracks which card is loading
- 
-  const filters: Array<{ id: 'all' | 'for_rent' | 'for_sale'; label: string }> = [
-    { id: 'all',      label: t('casaMatch.filter_all') },
-    { id: 'for_rent', label: t('casaMatch.filter_for_rent') },
-    { id: 'for_sale', label: t('casaMatch.filter_for_sale') },
-  ];
- 
-  const filteredResults = results.filter(r => {
-    if (activeFilter === 'for_rent') return r.listingType === 'rent';
-    if (activeFilter === 'for_sale') return r.listingType === 'sale';
-    return true;
-  });
- 
-  // ── Navigate to property detail ──────────────────────────────────────────
-  const handleViewProperty = async (r: MatchResult) => {
-    try {
-      setLoadingId(r.id);
- 
-      // Fetch full listing data from your API
-      const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
-      const response = await fetch(`${BASE_URL}/listings/${r.id}`);
- 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch listing: ${response.status}`);
-      }
- 
-      const listingData = await response.json();
- 
-      // Navigate exactly like your other screens do
-      router.push({
-        pathname: '/propertydetail',
-        params: {
-          id:          String(r.id),
-          listingData: JSON.stringify(listingData),
-        },
-      });
-    } catch (err) {
-      console.error('Failed to navigate to property:', err);
-      // Fallback: navigate with just the id if full fetch fails
-      router.push({
-        pathname: '/propertydetail',
-        params: { id: String(r.id) },
-      });
-    } finally {
-      setLoadingId(null);
+  // ── Image picker ───────────────────────────────────────────────────────────
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow access to your photo library to attach images.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      base64: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setPendingImg({ uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg' });
     }
   };
- 
-  // ── Error / empty state ──────────────────────────────────────────────────
-  if (error || results.length === 0) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={18} color={C.textDark} />
-        </TouchableOpacity>
-        <View style={styles.centerFlex}>
-          <Ionicons name="home-outline" size={48} color={C.textGray} />
-          <Text style={[styles.thinkingTitle, { marginTop: 16 }]}>
-            {t('casaMatch.no_results_title')}
-          </Text>
-          <Text style={styles.thinkingDesc}>{t('casaMatch.no_results_desc')}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
- 
+
+  // ── Voice recording ────────────────────────────────────────────────────────
+  const startRecording = async () => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow microphone access to send voice messages.');
+        return;
+      }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording: rec } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(rec);
+      setIsRecording(true);
+      setRecordingSec(0);
+      recordTimer.current = setInterval(() => setRecordingSec(s => s + 1), 1000);
+    } catch (err: any) {
+      Alert.alert('Recording failed', err.message);
+    }
+  };
+
+  const stopAndSendRecording = async () => {
+    if (!recording) return;
+    if (recordTimer.current) { clearInterval(recordTimer.current); recordTimer.current = null; }
+    setIsRecording(false);
+    setRecordingSec(0);
+
+    try {
+      await recording.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      const uri = recording.getURI();
+      setRecording(null);
+      if (uri) await sendMessage(undefined, undefined, uri);
+    } catch (err: any) {
+      Alert.alert('Error', 'Could not process voice message.');
+    }
+  };
+
+  const cancelRecording = async () => {
+    if (!recording) return;
+    if (recordTimer.current) { clearInterval(recordTimer.current); recordTimer.current = null; }
+    setIsRecording(false);
+    setRecordingSec(0);
+    try {
+      await recording.stopAndUnloadAsync();
+    } catch { /* ignore */ }
+    setRecording(null);
+  };
+
+  // ── Send message ───────────────────────────────────────────────────────────
+  const sendMessage = async (
+    overrideText?: string,
+    overrideImg?: { uri: string; mimeType: string } | null,
+    audioUri?: string
+  ) => {
+    const msgText    = overrideText  ?? text.trim();
+    const imgToSend  = overrideImg   !== undefined ? overrideImg : pendingImg;
+
+    if (!msgText && !imgToSend && !audioUri) return;
+
+    setSending(true);
+    setText('');
+    setPendingImg(null);
+
+    // Optimistic user message
+    const optimisticId = -Date.now();
+    const optimisticMsg: AiChatMessage = {
+      id:            optimisticId,
+      conversationId: convId,
+      role:          'user',
+      content:       msgText,
+      imageUrl:      imgToSend?.uri ?? null,
+      audioUrl:      audioUri ?? null,
+      createdAt:     new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    try {
+      const headers = await getAuthHeaders();
+      const form    = new FormData();
+      if (msgText)  form.append('content', msgText);
+
+      if (imgToSend?.uri) {
+        const ext = imgToSend.uri.split('.').pop() ?? 'jpg';
+        form.append('image', {
+          uri:  imgToSend.uri,
+          name: `photo.${ext}`,
+          type: imgToSend.mimeType,
+        } as any);
+      }
+
+      if (audioUri) {
+        const ext = audioUri.split('.').pop() ?? 'm4a';
+        form.append('audio', {
+          uri:  audioUri,
+          name: `voice.${ext}`,
+          type: 'audio/m4a',
+        } as any);
+      }
+
+      const res = await fetch(`${BASE_URL}/api/casamatch-chat/conversations/${convId}/messages`, {
+        method:  'POST',
+        headers: { ...headers },
+        body:    form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send message');
+
+      // Replace optimistic message + add AI response
+      setMessages(prev => [
+        ...prev.filter(m => m.id !== optimisticId),
+        data.userMessage,
+        data.aiMessage,
+      ]);
+
+      // Update title if first message
+      if (messages.length === 0 && data.userMessage.content) {
+        const newTitle = data.userMessage.content.slice(0, 60);
+        setTitle(newTitle);
+      }
+    } catch (err: any) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      Alert.alert('Error', err.message || 'Could not send message. Please try again.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const fmtSec = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
- 
-      <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-        <Feather name="arrow-left" size={18} color={C.textDark} />
-      </TouchableOpacity>
- 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={styles.resultsHeading}>{t('casaMatch.results_heading')}</Text>
-        <Text style={styles.resultsSubheading}>{t('casaMatch.results_sub')}</Text>
- 
-        {/* Filter tabs */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ marginBottom: 20 }}
-          contentContainerStyle={{ gap: 8, paddingRight: 4 }}
-        >
-          {filters.map(f => (
-            <TouchableOpacity
-              key={f.id}
-              style={[styles.filterTab, activeFilter === f.id && styles.filterTabActive]}
-              onPress={() => setActiveFilter(f.id)}
-            >
-              <Text style={[styles.filterTabTxt, activeFilter === f.id && styles.filterTabTxtActive]}>
-                {f.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
- 
-        {/* Empty filter state */}
-        {filteredResults.length === 0 && (
-          <View style={styles.filterEmpty}>
-            <Text style={styles.filterEmptyTxt}>{t('casaMatch.no_filter_results')}</Text>
+
+      {/* Header */}
+      <View style={styles.chatHeader}>
+        <TouchableOpacity style={styles.chatBackBtn} onPress={onBack}>
+          <Feather name="arrow-left" size={20} color={C.textDark} />
+        </TouchableOpacity>
+        <View style={styles.chatHeaderCenter}>
+          <View style={styles.agentAvatar}>
+            <Ionicons name="sparkles" size={18} color={C.purpleMid} />
           </View>
-        )}
- 
-        {/* Cards */}
-        {filteredResults.map(r => {
-          const isLoading = loadingId === r.id;
- 
-          return (
-            <View key={r.id} style={styles.resultCard}>
-              <View style={styles.resultImgPlaceholder}>
-                <Ionicons name="home-outline" size={32} color="#C4B5FD" />
-                {r.badge && (
-                  <View style={[styles.resultBadge, { backgroundColor: C.purple }]}>
-                    <Text style={styles.resultBadgeTxt}>{r.badge}</Text>
-                  </View>
-                )}
-                <View style={styles.scoreChip}>
-                  <Text style={styles.scoreChipTxt}>{r.score}% {t('casaMatch.match')}</Text>
+          <View>
+            <Text style={styles.chatHeaderTitle} numberOfLines={1}>{title}</Text>
+            <Text style={styles.chatHeaderSub}>CasaMatch AI • SweetCasa</Text>
+          </View>
+        </View>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        {/* Messages */}
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={C.purple} />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={m => String(m.id)}
+            renderItem={({ item }) => <MessageBubble msg={item} />}
+            contentContainerStyle={styles.messagesList}
+            ListEmptyComponent={
+              <View style={styles.emptyChat}>
+                <View style={styles.emptyChatIcon}>
+                  <Ionicons name="sparkles" size={32} color={C.purpleMid} />
                 </View>
-              </View>
- 
-              <View style={styles.resultBody}>
-                <Text style={styles.resultName}>{r.name}</Text>
-                <Text style={styles.resultLocation}>
-                  <Ionicons name="location-outline" size={12} color={C.textGray} /> {r.location}
+                <Text style={styles.emptyChatTitle}>Hi! I'm CasaMatch</Text>
+                <Text style={styles.emptyChatSub}>
+                  Tell me what kind of home you're looking for in Cameroon — budget, city, type — and I'll find your perfect match.
                 </Text>
-                <Text style={styles.resultPrice}>{r.price}</Text>
- 
-                <View style={styles.tagRow}>
-                  {r.tags.map(tag => (
-                    <View key={tag} style={styles.tag}>
-                      <Text style={styles.tagTxt}>{tag}</Text>
-                    </View>
+                <View style={styles.suggestionRow}>
+                  {[
+                    "I'm looking for a 2-bedroom apartment in Douala",
+                    "Je cherche une villa à Yaoundé à louer",
+                    "Show me studios under 100k XAF",
+                  ].map(s => (
+                    <TouchableOpacity key={s} style={styles.suggestionChip} onPress={() => sendMessage(s)}>
+                      <Text style={styles.suggestionTxt}>{s}</Text>
+                    </TouchableOpacity>
                   ))}
                 </View>
- 
-                <View style={styles.quoteBox}>
-                  <Ionicons name="sparkles" size={12} color={C.purpleMid} style={{ marginRight: 6 }} />
-                  <Text style={styles.quoteTxt}>"{r.matchReason}"</Text>
-                </View>
- 
-                {/* ── View Property Button ── */}
-                <TouchableOpacity
-                  style={[styles.viewBtn, isLoading && { opacity: 0.7 }]}
-                  activeOpacity={0.85}
-                  disabled={isLoading}
-                  onPress={() => handleViewProperty(r)}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.viewBtnTxt}>{t('casaMatch.viewProperty')}</Text>
-                  )}
-                </TouchableOpacity>
- 
               </View>
-            </View>
-          );
-        })}
- 
-        <Text style={styles.verifiedNote}>{t('casaMatch.verifiedNote')}</Text>
-        <View style={{ height: 40 }} />
-      </ScrollView>
+            }
+            ListFooterComponent={
+              sending ? (
+                <View style={[styles.bubbleRow, { marginBottom: 8 }]}>
+                  <View style={styles.avatarWrap}>
+                    <Ionicons name="sparkles" size={14} color={C.purpleMid} />
+                  </View>
+                  <View style={[styles.bubble, styles.bubbleAI]}>
+                    <TypingIndicator />
+                  </View>
+                </View>
+              ) : null
+            }
+          />
+        )}
+
+        {/* Pending image preview */}
+        {pendingImg && (
+          <View style={styles.pendingImgBar}>
+            <Image source={{ uri: pendingImg.uri }} style={styles.pendingImgThumb} />
+            <Text style={styles.pendingImgTxt}>Image attached</Text>
+            <TouchableOpacity onPress={() => setPendingImg(null)}>
+              <Feather name="x" size={16} color="#888" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Recording bar */}
+        {isRecording && (
+          <View style={styles.recordingBar}>
+            <View style={styles.recordingDot} />
+            <Text style={styles.recordingTxt}>Recording… {fmtSec(recordingSec)}</Text>
+            <TouchableOpacity style={styles.cancelRecordBtn} onPress={cancelRecording}>
+              <Feather name="x" size={16} color="#EF4444" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sendRecordBtn} onPress={stopAndSendRecording}>
+              <Feather name="send" size={16} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Input bar */}
+        {!isRecording && (
+          <View style={styles.inputBar}>
+            <TouchableOpacity style={styles.inputIcon} onPress={pickImage}>
+              <Feather name="image" size={20} color={C.textGray} />
+            </TouchableOpacity>
+
+            <TextInput
+              style={styles.textInput}
+              placeholder="Message CasaMatch…"
+              placeholderTextColor={C.textGray}
+              value={text}
+              onChangeText={setText}
+              multiline
+              maxLength={1000}
+              returnKeyType="default"
+            />
+
+            {text.trim() || pendingImg ? (
+              <TouchableOpacity
+                style={[styles.sendBtn, sending && { opacity: 0.6 }]}
+                onPress={() => sendMessage()}
+                disabled={sending}
+              >
+                {sending
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Feather name="send" size={18} color="#fff" />
+                }
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.recordBtn} onPress={startRecording}>
+                <Feather name="mic" size={20} color={C.purpleMid} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-// ─── Root Export ──────────────────────────────────────────────────────────────
-export default function CasaMatchAIScreen() {
-  const [screen,  setScreen]  = useState<Screen>('quiz');
-  const [quiz,    setQuiz]    = useState<QuizState | null>(null);
-  const [results, setResults] = useState<MatchResult[]>([]);
-  const [error,   setError]   = useState<string | null>(null);
+// ─── History Screen ───────────────────────────────────────────────────────────
+function HistoryScreen({ onSelectConv, onNewChat }: {
+  onSelectConv: (id: number) => void;
+  onNewChat:    (id: number) => void;
+}) {
+  const { t } = useTranslation();
+  const [conversations, setConversations] = useState<AiConversation[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [deleting,      setDeleting]      = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetch('/conversations');
+      setConversations(data.conversations ?? []);
+    } catch (err: any) {
+      // If 401, the user isn't logged in — redirect
+      if (err.message === 'Not authenticated') {
+        Alert.alert('Sign in required', 'Please sign in to use CasaMatch AI.', [
+          { text: 'OK', onPress: () => router.replace('/house_seekers_login_signup') },
+        ]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, []);
+
+  const handleNew = async () => {
+    try {
+      const data = await apiFetch('/conversations', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({}),
+      });
+      onNewChat(data.conversation.id);
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
+    }
+  };
+
+  const handleDelete = (id: number) => {
+    Alert.alert('Delete chat?', 'This conversation will be permanently deleted.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          setDeleting(id);
+          try {
+            await apiFetch(`/conversations/${id}`, { method: 'DELETE' });
+            setConversations(prev => prev.filter(c => c.id !== id));
+          } catch (err: any) {
+            Alert.alert('Error', err.message);
+          } finally {
+            setDeleting(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const relativeTime = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1)   return 'Just now';
+    if (mins < 60)  return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24)   return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7)   return `${days}d ago`;
+    return new Date(iso).toLocaleDateString();
+  };
 
   return (
-    <>
-      {screen === 'quiz' && (
-        <QuizScreen
-          onFinish={completedQuiz => {
-            setQuiz(completedQuiz);
-            setScreen('thinking');
-          }}
-        />
-      )}
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
 
-      {screen === 'thinking' && quiz && (
-        <ThinkingScreen
-          quiz={quiz}
-          onDone={matched => {
-            setResults(matched);
-            setScreen('results');
-          }}
-          onError={err => {
-            setError(err);
-            setScreen('results');
-          }}
-        />
-      )}
+      {/* Header */}
+      <View style={styles.historyHeader}>
+        <TouchableOpacity style={styles.chatBackBtn} onPress={() => router.back()}>
+          <Feather name="arrow-left" size={20} color={C.textDark} />
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.historyTitle}>CasaMatch AI</Text>
+          <Text style={styles.historySubtitle}>Your property search assistant</Text>
+        </View>
+        <TouchableOpacity style={styles.newChatBtn} onPress={handleNew}>
+          <Feather name="plus" size={18} color={C.purpleMid} />
+        </TouchableOpacity>
+      </View>
 
-      {screen === 'results' && (
-        <ResultsScreen
-          results={results}
-          error={error}
-          purpose={quiz?.purpose ?? null}
-        />
+      {/* New Chat CTA */}
+      <TouchableOpacity style={styles.newChatCard} onPress={handleNew} activeOpacity={0.85}>
+        <View style={styles.newChatIconWrap}>
+          <Ionicons name="sparkles" size={22} color={C.purpleMid} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.newChatCardTitle}>Start new conversation</Text>
+          <Text style={styles.newChatCardSub}>Find your perfect home in Cameroon</Text>
+        </View>
+        <Feather name="arrow-right" size={18} color={C.purpleMid} />
+      </TouchableOpacity>
+
+      {/* Past conversations */}
+      {loading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={C.purple} />
+        </View>
+      ) : conversations.length === 0 ? (
+        <View style={styles.centered}>
+          <Ionicons name="chatbubbles-outline" size={48} color={C.textGray} style={{ marginBottom: 12 }} />
+          <Text style={styles.emptyChatTitle}>No conversations yet</Text>
+          <Text style={[styles.emptyChatSub, { textAlign: 'center' }]}>
+            Start a new chat to find your dream home.
+          </Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 }}>
+          <Text style={styles.sectionLabel}>Recent chats</Text>
+          {conversations.map(conv => {
+            const lastMsg = (conv as any).messages?.[0];
+            return (
+              <TouchableOpacity
+                key={conv.id}
+                style={styles.convRow}
+                onPress={() => onSelectConv(conv.id)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.convIcon}>
+                  <Ionicons name="sparkles" size={16} color={C.purpleMid} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.convTitle} numberOfLines={1}>{conv.title}</Text>
+                  {lastMsg && (
+                    <Text style={styles.convPreview} numberOfLines={1}>
+                      {lastMsg.role === 'user' ? 'You: ' : ''}{lastMsg.content}
+                    </Text>
+                  )}
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                  <Text style={styles.convTime}>{relativeTime(conv.updatedAt)}</Text>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(conv.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    {deleting === conv.id
+                      ? <ActivityIndicator size="small" color={C.textGray} />
+                      : <Feather name="trash-2" size={14} color="#D1D5DB" />
+                    }
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       )}
-    </>
+    </SafeAreaView>
+  );
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+export default function CasaMatchAIScreen() {
+  const [screen,     setScreen]     = useState<Screen>('history');
+  const [activeConv, setActiveConv] = useState<number | null>(null);
+
+  const openConv = (id: number) => { setActiveConv(id); setScreen('chat'); };
+  const goBack   = ()           => { setScreen('history'); setActiveConv(null); };
+
+  if (screen === 'chat' && activeConv !== null) {
+    return <ChatScreen convId={activeConv} onBack={goBack} />;
+  }
+
+  return (
+    <HistoryScreen
+      onSelectConv={openConv}
+      onNewChat={openConv}
+    />
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe:       { flex: 1, backgroundColor: C.bg },
-  centerFlex: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll:     { paddingHorizontal: H_PAD, paddingTop: 12, paddingBottom: 16 },
+  safe:    { flex: 1, backgroundColor: C.bg },
+  centered:{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
 
-  backBtn: {
-    width: 36, height: 36, borderRadius: 18,
+  // ── History ──
+  historyHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+  },
+  historyTitle:    { fontSize: 18, fontWeight: '800', color: C.textDark, letterSpacing: -0.4 },
+  historySubtitle: { fontSize: 12, color: C.textGray, marginTop: 1 },
+  newChatBtn: {
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
-    marginTop: 16, marginLeft: H_PAD,
+    marginLeft: 'auto',
   },
-
-  // Progress
-  progressWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: H_PAD, marginTop: 12, marginBottom: 4, gap: 10,
+  newChatCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    margin: 16, padding: 18, borderRadius: 18,
+    backgroundColor: C.purpleLight, borderWidth: 1.5, borderColor: C.purpleBorder,
   },
-  progressLabel: { fontSize: 12, color: C.textGray, width: 50 },
-  progressTrack: {
-    flex: 1, height: 6, borderRadius: 4, backgroundColor: '#F3F4F6', overflow: 'hidden',
+  newChatIconWrap: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+    shadowColor: C.purple, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3,
   },
-  progressFill: { height: '100%', borderRadius: 4, backgroundColor: C.purple },
-  progressPct:  { fontSize: 12, fontWeight: '700', color: C.purpleText, width: 36, textAlign: 'right' },
-
-  // Step
-  stepEmoji: { fontSize: 30, marginBottom: 10 },
-  stepTitle: { fontSize: 21, fontWeight: '800', color: C.textDark, letterSpacing: -0.4, marginBottom: 6 },
-  stepDesc:  { fontSize: 13, color: C.textGray, lineHeight: 19 },
-
-  // Chip
-  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
-  chip: {
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderRadius: 24, backgroundColor: C.card,
-    borderWidth: 1.5, borderColor: C.border,
-  },
-  chipActive:       { borderColor: C.purpleMid, backgroundColor: C.purpleLight },
-  chipActiveRed:    { borderColor: C.red,       backgroundColor: C.redLight },
-  chipTxt:          { fontSize: 13, fontWeight: '600', color: C.textMid },
-  chipTxtActive:    { color: C.purpleText },
-  chipTxtActiveRed: { color: C.red },
-
-  // Stepper
-  stepperBlock: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  newChatCardTitle: { fontSize: 15, fontWeight: '700', color: C.purpleText },
+  newChatCardSub:   { fontSize: 12, color: C.textGray, marginTop: 2 },
+  sectionLabel: { fontSize: 12, fontWeight: '700', color: C.textGray, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 },
+  convRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  stepperLabel: { fontSize: 14, fontWeight: '600', color: C.textDark },
-  stepperRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    backgroundColor: C.purpleLight, borderRadius: 14,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderWidth: 1, borderColor: C.purpleBorder,
-  },
-  stepperBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: C.purpleBorder,
-  },
-  stepperVal: { fontSize: 18, fontWeight: '800', color: C.purpleText, minWidth: 24, textAlign: 'center' },
+  convIcon:    { width: 40, height: 40, borderRadius: 20, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
+  convTitle:   { fontSize: 14, fontWeight: '700', color: C.textDark, marginBottom: 2 },
+  convPreview: { fontSize: 12, color: C.textGray },
+  convTime:    { fontSize: 11, color: C.textGray },
 
-  // Purpose
-  purposeRow: { flexDirection: 'row', gap: 12 },
-  purposeCard: {
-    flex: 1, borderRadius: 16, borderWidth: 1.5, borderColor: C.border,
-    backgroundColor: C.card, padding: 20, alignItems: 'center', gap: 6,
+  // ── Chat header ──
+  chatHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: C.border,
+    backgroundColor: C.bg,
   },
-  purposeCardActive:  { borderColor: C.purpleMid, backgroundColor: C.purpleLight },
-  purposeEmoji:       { fontSize: 26 },
-  purposeLabel:       { fontSize: 15, fontWeight: '800', color: C.textDark },
-  purposeLabelActive: { color: C.purpleText },
-  purposeSub:         { fontSize: 11, color: C.textGray, textAlign: 'center' },
-
-  // Text area
-  textArea: {
-    backgroundColor: C.card, borderRadius: 16, borderWidth: 1.5, borderColor: C.border,
-    padding: 16, fontSize: 14, color: C.textDark, lineHeight: 21, minHeight: 130,
-  },
-  charCount: { fontSize: 11, color: C.textGray, textAlign: 'right', marginTop: 6 },
-
-  // Bottom bar
-  bottomBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingHorizontal: H_PAD, paddingBottom: 34, paddingTop: 12,
-    backgroundColor: C.bg, borderTopWidth: 1, borderTopColor: '#F5F5F5',
-  },
-  nextBtn: {
-    backgroundColor: C.purple, borderRadius: 16, paddingVertical: 17,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    shadowColor: C.purple, shadowOpacity: 0.35, shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 }, elevation: 8,
-  },
-  nextBtnDisabled: { opacity: 0.4, shadowOpacity: 0 },
-  nextBtnTxt: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
-
-  // Thinking
-  thinkingIconWrap: {
-    width: 100, height: 100,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 36,
-  },
-  spinnerRing: {
-    width: 100, height: 100, borderRadius: 50,
-    borderWidth: 3, borderColor: C.purpleLight,
-    borderTopColor: C.purpleMid,
-    position: 'absolute',
-  },
-  logoCircle: {
-    // FIX 4: marginBottom removed — was causing overflow inside fixed-size thinkingIconWrap
-    width: 76, height: 76, borderRadius: 38,
+  chatBackBtn: {
+    width: 36, height: 36, borderRadius: 18,
     backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
   },
-  thinkingTextBlock: {
-    width: '100%', paddingHorizontal: H_PAD, alignItems: 'center',
+  chatHeaderCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  agentAvatar:     { width: 38, height: 38, borderRadius: 19, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
+  chatHeaderTitle: { fontSize: 15, fontWeight: '700', color: C.textDark, maxWidth: 200 },
+  chatHeaderSub:   { fontSize: 11, color: C.textGray, marginTop: 1 },
+
+  // ── Messages ──
+  messagesList: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8 },
+  bubbleRow:     { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 12, gap: 8 },
+  bubbleRowUser: { flexDirection: 'row-reverse' },
+  bubbleOuter:   { maxWidth: '80%' },
+  bubbleOuterUser: {},
+  avatarWrap: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 4,
   },
-  thinkingTitle: {
-    fontSize: 20, fontWeight: '800', color: C.textDark,
-    marginBottom: 8, textAlign: 'center',
+  bubble:      { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 2 },
+  bubbleAI:    { backgroundColor: C.aiBubble, borderBottomLeftRadius: 4 },
+  bubbleUser:  { backgroundColor: C.userBubble, borderBottomRightRadius: 4 },
+  bubbleTxt:     { fontSize: 14.5, color: C.textDark, lineHeight: 21 },
+  bubbleTxtUser: { color: '#fff' },
+  timeStamp:     { fontSize: 10, color: C.textGray, marginTop: 2, textAlign: 'left' },
+  timeStampUser: { textAlign: 'right' },
+
+  attachImgWrap: { borderRadius: 14, overflow: 'hidden', marginBottom: 4 },
+  attachImg:     { width: 220, height: 160, borderRadius: 14 },
+
+  transcriptTxt: { fontSize: 12, color: C.textMid, fontStyle: 'italic', marginTop: 4, lineHeight: 17 },
+
+  // ── Typing indicator ──
+  typingWrap: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4, paddingVertical: 4 },
+  typingDot:  { width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.purpleMid },
+
+  // ── Audio player ──
+  audioPlayer:  { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 160 },
+  audioPlayBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
+  audioTrack:   { flex: 1, height: 20, justifyContent: 'center' },
+  audioTrackBg: { height: 3, backgroundColor: '#D1D5DB', borderRadius: 2, overflow: 'hidden' },
+  audioTrackFill:{ height: '100%', backgroundColor: C.purpleMid, borderRadius: 2 },
+  audioTime:    { fontSize: 11, color: C.textGray, width: 42, textAlign: 'right' },
+
+  // ── Listings inline ──
+  listingsBlock:   { marginTop: 8, gap: 10 },
+  listingsHeading: { fontSize: 13, fontWeight: '700', color: C.purpleText, marginBottom: 4 },
+  listingCard:     { backgroundColor: C.bg, borderRadius: 16, borderWidth: 1.5, borderColor: C.purpleBorder, overflow: 'hidden', width: 280 },
+  listingImgWrap:  { width: '100%', height: 140, position: 'relative' },
+  listingImg:      { width: '100%', height: '100%' },
+  listingImgPlaceholder: { backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
+  scoreChip:  { position: 'absolute', top: 8, right: 8, backgroundColor: C.purple, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4 },
+  scoreChipTxt: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  listingBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+  listingBadgeTxt: { fontSize: 10, color: '#fff', fontWeight: '700' },
+  listingBody:  { padding: 12, gap: 4 },
+  listingName:  { fontSize: 13, fontWeight: '700', color: C.textDark },
+  listingLocRow:{ flexDirection: 'row', alignItems: 'center', gap: 3 },
+  listingLoc:   { fontSize: 11, color: C.textGray, flex: 1 },
+  listingPrice: { fontSize: 13, fontWeight: '800', color: C.purpleText, marginTop: 2 },
+  listingTagRow:{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  listingTag:   { backgroundColor: '#F3F4F6', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  listingTagTxt:{ fontSize: 10.5, color: '#6B7280', fontWeight: '600' },
+  matchReasonRow:{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 6, backgroundColor: C.purpleLight, borderRadius: 10, padding: 8 },
+  matchReasonTxt:{ fontSize: 11.5, color: C.purpleText, flex: 1, fontStyle: 'italic', lineHeight: 16 },
+  viewBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8, paddingVertical: 8, borderRadius: 10, backgroundColor: C.purpleLight },
+  viewBtnTxt:   { fontSize: 12, fontWeight: '700', color: C.purpleText },
+
+  // ── Empty chat ──
+  emptyChat:        { flex: 1, alignItems: 'center', paddingTop: 40, paddingHorizontal: 24 },
+  emptyChatIcon:    { width: 64, height: 64, borderRadius: 32, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  emptyChatTitle:   { fontSize: 18, fontWeight: '800', color: C.textDark, letterSpacing: -0.3, marginBottom: 8 },
+  emptyChatSub:     { fontSize: 14, color: C.textGray, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
+  suggestionRow:    { width: '100%', gap: 8 },
+  suggestionChip:   { backgroundColor: C.purpleLight, borderRadius: 12, padding: 12, borderWidth: 1.5, borderColor: C.purpleBorder },
+  suggestionTxt:    { fontSize: 13, color: C.purpleText, fontWeight: '500' },
+
+  // ── Input bar ──
+  inputBar: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: C.border,
+    backgroundColor: C.bg,
   },
-  thinkingDesc: {
-    fontSize: 13, color: C.textGray, textAlign: 'center', lineHeight: 19,
+  inputIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  textInput: {
+    flex: 1, maxHeight: 100, fontSize: 14.5, color: C.textDark,
+    backgroundColor: C.purpleLight, borderRadius: 22,
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderWidth: 1.5, borderColor: C.purpleBorder,
+  },
+  sendBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center',
+    shadowColor: C.purple, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
+  recordBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: C.purpleBorder,
   },
 
-  // Results
-  resultsHeading: {
-    fontSize: 22, fontWeight: '800', color: C.textDark, letterSpacing: -0.5, marginBottom: 6,
+  pendingImgBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: C.purpleLight, borderTopWidth: 1, borderTopColor: C.purpleBorder,
   },
-  resultsSubheading: { fontSize: 13, color: C.textGray, lineHeight: 19, marginBottom: 18 },
+  pendingImgThumb: { width: 40, height: 40, borderRadius: 8 },
+  pendingImgTxt:   { flex: 1, fontSize: 13, color: C.purpleText, fontWeight: '600' },
 
-  filterTab: {
-    paddingHorizontal: 18, paddingVertical: 9, borderRadius: 20,
-    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border,
+  recordingBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 12,
+    backgroundColor: '#FFF5F5', borderTopWidth: 1, borderTopColor: '#FECACA',
   },
-  filterTabActive:    { backgroundColor: C.purple, borderColor: C.purple },
-  filterTabTxt:       { fontSize: 13, fontWeight: '600', color: C.textMid },
-  filterTabTxtActive: { color: '#fff' },
-
-  filterEmpty: {
-    paddingVertical: 40, alignItems: 'center',
-  },
-  filterEmptyTxt: {
-    fontSize: 13, color: C.textGray, textAlign: 'center',
-  },
-
-  resultCard: {
-    borderRadius: 20, overflow: 'hidden',
-    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
-    marginBottom: 16,
-  },
-  resultImgPlaceholder: {
-    height: 160, backgroundColor: C.purpleLight,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  resultBadge: {
-    position: 'absolute', top: 12, left: 12,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
-  },
-  resultBadgeTxt: { fontSize: 11, fontWeight: '800', color: '#fff' },
-  scoreChip: {
-    position: 'absolute', bottom: 12, right: 12,
-    backgroundColor: '#fff', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 5,
-    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 }, elevation: 3,
-  },
-  scoreChipTxt: { fontSize: 12, fontWeight: '800', color: C.purpleText },
-
-  resultBody:     { padding: 16 },
-  resultName:     { fontSize: 16, fontWeight: '800', color: C.textDark, marginBottom: 4 },
-  resultLocation: { fontSize: 12, color: C.textGray, marginBottom: 4 },
-  resultPrice:    { fontSize: 15, fontWeight: '700', color: C.purpleText, marginBottom: 12 },
-
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  tag: {
-    paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: C.purpleLight, borderRadius: 8,
-  },
-  tagTxt: { fontSize: 11, fontWeight: '600', color: C.purpleText },
-
-  quoteBox: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    backgroundColor: '#FAF5FF', borderRadius: 12, padding: 12, marginBottom: 14,
-  },
-  quoteTxt: { flex: 1, fontSize: 12, color: '#7C3AED', lineHeight: 17, fontStyle: 'italic' },
-
-  viewBtn: {
-    backgroundColor: C.purple, borderRadius: 12, paddingVertical: 13, alignItems: 'center',
-  },
-  viewBtnTxt: { fontSize: 14, fontWeight: '800', color: '#fff' },
-
-  verifiedNote: {
-    fontSize: 11.5, color: C.textGray, textAlign: 'center',
-    lineHeight: 17, marginTop: 8, paddingHorizontal: 20,
-  },
+  recordingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' },
+  recordingTxt: { flex: 1, fontSize: 14, color: '#DC2626', fontWeight: '600' },
+  cancelRecordBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
+  sendRecordBtn:   { width: 36, height: 36, borderRadius: 18, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
 });
