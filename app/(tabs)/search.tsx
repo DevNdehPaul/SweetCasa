@@ -11,8 +11,8 @@ import { useTranslation } from 'react-i18next';
 const { width, height } = Dimensions.get('window');
 const H_PAD = 20;
 const SLIDER_WIDTH = width - H_PAD * 2 - 8;
-const MIN_BUDGET = 50_000;
-const MAX_BUDGET = 2_000_000_000;
+const MIN_BUDGET = 10_000;
+const MAX_BUDGET = 100_000_000;
 
 // ─── Static data (IDs never translated; labels come from t()) ─────────────────
 
@@ -62,18 +62,17 @@ const FACILITIES: { id: string; icon: string }[] = [
 
 // Facility labels: same note as house types. Add JSON keys as your i18n grows.
 
-type PropertyStateId = 'Available' | 'Pending' | 'Unavailable';
+type PropertyStateId = 'Available' | 'Pending';
 
 const PROPERTY_STATE_META: Record<PropertyStateId, {
   labelKey: string; subtitleKey: string; icon: string;
   color: string; bg: string; border: string; activeBg: string; activeBorder: string;
 }> = {
-  Available:   { labelKey: 'search.available',   subtitleKey: 'search.availableSub',   icon: 'check-circle', color: '#059669', bg: '#ECFDF5', border: '#6EE7B7', activeBg: '#D1FAE5', activeBorder: '#059669' },
-  Pending:     { labelKey: 'search.pending',     subtitleKey: 'search.pendingSub',     icon: 'clock',        color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', activeBg: '#FEF3C7', activeBorder: '#D97706' },
-  Unavailable: { labelKey: 'search.unavailable', subtitleKey: 'search.unavailableSub', icon: 'x-circle',     color: '#9CA3AF', bg: '#F9FAFB', border: '#E5E7EB', activeBg: '#F3F4F6', activeBorder: '#6B7280' },
+  Available:   { labelKey: 'search.available', subtitleKey: 'search.availableSub', icon: 'check-circle', color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE', activeBg: '#EDE9FE', activeBorder: '#7C3AED' },
+  Pending:     { labelKey: 'search.pending', subtitleKey: 'search.pendingSub', icon: 'clock', color: '#6D28D9', bg: '#EDE9FE', border: '#C4B5FD', activeBg: '#DDD6FE', activeBorder: '#6D28D9' },
 };
 
-const PROPERTY_STATE_IDS: PropertyStateId[] = ['Available', 'Pending', 'Unavailable'];
+const PROPERTY_STATE_IDS: PropertyStateId[] = ['Available', 'Pending'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -123,12 +122,13 @@ export default function SearchFiltersScreen() {
   const { t } = useTranslation();
 
   const [selectedRegion, setSelectedRegion] = useState<{ id: string; city: string } | null>(null);
-  const [neighborhood, setNeighborhood]     = useState('');
+  const [city, setCity]= useState('');
+  const [neighborhood, setNeighborhood] = useState('');
   const [regionPickerVisible, setRegionPickerVisible] = useState(false);
-  const [selectedType, setSelectedType]     = useState('');
+  const [selectedType, setSelectedType]= useState('');
   const [selectedFacilities, setSelectedFacilities]   = useState<string[]>([]);
-  const [selectedState, setSelectedState]   = useState<PropertyStateId>('Available');
-  const [budgetPct, setBudgetPct]           = useState(1);
+  const [selectedState, setSelectedState]= useState<PropertyStateId>('Available');
+  const [budgetPct, setBudgetPct]= useState(1);
   const sliderRef = React.useRef<View>(null);
   const sliderX   = React.useRef(0);
 
@@ -147,7 +147,7 @@ export default function SearchFiltersScreen() {
   const thumbLeft = budgetPct * SLIDER_WIDTH;
 
   const handleReset = () => {
-    setSelectedRegion(null); setNeighborhood('');
+    setSelectedRegion(null); setCity(''); setNeighborhood('');
     setSelectedType(''); setSelectedFacilities([]);
     setSelectedState('Available'); setBudgetPct(1);
   };
@@ -159,7 +159,9 @@ export default function SearchFiltersScreen() {
     };
     if (selectedRegion) {
       params.region = selectedRegion.id;
-      params.city   = selectedRegion.city;
+    }
+    if (city.trim()) {
+      params.city = city.trim();
     }
     if (neighborhood.trim())       params.neighborhood = neighborhood.trim();
     if (selectedType)              params.type         = selectedType;
@@ -202,16 +204,28 @@ export default function SearchFiltersScreen() {
           <Feather name="chevron-down" size={16} color="#888" />
         </TouchableOpacity>
 
-        {/* City — auto-filled */}
-        <View style={[s.lockedField, !selectedRegion && s.lockedFieldDim]}>
-          <Ionicons name="business-outline" size={16} color={selectedRegion ? '#7C3AED' : '#C0C0C0'} />
-          <Text style={[s.lockedFieldTxt, !selectedRegion && { color: '#C0C0C0' }]}>
-            {selectedRegion ? selectedRegion.city : t('search.autoFilledCity')}
-          </Text>
-          {selectedRegion && <View style={s.autoBadge}><Text style={s.autoBadgeTxt}>{t('search.auto')}</Text></View>}
+        <Text style={s.helperText}>{t('search.regionHint')}</Text>
+
+        {/* City — manual input */}
+        <View style={s.inputField}>
+          <Ionicons name="business-outline" size={16} color="#7C3AED" />
+          <TextInput
+            style={s.inputTxt}
+            placeholder={t('search.cityPlaceholder')}
+            placeholderTextColor="#C0C0C0"
+            value={city}
+            onChangeText={setCity}
+            returnKeyType="done"
+          />
+          {city.length > 0 && (
+            <TouchableOpacity onPress={() => setCity('')}>
+              <Feather name="x" size={14} color="#888" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Neighborhood */}
+        <Text style={s.fieldLabel}>{t('search.neighborhoodLabel')}</Text>
         <View style={s.inputField}>
           <Ionicons name="map-outline" size={16} color="#7C3AED" />
           <TextInput
@@ -334,13 +348,13 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2, marginBottom: 10 },
   sectionSubtitle: { fontSize: 12, color: '#9CA3AF', marginBottom: 14, lineHeight: 17 },
+  fieldLabel: { fontSize: 12, color: '#6B7280', fontWeight: '600', marginBottom: 8 },
   lockedField: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: '#EFEFEF', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 10, backgroundColor: '#FAFAFA' },
   lockedFieldDim: { backgroundColor: '#FAFAFA' },
   lockedFieldTxt: { flex: 1, fontSize: 14, color: '#333', fontWeight: '500' },
   lockedBadge: { backgroundColor: '#EDE9FE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   lockedBadgeTxt: { fontSize: 10, fontWeight: '700', color: '#7C3AED' },
-  autoBadge: { backgroundColor: '#D1FAE5', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  autoBadgeTxt: { fontSize: 10, fontWeight: '700', color: '#059669' },
+  helperText: { fontSize: 11.5, color: '#9CA3AF', marginBottom: 10, marginTop: -2, lineHeight: 16 },
   dropdownField: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: '#C4B5FD', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 10, backgroundColor: '#fff' },
   dropdownTxt: { flex: 1, fontSize: 14, color: '#333', fontWeight: '500' },
   dropdownPlaceholder: { color: '#C0C0C0', fontWeight: '400' },
