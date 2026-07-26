@@ -1,6 +1,7 @@
 const express     = require('express');
 const multer      = require('multer');
-const { createReport, getAllReports } = require('../controllers/Reportcontroller');
+const { createReport, getAllReports, updateReportStatus } = require('../controllers/Reportcontroller');
+const requireRole = require('../middleware/requireRole');
 
 const router = express.Router();
 
@@ -31,7 +32,10 @@ const optionalAuth = (req, _res, next) => {
 // POST /reports — submit a report (auth optional, works for guests too)
 router.post('/', optionalAuth, upload.array('evidence', 3), createReport);
 
-// GET /reports — view all reports (no auth guard for now, add requireRole later if needed)
-router.get('/', getAllReports);
+// GET /reports — admin-only moderation queue
+router.get('/', requireRole('ADMIN'), getAllReports);
+
+// PATCH /reports/:id — admin updates status: Pending → Reviewed → Resolved
+router.patch('/:id', requireRole('ADMIN'), updateReportStatus);
 
 module.exports = router;

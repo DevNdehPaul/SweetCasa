@@ -1,1 +1,1 @@
-export { useColorScheme } from './use-color-scheme';
+export { useResolvedTheme as useColorScheme } from '@/contexts/theme-preference';

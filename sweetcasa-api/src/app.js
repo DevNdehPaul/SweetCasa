@@ -8,6 +8,8 @@ const reportRoutes       = require('./routes/Reportroutes')
 const messageRoutes      = require('./routes/message.routes')
 const casaMatchRoute     = require('./routes/casaMatch')
 const casamatchChatRoute = require('./routes/casamatchChat')   // ← NEW
+const adminRoutes        = require('./routes/admin.routes')    // ← NEW (admin dashboard)
+const documentRoutes     = require('./routes/document.routes') // ← NEW (Document Vault review queue)
 const { ensureDatabaseCompatibility } = require('./lib/db-compat')
 const { getPrisma }      = require('./lib/prisma')
 
@@ -19,10 +21,12 @@ app.use(cors({ origin: '*' }))
 //    multer can parse multipart/form-data requests (listings upload).
 //    Apply JSON parsing only to routes that need it.
 app.use('/auth',                      express.json(), authRoutes)
-app.use('/reports',                   reportRoutes)
+app.use('/reports',                   express.json(), reportRoutes)
 app.use('/messages/conversations',    messageRoutes)
 app.use('/api/casa-match',            express.json(), casaMatchRoute)
-app.use('/api/casamatch-chat',        casamatchChatRoute)   // ← NEW (handles its own body parsing)
+app.use('/api/casamatch-chat',        casamatchChatRoute)   // ← NEW
+app.use('/admin',                     express.json(), adminRoutes)     // ← NEW
+app.use('/documents',                 express.json(), documentRoutes) // ← NEW (handles its own body parsing)
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 

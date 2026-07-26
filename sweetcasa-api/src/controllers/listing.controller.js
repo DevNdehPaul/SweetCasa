@@ -305,6 +305,113 @@ exports.getListings = async (req, res) => {
   }
 }
 
+// ── GET LISTINGS FOR ADMIN (any status, includes owner + document counts) ────
+exports.getAdminListings = async (req, res) => {
+  try {
+    const { status, page = '1', limit = '20' } = req.query
+
+    const where = {}
+    if (status) where.status = String(status)
+
+    const pageNum  = Math.max(1, Number.parseInt(page, 10))
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(limit, 10)))
+
+    const [listings, total] = await Promise.all([
+      getPrisma().listing.findMany({
+        where,
+        include: {
+          images: { take: 1, orderBy: { sortOrder: 'asc' } },
+          owner: { select: { id: true, name: true, companyName: true, email: true, phone: true } },
+          _count: { select: { documents: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (pageNum - 1) * pageSize,
+        take: pageSize,
+      }),
+      getPrisma().listing.count({ where }),
+    ])
+
+    res.json({
+      listings: listings.map((l) => ({ ...serializeListing(l), documentCount: l._count?.documents ?? 0 })),
+      total,
+      page: pageNum,
+      pages: Math.ceil(total / pageSize),
+    })
+  } catch (err) {
+    console.error('Get admin listings error:', err)
+    res.status(500).json({ error: 'Failed to load listings.' })
+  }
+}
+
+// ── GET SINGLE LISTING FOR ADMIN (any status, full detail incl. documents) ───
+exports.getAdminListingById = async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
+
+    const listing = await getPrisma().listing.findUnique({
+      where: { id },
+      include: {
+        images: true,
+        videos: true,
+        documents: true,
+        owner: {
+          select: { id: true, name: true, companyName: true, email: true, phone: true, nationalIdUrl: true, createdAt: true },
+        },
+      },
+    })
+
+    if (!listing) return res.status(404).json({ error: 'Listing not found.' })
+
+    res.json({ listing: serializeListing(listing) })
+  } catch (err) {
+    console.error('Get admin listing by id error:', err)
+    res.status(500).json({ error: 'Failed to load listing.' })
+  }
+}
+
+// ── APPROVE LISTING (admin) ───────────────────────────────────────────────────
+exports.approveListing = async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
+
+    const existing = await getPrisma().listing.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Listing not found.' })
+
+    const listing = await getPrisma().listing.update({
+      where: { id },
+      data: { status: 'Approved', approvedAt: new Date() },
+    })
+
+    res.json({ listing: serializeListing(listing) })
+  } catch (err) {
+    console.error('Approve listing error:', err)
+    res.status(500).json({ error: 'Failed to approve listing.' })
+  }
+}
+
+// ── REJECT LISTING (admin) ────────────────────────────────────────────────────
+exports.rejectListing = async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
+
+    const existing = await getPrisma().listing.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Listing not found.' })
+
+    const listing = await getPrisma().listing.update({
+      where: { id },
+      data: { status: 'Rejected', approvedAt: null },
+    })
+
+    res.json({ listing: serializeListing(listing) })
+  } catch (err) {
+    console.error('Reject listing error:', err)
+    res.status(500).json({ error: 'Failed to reject listing.' })
+  }
+}
+
 // ── GET LISTING BY ID ─────────────────────────────────────────────────────────
 exports.getListingById = async (req, res) => {
   try {

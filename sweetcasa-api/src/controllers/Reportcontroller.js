@@ -67,7 +67,10 @@ exports.createReport = async (req, res) => {
 exports.getAllReports = async (req, res) => {
   try {
     const prisma = getPrisma();
+    const { status } = req.query;
+    const where = status ? { status: String(status) } : {};
     const reports = await prisma.report.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       include: {
         user: {
@@ -79,5 +82,27 @@ exports.getAllReports = async (req, res) => {
   } catch (err) {
     console.error('[REPORT] getAllReports error:', err);
     return res.status(500).json({ error: 'Failed to fetch reports.' });
+  }
+};
+
+// ─── PATCH /reports/:id (admin only) — Pending → Reviewed → Resolved ──────────
+const ALLOWED_STATUSES = ['Pending', 'Reviewed', 'Resolved'];
+
+exports.updateReportStatus = async (req, res) => {
+  try {
+    const prisma = getPrisma();
+    const id = Number.parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid report ID.' });
+
+    const status = String(req.body?.status || '');
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Status must be one of: ${ALLOWED_STATUSES.join(', ')}.` });
+    }
+
+    const report = await prisma.report.update({ where: { id }, data: { status } });
+    return res.json({ report });
+  } catch (err) {
+    console.error('[REPORT] updateReportStatus error:', err);
+    return res.status(500).json({ error: 'Failed to update report.' });
   }
 };

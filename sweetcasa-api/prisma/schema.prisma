@@ -30,6 +30,7 @@ model User {
   buyerConversations  Conversation[]     @relation("BuyerConversations")
   sellerConversations Conversation[]     @relation("SellerConversations")
   sentMessages        Message[]          @relation("SentMessages")
+  documents           Document[]
 
   @@map("users")
 }
@@ -85,6 +86,7 @@ model Listing {
   videos               ListingVideo[]
   savedListings        SavedListing[]
   conversations        Conversation[]
+  documents            Document[]
 
   @@map("listings")
 }
@@ -169,6 +171,32 @@ model AiChatMessage {
   conversation    AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@map("ai_chat_messages")
+}
+
+// ─── Document Vault ────────────────────────────────────────────────────────────
+// Real, reviewable documents — replaces the loose `legalDocumentUrls` JSON field.
+// `legalDocumentUrls` is left in place on Listing for backward compatibility with
+// listings created before this table existed; new uploads should create Document rows.
+
+model Document {
+  id                 Int       @id @default(autoincrement())
+  listingId          Int?      @map("listing_id")
+  userId             Int?      @map("user_id")
+  /// 'LEGAL_DOCUMENT' | 'FLOOR_PLAN' | 'NATIONAL_ID' | 'OTHER'
+  type               String    @db.VarChar(50)
+  fileName           String?   @map("file_name") @db.VarChar(255)
+  url                String
+  cloudinaryPublicId String?   @map("cloudinary_public_id") @db.VarChar(255)
+  /// 'Pending' | 'Verified' | 'Rejected'
+  status             String    @default("Pending") @db.VarChar(30)
+  reviewedBy         Int?      @map("reviewed_by")
+  reviewNote         String?   @map("review_note")
+  reviewedAt         DateTime? @map("reviewed_at")
+  createdAt          DateTime? @default(now()) @map("created_at")
+  listing            Listing?  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  user                User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("documents")
 }
 
 // ─── Existing buyer–seller messaging ──────────────────────────────────────────

@@ -13,7 +13,8 @@
     "build": "npm install && rm -rf node_modules/.prisma && node node_modules/prisma/build/index.js generate",
     "start": "npm run build && node node_modules/prisma/build/index.js db push --accept-data-loss && node src/app.js",
     "db:check": "node checkdb.js",
-    "db:compat": "node createtables.js"
+    "db:compat": "node createtables.js",
+    "seed:admin": "node scripts/seedAdmin.js"
   },
   "keywords": [],
   "author": "",
