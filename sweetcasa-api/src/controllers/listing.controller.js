@@ -1,6 +1,8 @@
 const { getPrisma } = require('../lib/prisma')
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
 const streamifier = require('streamifier')
+const { sendMail } = require('../lib/email')
+const { logAction } = require('../lib/audit')
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value)
@@ -36,6 +38,9 @@ function serializeListing(listing) {
     price:   listing.price?.toString?.()   ?? listing.price,
     areaSqm: listing.areaSqm?.toString?.() ?? listing.areaSqm,
     agent:   listing.agent ?? null,
+    owner: listing.owner
+      ? { ...listing.owner, phone: typeof listing.owner.phone === 'bigint' ? listing.owner.phone.toString() : listing.owner.phone }
+      : listing.owner,
     videos: Array.isArray(listing.videos)
       ? listing.videos.map((video) => ({
           ...video,
@@ -370,7 +375,7 @@ exports.getAdminListingById = async (req, res) => {
   }
 }
 
-// ── APPROVE LISTING (admin) ───────────────────────────────────────────────────
+// ── APPROVE LISTING (admin/staff) ─────────────────────────────────────────────
 exports.approveListing = async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10)
@@ -381,7 +386,16 @@ exports.approveListing = async (req, res) => {
 
     const listing = await getPrisma().listing.update({
       where: { id },
-      data: { status: 'Approved', approvedAt: new Date() },
+      data: { status: 'Approved', approvedAt: new Date(), rejectionNote: null },
+    })
+
+    await logAction({
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      action: 'LISTING_APPROVED',
+      entityType: 'Listing',
+      entityId: id,
+      entityLabel: existing.title,
     })
 
     res.json({ listing: serializeListing(listing) })
@@ -391,18 +405,48 @@ exports.approveListing = async (req, res) => {
   }
 }
 
-// ── REJECT LISTING (admin) ────────────────────────────────────────────────────
+// ── REJECT LISTING (admin/staff) — requires a note, emailed to the owner ─────
 exports.rejectListing = async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10)
     if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
 
-    const existing = await getPrisma().listing.findUnique({ where: { id } })
+    const note = req.body?.note ? String(req.body.note).trim() : ''
+    if (!note) return res.status(400).json({ error: 'A rejection note is required.' })
+
+    const existing = await getPrisma().listing.findUnique({
+      where: { id },
+      include: { owner: { select: { id: true, name: true, companyName: true, email: true } } },
+    })
     if (!existing) return res.status(404).json({ error: 'Listing not found.' })
 
     const listing = await getPrisma().listing.update({
       where: { id },
-      data: { status: 'Rejected', approvedAt: null },
+      data: { status: 'Rejected', approvedAt: null, rejectionNote: note },
+    })
+
+    if (existing.owner?.email) {
+      await sendMail({
+        to: existing.owner.email,
+        subject: `Your SweetCasa listing "${existing.title}" needs changes`,
+        html: `
+          <p>Hi ${existing.owner.name || existing.owner.companyName || 'there'},</p>
+          <p>Your listing <strong>${existing.title}</strong> was reviewed and could not be approved for the following reason:</p>
+          <blockquote style="border-left:3px solid #C98A2C;margin:12px 0;padding:8px 16px;color:#333;">${note}</blockquote>
+          <p>You're welcome to edit the listing and resubmit it for review.</p>
+          <p>— The SweetCasa Team</p>
+        `,
+      })
+    }
+
+    await logAction({
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      action: 'LISTING_REJECTED',
+      entityType: 'Listing',
+      entityId: id,
+      entityLabel: existing.title,
+      metadata: { note },
     })
 
     res.json({ listing: serializeListing(listing) })

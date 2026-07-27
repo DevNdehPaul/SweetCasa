@@ -1,6 +1,7 @@
 const { getPrisma } = require('../lib/prisma');
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary');
 const streamifier = require('streamifier');
+const { logAction } = require('../lib/audit');
 
 // ─── Helper: upload a buffer to Cloudinary ────────────────────────────────────
 function uploadToCloudinary(buffer, folder) {
@@ -100,6 +101,17 @@ exports.updateReportStatus = async (req, res) => {
     }
 
     const report = await prisma.report.update({ where: { id }, data: { status } });
+
+    await logAction({
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      action: 'REPORT_STATUS_UPDATED',
+      entityType: 'Report',
+      entityId: id,
+      entityLabel: report.subject,
+      metadata: { status },
+    });
+
     return res.json({ report });
   } catch (err) {
     console.error('[REPORT] updateReportStatus error:', err);

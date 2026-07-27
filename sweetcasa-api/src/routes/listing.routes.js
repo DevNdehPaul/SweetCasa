@@ -25,8 +25,8 @@ const router = express.Router()
 router.get('/', getListings)
 
 // ── Admin — MUST be before /:id or Express matches /admin as an id ───────────
-router.get('/admin/all', requireRole('ADMIN'), getAdminListings)
-router.get('/admin/:id', requireRole('ADMIN'), getAdminListingById)
+router.get('/admin/all', requireRole('ADMIN', 'STAFF'), getAdminListings)
+router.get('/admin/:id', requireRole('ADMIN', 'STAFF'), getAdminListingById)
 
 // ── Agent only — MUST be before /:id or Express matches /mine as an id ───────
 router.get('/mine', requireRole('SELLER'), getMyListings)
@@ -47,8 +47,8 @@ router.post(
 )
 
 // ── Admin only — move a listing from Pending to Approved/Rejected ────────────
-router.patch('/:id/approve', requireRole('ADMIN'), approveListing)
-router.patch('/:id/reject',  requireRole('ADMIN'), rejectListing)
+router.patch('/:id/approve', requireRole('ADMIN', 'STAFF'), approveListing)
+router.patch('/:id/reject',  express.json(), requireRole('ADMIN', 'STAFF'), rejectListing)
 
 // ── Document Vault — owner uploads, owner/admin view ─────────────────────────
 router.get('/:id/documents', requireRole(), getDocumentsForListing)

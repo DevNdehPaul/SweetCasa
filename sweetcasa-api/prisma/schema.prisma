@@ -14,6 +14,11 @@ model User {
   password            String             @db.VarChar(255)
   phone               BigInt?
   role                String             @default("BUYER") @db.VarChar(50)
+  /// 'Active' | 'Suspended'
+  status              String             @default("Active") @db.VarChar(20)
+  suspendedAt         DateTime?          @map("suspended_at")
+  suspendedBy         Int?               @map("suspended_by")
+  suspensionReason    String?            @map("suspension_reason")
   country             String?            @db.VarChar(50)
   region              String?            @db.VarChar(50)
   city                String?            @db.VarChar(50)
@@ -80,6 +85,7 @@ model Listing {
   floorPlanUrl         String?        @map("floor_plan_url")
   legalDocumentUrls    Json?          @map("legal_document_urls")
   approvedAt           DateTime?      @map("approved_at")
+  rejectionNote        String?        @map("rejection_note")
   createdAt            DateTime?      @default(now()) @map("created_at")
   owner                User?          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   images               ListingImage[]
@@ -171,6 +177,40 @@ model AiChatMessage {
   conversation    AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@map("ai_chat_messages")
+}
+
+// ─── Staff invites (admin → staff onboarding) ─────────────────────────────────
+model StaffInvite {
+  id         Int       @id @default(autoincrement())
+  email      String    @db.VarChar(255)
+  /// role granted once accepted — currently always 'STAFF'
+  role       String    @default("STAFF") @db.VarChar(20)
+  token      String    @unique
+  /// 'Pending' | 'Accepted' | 'Revoked' | 'Expired'
+  status     String    @default("Pending") @db.VarChar(20)
+  invitedBy  Int?       @map("invited_by")
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+  createdAt  DateTime? @default(now()) @map("created_at")
+
+  @@map("staff_invites")
+}
+
+// ─── Audit log — full history of admin/staff actions in the Trust Desk ───────
+model AuditLog {
+  id          Int       @id @default(autoincrement())
+  actorId     Int?      @map("actor_id")
+  actorName   String?   @map("actor_name")
+  actorRole   String?   @map("actor_role") @db.VarChar(20)
+  /// e.g. 'LISTING_APPROVED', 'DOCUMENT_REJECTED', 'USER_SUSPENDED', 'STAFF_INVITED'
+  action      String    @db.VarChar(60)
+  entityType  String?   @map("entity_type") @db.VarChar(40)
+  entityId    Int?      @map("entity_id")
+  entityLabel String?   @map("entity_label")
+  metadata    String?
+  createdAt   DateTime? @default(now()) @map("created_at")
+
+  @@map("audit_logs")
 }
 
 // ─── Document Vault ────────────────────────────────────────────────────────────

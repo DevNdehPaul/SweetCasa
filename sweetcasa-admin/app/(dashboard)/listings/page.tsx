@@ -45,12 +45,12 @@ function ListingsPageInner() {
     <div>
       <PageHeader title="Listings" subtitle="Review new listings before they go live." />
 
-      <div className="mb-5 flex gap-1 border-b border-line">
+      <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
         {TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setTab(tab.value)}
-            className={`border-b-2 px-3 pb-2.5 text-sm font-medium transition-colors ${
+            className={`shrink-0 border-b-2 px-3 pb-2.5 text-sm font-medium transition-colors ${
               status === tab.value ? 'border-navy text-navy' : 'border-transparent text-ink/50 hover:text-ink'
             }`}
           >
@@ -71,7 +71,8 @@ function ListingsPageInner() {
 
       {listings && listings.length > 0 && (
         <div className="overflow-hidden rounded-card border border-line bg-white">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink/45">
                 <th className="px-5 py-3 font-medium">Listing</th>
@@ -124,6 +125,7 @@ function ListingsPageInner() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

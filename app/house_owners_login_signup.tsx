@@ -2,12 +2,14 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import * as WebBrowser from 'expo-web-browser';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -26,8 +28,108 @@ const GOOGLE_EMAIL_SIGNUP_URL =
   'https://accounts.google.com/signup/v2/webcreateaccount?flowName=GlifWebSignIn&flowEntry=SignUp';
 const YAHOO_EMAIL_SIGNUP_URL = 'https://login.yahoo.com/account/create';
 
+// ─── Cross-platform Alert ─────────────────────────────────────────────────────
+// Alert.alert is a no-op on React Native Web — it just logs to console and
+// returns, showing nothing to the user. crossAlert() falls back to Alert.alert
+// on native, and to a real Modal dialog (via WebAlertHost below) on web.
+type CrossAlertButton = {
+  text: string;
+  onPress?: () => void;
+  style?: 'default' | 'cancel' | 'destructive';
+};
+
+type WebAlertState = {
+  visible: boolean;
+  title: string;
+  message: string;
+  buttons: CrossAlertButton[];
+};
+
+let _setWebAlertState: ((s: WebAlertState) => void) | null = null;
+
+function crossAlert(
+  title: string,
+  message?: string,
+  buttons: CrossAlertButton[] = [{ text: 'OK' }]
+) {
+  if (Platform.OS !== 'web') {
+    Alert.alert(title, message, buttons as any);
+    return;
+  }
+  if (_setWebAlertState) {
+    _setWebAlertState({ visible: true, title, message: message ?? '', buttons });
+  } else {
+    // Extremely defensive fallback in case the host hasn't mounted yet.
+    window.alert(message ? `${title}\n\n${message}` : title);
+  }
+}
+
+// Mount once near the root of the screen. Renders nothing on native.
+function WebAlertHost() {
+  const [state, setState] = useState<WebAlertState>({
+    visible: false,
+    title: '',
+    message: '',
+    buttons: [],
+  });
+
+  useEffect(() => {
+    _setWebAlertState = setState;
+    return () => {
+      _setWebAlertState = null;
+    };
+  }, []);
+
+  if (Platform.OS !== 'web') return null;
+
+  const handlePress = (btn?: CrossAlertButton) => {
+    setState(s => ({ ...s, visible: false }));
+    btn?.onPress?.();
+  };
+
+  return (
+    <Modal
+      visible={state.visible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => handlePress()}
+    >
+      <View style={webAlertStyles.backdrop}>
+        <View style={webAlertStyles.card}>
+          <Text style={webAlertStyles.title}>{state.title}</Text>
+          {!!state.message && <Text style={webAlertStyles.message}>{state.message}</Text>}
+          <View style={webAlertStyles.btnRow}>
+            {state.buttons.map((b, i) => (
+              <TouchableOpacity
+                key={`${b.text}-${i}`}
+                onPress={() => handlePress(b)}
+                style={[
+                  webAlertStyles.btn,
+                  b.style === 'cancel' && webAlertStyles.btnCancel,
+                  b.style === 'destructive' && webAlertStyles.btnDestructive,
+                ]}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    webAlertStyles.btnTxt,
+                    b.style === 'cancel' && webAlertStyles.btnTxtCancel,
+                    b.style === 'destructive' && webAlertStyles.btnTxtDestructive,
+                  ]}
+                >
+                  {b.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 async function openEmailSignupOptions() {
-  Alert.alert('Create an email', 'Choose a provider to continue in your browser.', [
+  crossAlert('Create an email', 'Choose a provider to continue in your browser.', [
     {
       text: 'Google',
       onPress: () => WebBrowser.openBrowserAsync(GOOGLE_EMAIL_SIGNUP_URL),
@@ -127,7 +229,7 @@ function NationalIdUpload({
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow access to your photo library to upload your ID.');
+      crossAlert('Permission Required', 'Please allow access to your photo library to upload your ID.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -149,7 +251,7 @@ function NationalIdUpload({
   const handlePickCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow camera access to take a photo of your ID.');
+      crossAlert('Permission Required', 'Please allow camera access to take a photo of your ID.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -184,7 +286,7 @@ function NationalIdUpload({
   };
 
   const showPicker = () => {
-    Alert.alert(
+    crossAlert(
       'Upload National ID',
       'Choose how you would like to upload your identity document.',
       [
@@ -255,7 +357,7 @@ function LoginTab({ email, setEmail, password, setPassword }: {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing Fields', 'Please enter your email and password.');
+      crossAlert('Missing Fields', 'Please enter your email and password.');
       return;
     }
     setLoading(true);
@@ -270,7 +372,7 @@ function LoginTab({ email, setEmail, password, setPassword }: {
       router.replace(routeForRole(role) as any);
     } catch (err: any) {
       const message = err.response?.data?.error || 'Login failed. Please check your credentials.';
-      Alert.alert('Login Failed', message);
+      crossAlert('Login Failed', message);
     } finally {
       setLoading(false);
     }
@@ -386,7 +488,7 @@ function SignupTab({
   const handleSignup = async () => {
     if (!termsAccepted) {
       clearSensitiveRegistrationState();
-      Alert.alert(
+      crossAlert(
         'Agreement Required',
         'You must read and accept the Terms & Privacy Policy before creating an account.',
         [
@@ -403,17 +505,17 @@ function SignupTab({
       !form.password.trim()
     ) {
       clearSensitiveRegistrationState();
-      Alert.alert('Missing Fields', 'Please fill in your full name, company name, email, and password.');
+      crossAlert('Missing Fields', 'Please fill in your full name, company name, email, and password.');
       return;
     }
     if (form.password !== form.confirmPassword) {
       clearSensitiveRegistrationState();
-      Alert.alert('Password Mismatch', 'The passwords you entered do not match. Please try again.');
+      crossAlert('Password Mismatch', 'The passwords you entered do not match. Please try again.');
       return;
     }
     if (!nationalIdFile) {
       clearSensitiveRegistrationState();
-      Alert.alert('Missing Fields', 'Please upload your national ID to verify your identity.');
+      crossAlert('Missing Fields', 'Please upload your national ID to verify your identity.');
       return;
     }
 
@@ -450,7 +552,7 @@ function SignupTab({
     } catch (err: any) {
       clearSensitiveRegistrationState();
       const message = err.response?.data?.error || 'Registration failed. Please try again.';
-      Alert.alert('Sign Up Failed', message);
+      crossAlert('Sign Up Failed', message);
     } finally {
       setLoading(false);
     }
@@ -687,6 +789,7 @@ export default function HouseOwnersLoginSignup() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F7F7FB" />
+      <WebAlertHost />
       <View style={{ height: 16 }} />
       <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
         <Feather name="arrow-left" size={22} color="#111827" />
@@ -732,6 +835,38 @@ export default function HouseOwnersLoginSignup() {
     </SafeAreaView>
   );
 }
+
+// ─── Web Alert Modal Styles ───────────────────────────────────────────────────
+const webAlertStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 24, 39, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  title: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 8 },
+  message: { fontSize: 13.5, color: '#4B5563', lineHeight: 20, marginBottom: 18 },
+  btnRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' },
+  btn: { paddingVertical: 9, paddingHorizontal: 16, borderRadius: 10, backgroundColor: '#6D28D9' },
+  btnCancel: { backgroundColor: '#F3F4F6' },
+  btnDestructive: { backgroundColor: '#DC2626' },
+  btnTxt: { fontSize: 13.5, fontWeight: '700', color: '#fff' },
+  btnTxtCancel: { color: '#374151' },
+  btnTxtDestructive: { color: '#fff' },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({

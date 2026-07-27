@@ -9,6 +9,7 @@ import type { AdminProfile } from './types'
 interface AuthContextValue {
   admin: AdminProfile | null
   loading: boolean
+  isAdmin: boolean
   login: (email: string, password: string) => Promise<void>
   logout: () => void
 }
@@ -40,8 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await api.post('/auth/login', { email, password })
       const { token, role, profile } = res.data
 
-      if (role !== 'ADMIN') {
-        throw new Error('This portal is for SweetCasa administrators only.')
+      if (role !== 'ADMIN' && role !== 'STAFF') {
+        throw new Error('This portal is for SweetCasa administrators and staff only.')
       }
 
       Cookies.set('sc_admin_token', token)
@@ -68,7 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login')
   }
 
-  return <AuthContext.Provider value={{ admin, loading, login, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ admin, loading, isAdmin: admin?.role === 'ADMIN', login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

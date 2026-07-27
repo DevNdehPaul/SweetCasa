@@ -5,9 +5,9 @@ import { Inbox, Loader2 } from 'lucide-react'
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: ReactNode }) {
   return (
-    <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 className="font-display text-[28px] leading-tight text-ink">{title}</h1>
+        <h1 className="font-display text-2xl leading-tight text-ink sm:text-[28px]">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-ink/60">{subtitle}</p>}
       </div>
       {action}
@@ -103,7 +103,7 @@ function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-sm rounded-card bg-white p-6 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-card bg-white p-6 shadow-xl">
         <h2 className="font-display text-xl text-ink">{title}</h2>
         <p className="mt-2 text-sm text-ink/60">{description}</p>
         <div className="mt-6 flex justify-end gap-2">

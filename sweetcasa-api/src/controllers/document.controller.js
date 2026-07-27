@@ -1,6 +1,8 @@
 const { getPrisma } = require('../lib/prisma')
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
 const streamifier = require('streamifier')
+const { sendMail } = require('../lib/email')
+const { logAction } = require('../lib/audit')
 
 const ALLOWED_TYPES = ['LEGAL_DOCUMENT', 'FLOOR_PLAN', 'NATIONAL_ID', 'OTHER']
 
@@ -129,15 +131,27 @@ exports.adminListDocuments = async (req, res) => {
   }
 }
 
-// ── PATCH /documents/:id/verify — admin approves a document ──
+// ── PATCH /documents/:id/verify — admin/staff approves a document ────────────
 exports.verifyDocument = async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10)
     if (!id) return res.status(400).json({ error: 'Invalid document ID.' })
 
+    const existing = await getPrisma().document.findUnique({ where: { id } })
+    if (!existing) return res.status(404).json({ error: 'Document not found.' })
+
     const doc = await getPrisma().document.update({
       where: { id },
       data: { status: 'Verified', reviewedBy: req.user.id, reviewedAt: new Date(), reviewNote: null },
+    })
+
+    await logAction({
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      action: 'DOCUMENT_VERIFIED',
+      entityType: 'Document',
+      entityId: id,
+      entityLabel: existing.fileName || existing.type,
     })
 
     res.json({ document: serializeDocument(doc) })
@@ -147,20 +161,52 @@ exports.verifyDocument = async (req, res) => {
   }
 }
 
-// ── PATCH /documents/:id/reject — admin rejects a document, optional note ──
+// ── PATCH /documents/:id/reject — admin/staff rejects, requires a note, emailed to uploader ──
 exports.rejectDocument = async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10)
     if (!id) return res.status(400).json({ error: 'Invalid document ID.' })
 
+    const note = req.body?.note ? String(req.body.note).trim() : ''
+    if (!note) return res.status(400).json({ error: 'A rejection note is required.' })
+
+    const existing = await getPrisma().document.findUnique({
+      where: { id },
+      include: {
+        user: { select: { id: true, name: true, companyName: true, email: true } },
+        listing: { select: { id: true, title: true } },
+      },
+    })
+    if (!existing) return res.status(404).json({ error: 'Document not found.' })
+
     const doc = await getPrisma().document.update({
       where: { id },
-      data: {
-        status: 'Rejected',
-        reviewedBy: req.user.id,
-        reviewedAt: new Date(),
-        reviewNote: req.body?.note ? String(req.body.note).trim() : null,
-      },
+      data: { status: 'Rejected', reviewedBy: req.user.id, reviewedAt: new Date(), reviewNote: note },
+    })
+
+    if (existing.user?.email) {
+      const docLabel = existing.type.replace('_', ' ').toLowerCase()
+      await sendMail({
+        to: existing.user.email,
+        subject: `A document you uploaded to SweetCasa was rejected`,
+        html: `
+          <p>Hi ${existing.user.name || existing.user.companyName || 'there'},</p>
+          <p>Your ${docLabel}${existing.listing ? ` for listing <strong>${existing.listing.title}</strong>` : ''} was reviewed and rejected for the following reason:</p>
+          <blockquote style="border-left:3px solid #C98A2C;margin:12px 0;padding:8px 16px;color:#333;">${note}</blockquote>
+          <p>Please upload a corrected document.</p>
+          <p>— The SweetCasa Team</p>
+        `,
+      })
+    }
+
+    await logAction({
+      actorId: req.user.id,
+      actorRole: req.user.role,
+      action: 'DOCUMENT_REJECTED',
+      entityType: 'Document',
+      entityId: id,
+      entityLabel: existing.fileName || existing.type,
+      metadata: { note },
     })
 
     res.json({ document: serializeDocument(doc) })

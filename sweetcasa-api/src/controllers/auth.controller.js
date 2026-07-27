@@ -50,6 +50,7 @@ function toProfile(user) {
     email:          user.email,
     phone:          String(user.phone ?? ''),
     role:           user.role,
+    status:         user.status,
     country:        user.country        || '',
     region:         user.region         || '',
     city:           user.city           || '',
@@ -198,6 +199,12 @@ exports.login = async (req, res) => {
 
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) return res.status(401).json({ error: 'Invalid credentials.' })
+
+    if (user.status === 'Suspended') {
+      return res.status(403).json({
+        error: 'This account has been suspended. Contact SweetCasa support if you believe this is a mistake.',
+      })
+    }
 
     if (expectedRole && user.role !== normalizeRole(expectedRole)) {
       return res.status(403).json({

@@ -33,9 +33,9 @@ const optionalAuth = (req, _res, next) => {
 router.post('/', optionalAuth, upload.array('evidence', 3), createReport);
 
 // GET /reports — admin-only moderation queue
-router.get('/', requireRole('ADMIN'), getAllReports);
+router.get('/', requireRole('ADMIN', 'STAFF'), getAllReports);
 
 // PATCH /reports/:id — admin updates status: Pending → Reviewed → Resolved
-router.patch('/:id', requireRole('ADMIN'), updateReportStatus);
+router.patch('/:id', requireRole('ADMIN', 'STAFF'), updateReportStatus);
 
 module.exports = router;

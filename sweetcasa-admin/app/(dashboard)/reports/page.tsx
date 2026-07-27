@@ -72,12 +72,12 @@ function ReportsPageInner() {
 
       <PageHeader title="Reports" subtitle="Abuse and fraud reports submitted by users." />
 
-      <div className="mb-5 flex gap-1 border-b border-line">
+      <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
         {TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => router.push(`/reports?status=${tab.value}`)}
-            className={`border-b-2 px-3 pb-2.5 text-sm font-medium transition-colors ${
+            className={`shrink-0 border-b-2 px-3 pb-2.5 text-sm font-medium transition-colors ${
               status === tab.value ? 'border-navy text-navy' : 'border-transparent text-ink/50 hover:text-ink'
             }`}
           >
@@ -97,24 +97,24 @@ function ReportsPageInner() {
         <div className="space-y-3">
           {reports.map((report) => (
             <div key={report.id} className="rounded-card border border-line bg-white p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 items-start gap-3">
                   <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-danger/10 text-danger">
                     <Flag size={15} />
                   </div>
-                  <div>
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-ink">{report.subject}</span>
                       <span className="rounded-full bg-paper px-2 py-0.5 text-xs text-ink/50">{report.category}</span>
                     </div>
-                    <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink/65">{report.description}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-ink/65">{report.description}</p>
                     <div className="mt-2 text-xs text-ink/45">
                       {report.user ? `${report.user.name || report.user.email} (${report.user.role})` : 'Anonymous report'}
                       {report.createdAt && ` · ${new Date(report.createdAt).toLocaleDateString()}`}
                       {report.followUp && ' · Follow-up requested'}
                     </div>
                     {report.evidenceUrls && report.evidenceUrls.length > 0 && (
-                      <div className="mt-3 flex gap-2">
+                      <div className="mt-3 flex flex-wrap gap-2">
                         {report.evidenceUrls.map((url, i) => (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img

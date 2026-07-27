@@ -3,8 +3,13 @@ const STYLES: Record<string, string> = {
   Approved: 'bg-success/10 text-success border-success/30',
   Verified: 'bg-success/10 text-success border-success/30',
   Resolved: 'bg-success/10 text-success border-success/30',
+  Active: 'bg-success/10 text-success border-success/30',
   Rejected: 'bg-danger/10 text-danger border-danger/30',
+  Suspended: 'bg-danger/10 text-danger border-danger/30',
+  Revoked: 'bg-danger/10 text-danger border-danger/30',
+  Expired: 'bg-line/40 text-ink/50 border-line',
   Reviewed: 'bg-navy/10 text-navy border-navy/30',
+  Accepted: 'bg-success/10 text-success border-success/30',
 }
 
 export default function StatusBadge({ status }: { status: string }) {

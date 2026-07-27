@@ -1,7 +1,9 @@
 export type ListingStatus = 'Pending' | 'Approved' | 'Rejected'
 export type DocumentStatus = 'Pending' | 'Verified' | 'Rejected'
 export type ReportStatus = 'Pending' | 'Reviewed' | 'Resolved'
-export type UserRole = 'BUYER' | 'SELLER' | 'ADMIN'
+export type UserRole = 'BUYER' | 'SELLER' | 'ADMIN' | 'STAFF'
+export type UserStatus = 'Active' | 'Suspended'
+export type InviteStatus = 'Pending' | 'Accepted' | 'Revoked' | 'Expired'
 
 export interface ListingImage {
   id: number
@@ -57,6 +59,7 @@ export interface Listing {
   floorPlanUrl: string | null
   legalDocumentUrls: string[] | null
   approvedAt: string | null
+  rejectionNote: string | null
   createdAt: string | null
   images: ListingImage[]
   videos: ListingVideo[]
@@ -78,6 +81,15 @@ export interface Report {
   user: { id: number; name: string | null; email: string; role: UserRole } | null
 }
 
+export interface AdminUserListingSummary {
+  id: number
+  title: string
+  status: ListingStatus
+  price: string
+  city: string
+  createdAt: string | null
+}
+
 export interface AdminUser {
   id: number
   name: string | null
@@ -85,6 +97,9 @@ export interface AdminUser {
   email: string
   phone: string | null
   role: UserRole
+  status: UserStatus
+  suspendedAt: string | null
+  suspensionReason: string | null
   country: string | null
   region: string | null
   city: string | null
@@ -92,13 +107,39 @@ export interface AdminUser {
   idVerified: boolean
   listingCount: number
   createdAt: string | null
+  listings?: AdminUserListingSummary[]
+}
+
+export interface AuditLogEntry {
+  id: number
+  actorId: number | null
+  actorName: string | null
+  actorRole: UserRole | null
+  action: string
+  entityType: string | null
+  entityId: number | null
+  entityLabel: string | null
+  metadata: Record<string, unknown> | null
+  createdAt: string | null
+}
+
+export interface StaffInvite {
+  id: number
+  email: string
+  role: UserRole
+  status: InviteStatus
+  invitedBy: number | null
+  expiresAt: string
+  acceptedAt: string | null
+  createdAt: string | null
 }
 
 export interface Stats {
   listings: { pending: number; approved: number; rejected: number }
   documents: { pending: number }
   reports: { pending: number }
-  users: { total: number; sellers: number; buyers: number }
+  users: { total: number; sellers: number; buyers: number; suspended: number }
+  invites: { pending: number }
 }
 
 export interface AdminProfile {

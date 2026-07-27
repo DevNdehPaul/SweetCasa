@@ -7,6 +7,7 @@ import api, { apiErrorMessage } from '@/lib/api'
 import type { Listing } from '@/lib/types'
 import { CenteredSpinner, ErrorBanner, useConfirm } from '@/components/ui'
 import StatusBadge from '@/components/StatusBadge'
+import RejectionModal from '@/components/RejectionModal'
 
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -17,6 +18,8 @@ export default function ListingDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [rejectDocId, setRejectDocId] = useState<number | null>(null)
 
   const load = useCallback(() => {
     api
@@ -42,16 +45,14 @@ export default function ListingDetailPage() {
     }
   }
 
-  async function reject() {
-    setBusy(true)
+  async function reject(note: string) {
     setActionError(null)
     try {
-      await api.patch(`/listings/${id}/reject`)
+      await api.patch(`/listings/${id}/reject`, { note })
+      setShowRejectModal(false)
       load()
     } catch (err) {
-      setActionError(apiErrorMessage(err, 'Could not reject this listing.'))
-    } finally {
-      setBusy(false)
+      throw new Error(apiErrorMessage(err, 'Could not reject this listing.'))
     }
   }
 
@@ -64,12 +65,14 @@ export default function ListingDetailPage() {
     }
   }
 
-  async function rejectDoc(docId: number) {
+  async function rejectDoc(note: string) {
+    if (!rejectDocId) return
     try {
-      await api.patch(`/documents/${docId}/reject`)
+      await api.patch(`/documents/${rejectDocId}/reject`, { note })
+      setRejectDocId(null)
       load()
     } catch (err) {
-      setActionError(apiErrorMessage(err, 'Could not reject this document.'))
+      throw new Error(apiErrorMessage(err, 'Could not reject this document.'))
     }
   }
 
@@ -79,6 +82,22 @@ export default function ListingDetailPage() {
   return (
     <div>
       {dialog}
+      {showRejectModal && (
+        <RejectionModal
+          title="Reject this listing"
+          description={`${listing.title} — the owner will receive your note by email and can edit and resubmit.`}
+          onCancel={() => setShowRejectModal(false)}
+          onSubmit={reject}
+        />
+      )}
+      {rejectDocId !== null && (
+        <RejectionModal
+          title="Reject this document"
+          description="The uploader will receive your note by email and can re-upload a corrected version."
+          onCancel={() => setRejectDocId(null)}
+          onSubmit={rejectDoc}
+        />
+      )}
       <button
         onClick={() => router.push('/listings')}
         className="mb-5 flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
@@ -106,21 +125,18 @@ export default function ListingDetailPage() {
             </span>
             <span className="font-mono">{Number(listing.price).toLocaleString()} FCFA</span>
           </div>
+          {listing.status === 'Rejected' && listing.rejectionNote && (
+            <p className="mt-2 max-w-xl rounded-lg border border-danger/20 bg-danger/5 px-3 py-2 text-sm text-danger">
+              <span className="font-medium">Rejection note sent to owner:</span> {listing.rejectionNote}
+            </p>
+          )}
         </div>
 
         {listing.status === 'Pending' && (
           <div className="flex gap-2">
             <button
               disabled={busy}
-              onClick={() =>
-                confirm({
-                  title: 'Reject this listing?',
-                  description: 'The owner will need to edit and resubmit it. This cannot be undone from here.',
-                  confirmLabel: 'Reject listing',
-                  tone: 'danger',
-                  onConfirm: reject,
-                })
-              }
+              onClick={() => setShowRejectModal(true)}
               className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/5 disabled:opacity-50"
             >
               <X size={15} /> Reject
@@ -186,11 +202,11 @@ export default function ListingDetailPage() {
                 {listing.documents.map((doc) => (
                   <div
                     key={doc.id}
-                    className="flex items-center justify-between rounded-lg border border-line bg-paper/60 px-3 py-2.5"
+                    className="flex flex-col gap-2 rounded-lg border border-line bg-paper/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="flex min-w-0 items-center gap-3">
                       <FileText size={16} className="shrink-0 text-ink/40" />
-                      <div className="overflow-hidden">
+                      <div className="min-w-0 overflow-hidden">
                         <a
                           href={doc.url}
                           target="_blank"
@@ -202,12 +218,12 @@ export default function ListingDetailPage() {
                         <span className="text-xs text-ink/45">{doc.type.replace('_', ' ')}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
                       <StatusBadge status={doc.status} />
                       {doc.status === 'Pending' && (
                         <>
                           <button
-                            onClick={() => rejectDoc(doc.id)}
+                            onClick={() => setRejectDocId(doc.id)}
                             className="rounded-md p-1.5 text-danger hover:bg-danger/10"
                             title="Reject document"
                           >
