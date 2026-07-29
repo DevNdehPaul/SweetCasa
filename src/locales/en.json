@@ -228,6 +228,20 @@
     "videoRequiredDesc": "Please add a video walkthrough of the property.",
     "legalRequired": "Legal documents required",
     "legalRequiredDesc": "Please upload at least one legal document (proof of ownership).",
+    "setExactLocation": "📍 Set exact location",
+    "locationSet": "Location set",
+    "setLocation": "Set exact location",
+    "searchLocation": "Search for an address or place…",
+    "confirmLocation": "Confirm location",
+    "locationRequired": "Location required",
+    "locationRequiredDesc": "Please set the property's exact location on the map.",
+    "locationPermissionTitle": "Location permission needed",
+    "locationPermissionDesc": "Enable location access to auto-fill your property's position, or set it manually on the map.",
+    "nearbyPlacesHeading": "Nearby places",
+    "nearbyPlacesAutoDesc": "We found these places near your pin. Uncheck any that aren't accurate.",
+    "noNearbyFound": "No nearby places detected — you can add them manually below.",
+    "addMissingPlace": "+ Add a place Google missed",
+    "placeName": "Place name",
     "nearbyPlaces": "Nearby Place Names",
     "nearbyPlacesDesc": "Name the specific places nearby so tenants know exactly what's around.",
     "nearbySchool": "Nearby School",
@@ -583,6 +597,18 @@
     "main": "Main",
     "yearlyPeriod": "/ Year",
     "monthlyPeriod": "/ Month"
+  },
+
+  "neighborhoodMap": {
+    "title": "Neighborhood",
+    "directions": "Directions",
+    "loadingFacilities": "Loading nearby places…",
+    "noFacilities": "No nearby places to show yet.",
+    "loadFailed": "Could not load the neighborhood map.",
+    "locationPermissionTitle": "Location permission needed",
+    "locationPermissionDesc": "Enable location access so we can give you directions from where you are.",
+    "mapsUnavailable": "Could not open a maps app on this device.",
+    "house": "This property"
   },
 
   "searchResults": {

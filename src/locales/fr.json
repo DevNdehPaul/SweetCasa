@@ -229,6 +229,20 @@
     "videoRequiredDesc": "Veuillez ajouter une visite vidéo du bien.",
     "legalRequired": "Documents légaux requis",
     "legalRequiredDesc": "Veuillez télécharger au moins un document légal (preuve de propriété).",
+    "setExactLocation": "📍 Définir l'emplacement exact",
+    "locationSet": "Emplacement défini",
+    "setLocation": "Définir l'emplacement exact",
+    "searchLocation": "Rechercher une adresse ou un lieu…",
+    "confirmLocation": "Confirmer l'emplacement",
+    "locationRequired": "Emplacement requis",
+    "locationRequiredDesc": "Veuillez définir l'emplacement exact du bien sur la carte.",
+    "locationPermissionTitle": "Autorisation de localisation requise",
+    "locationPermissionDesc": "Activez l'accès à la position pour préremplir l'emplacement de votre bien, ou définissez-le manuellement sur la carte.",
+    "nearbyPlacesHeading": "Lieux à proximité",
+    "nearbyPlacesAutoDesc": "Nous avons trouvé ces lieux près de votre repère. Décochez ceux qui ne sont pas exacts.",
+    "noNearbyFound": "Aucun lieu à proximité détecté — vous pouvez en ajouter manuellement ci-dessous.",
+    "addMissingPlace": "+ Ajouter un lieu manqué par Google",
+    "placeName": "Nom du lieu",
     "nearbyPlaces": "Noms des lieux à proximité",
     "nearbyPlacesDesc": "Nommez les lieux spécifiques à proximité pour que les locataires sachent exactement ce qui est autour.",
     "nearbySchool": "École à proximité",
@@ -583,6 +597,18 @@
     "main": "Principal",
     "yearlyPeriod": "/ An",
     "monthlyPeriod": "/ Mois"
+  },
+
+  "neighborhoodMap": {
+    "title": "Quartier",
+    "directions": "Itinéraire",
+    "loadingFacilities": "Chargement des lieux à proximité…",
+    "noFacilities": "Aucun lieu à proximité pour l'instant.",
+    "loadFailed": "Impossible de charger la carte du quartier.",
+    "locationPermissionTitle": "Autorisation de localisation requise",
+    "locationPermissionDesc": "Activez l'accès à la position pour obtenir un itinéraire depuis votre emplacement.",
+    "mapsUnavailable": "Impossible d'ouvrir une application de cartes sur cet appareil.",
+    "house": "Ce bien"
   },
 
   "searchResults": {

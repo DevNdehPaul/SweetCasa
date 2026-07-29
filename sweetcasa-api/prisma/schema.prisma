@@ -82,6 +82,10 @@ model Listing {
   nearbyRestaurantName String?        @map("nearby_restaurant_name") @db.VarChar(150)
   nearbyMarketName     String?        @map("nearby_market_name") @db.VarChar(150)
   nearbyClinicName     String?        @map("nearby_clinic_name") @db.VarChar(150)
+  latitude             Float?
+  longitude            Float?
+  nearbyFacilitiesCache      Json?     @map("nearby_facilities_cache")
+  nearbyFacilitiesFetchedAt  DateTime? @map("nearby_facilities_fetched_at")
   floorPlanUrl         String?        @map("floor_plan_url")
   legalDocumentUrls    Json?          @map("legal_document_urls")
   approvedAt           DateTime?      @map("approved_at")
@@ -93,6 +97,7 @@ model Listing {
   savedListings        SavedListing[]
   conversations        Conversation[]
   documents            Document[]
+  nearbyFacilities     NearbyFacility[]
 
   @@map("listings")
 }
@@ -211,6 +216,22 @@ model AuditLog {
   createdAt   DateTime? @default(now()) @map("created_at")
 
   @@map("audit_logs")
+}
+
+// ─── Nearby facilities (Google-detected + owner-added manually) ──────────────
+model NearbyFacility {
+  id        Int       @id @default(autoincrement())
+  listingId Int       @map("listing_id")
+  listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  name      String
+  category  String    @db.VarChar(50)
+  latitude  Float?
+  longitude Float?
+  /// 'google' | 'manual'
+  source    String    @default("manual") @db.VarChar(20)
+  createdAt DateTime? @default(now()) @map("created_at")
+
+  @@map("nearby_facilities")
 }
 
 // ─── Document Vault ────────────────────────────────────────────────────────────

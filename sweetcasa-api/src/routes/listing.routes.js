@@ -12,6 +12,10 @@ const {
   deleteListing,
   editListing,
   submitListingReview,
+  previewNearby,
+  placesAutocomplete,
+  getPlaceDetails,
+  getNearbyFacilitiesForListing,
 } = require('../controllers/listing.controller')
 const { uploadDocument, getDocumentsForListing } = require('../controllers/document.controller')
 const requireRole = require('../middleware/requireRole')
@@ -31,8 +35,15 @@ router.get('/admin/:id', requireRole('ADMIN', 'STAFF'), getAdminListingById)
 // ── Agent only — MUST be before /:id or Express matches /mine as an id ───────
 router.get('/mine', requireRole('SELLER'), getMyListings)
 
+// ── Neighborhood map feature — any authenticated user (owner is mid-listing-
+// creation here; the key never reaches the client, see lib/googlePlaces.js) ──
+router.get('/preview-nearby',       requireRole(), previewNearby)
+router.get('/places-autocomplete',  requireRole(), placesAutocomplete)
+router.get('/places-details',       requireRole(), getPlaceDetails)
+
 // ── Public dynamic routes — always after named routes ─────────────────────────
 router.get('/:id/video', getListingVideo)
+router.get('/:id/nearby-facilities', getNearbyFacilitiesForListing)
 router.get('/:id', getListingById)
 router.post(
   '/',

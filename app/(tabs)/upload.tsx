@@ -1,5 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -16,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import MapPickerModal from '../../components/MapPickerModal';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
@@ -45,18 +47,6 @@ const FACILITY_IDS = [
   'Bank', 'Restaurant', 'Market', 'Clinic',
 ];
 
-const NEARBY_FACILITY_FIELDS: {
-  facility: string;
-  key: keyof NearbyNames;
-  placeholderKey: string;
-}[] = [
-  { facility: 'Nearby School', key: 'nearbySchoolName',    placeholderKey: 'listing.nearbySchool'     },
-  { facility: 'Bank',          key: 'nearbyBankName',       placeholderKey: 'listing.nearbyBank'       },
-  { facility: 'Restaurant',    key: 'nearbyRestaurantName', placeholderKey: 'listing.nearbyRestaurant' },
-  { facility: 'Market',        key: 'nearbyMarketName',     placeholderKey: 'listing.nearbyMarket'     },
-  { facility: 'Clinic',        key: 'nearbyClinicName',     placeholderKey: 'listing.nearbyClinic'     },
-];
-
 const PAYMENT_FREQ_IDS = ['Monthly', 'Yearly', 'For Sale'] as const;
 const PAYMENT_FREQ_KEYS: Record<string, string> = {
   Monthly:    'listing.monthly',
@@ -72,12 +62,17 @@ type SelectedMedia = {
   fileName?: string | null;
 };
 
-type NearbyNames = {
-  nearbySchoolName: string;
-  nearbyBankName: string;
-  nearbyRestaurantName: string;
-  nearbyMarketName: string;
-  nearbyClinicName: string;
+type AutoFacility = {
+  name: string;
+  category: string;
+  latitude: number;
+  longitude: number;
+  selected: boolean;
+};
+
+type ManualFacility = {
+  name: string;
+  category: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -93,6 +88,14 @@ function inferMimeType(uri: string, fallback: string) {
   if (ext === 'pdf') return 'application/pdf';
   if (['doc', 'docx'].includes(ext)) return 'application/msword';
   return fallback;
+}
+
+function groupByCategory(items: AutoFacility[]): Record<string, AutoFacility[]> {
+  return items.reduce<Record<string, AutoFacility[]>>((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  }, {});
 }
 
 async function uploadListing(formData: FormData): Promise<any> {
@@ -207,6 +210,7 @@ const ReviewModal = ({ visible, onClose }: { visible: boolean; onClose: () => vo
     </Modal>
   );
 };
+
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -388,10 +392,20 @@ export default function NewListing() {
   const [kitchens, setKitchens]     = useState(1);
   const [area, setArea]             = useState('');
   const [amenities, setAmenities]   = useState<string[]>(['Wifi', 'Electricity']);
-  const [nearbyNames, setNearbyNames] = useState<NearbyNames>({
-    nearbySchoolName: '', nearbyBankName: '', nearbyRestaurantName: '',
-    nearbyMarketName: '', nearbyClinicName: '',
-  });
+
+  // ── Location (Part 1) ──
+  const [latitude, setLatitude]     = useState<number | null>(null);
+  const [longitude, setLongitude]   = useState<number | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+
+  // ── Nearby facilities: auto-detected + manual (Part 3) ──
+  const [autoFacilities, setAutoFacilities]     = useState<AutoFacility[]>([]);
+  const [manualFacilities, setManualFacilities] = useState<ManualFacility[]>([]);
+  const [loadingNearby, setLoadingNearby]       = useState(false);
+  const [showAddFacilityForm, setShowAddFacilityForm] = useState(false);
+  const [newFacilityName, setNewFacilityName]         = useState('');
+  const [newFacilityCategory, setNewFacilityCategory] = useState(FACILITY_IDS[0]);
+
   const [description, setDescription] = useState('');
   const [visitHours, setVisitHours] = useState('');
   const [photoFiles, setPhotoFiles] = useState<SelectedMedia[]>([]);
@@ -404,8 +418,70 @@ export default function NewListing() {
   const toggle = (arr: string[], setArr: (v: string[]) => void, val: string) =>
     setArr(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
 
-  const updateNearby = (key: keyof NearbyNames, val: string) =>
-    setNearbyNames((prev) => ({ ...prev, [key]: val }));
+  // ── Fetch Google-detected nearby facilities once a location is set ──
+  const fetchNearbyFacilities = async (lat: number, lng: number) => {
+    setLoadingNearby(true);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const res = await fetch(`${BASE_URL}/listings/preview-nearby?lat=${lat}&lng=${lng}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAutoFacilities(
+          (data.facilities || []).map((f: any) => ({
+            name: f.name,
+            category: f.category,
+            latitude: f.latitude,
+            longitude: f.longitude,
+            selected: true,
+          }))
+        );
+      }
+    } catch {
+      // Auto-detection is a convenience, not required — fail silently.
+    } finally {
+      setLoadingNearby(false);
+    }
+  };
+
+  // ── GPS pre-fill, then open the map picker for fine-tuning ──
+  const handleUseCurrentLocation = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(t('listing.locationPermissionTitle'), t('listing.locationPermissionDesc'));
+      setShowMapPicker(true); // owner can still drop the pin manually
+      return;
+    }
+    try {
+      const pos = await Location.getCurrentPositionAsync({});
+      setLatitude(pos.coords.latitude);
+      setLongitude(pos.coords.longitude);
+    } catch {
+      // GPS fix failed — owner falls through to the manual map picker below.
+    }
+    setShowMapPicker(true);
+  };
+
+  const handleConfirmLocation = (lat: number, lng: number) => {
+    setLatitude(lat);
+    setLongitude(lng);
+    setShowMapPicker(false);
+    fetchNearbyFacilities(lat, lng);
+  };
+
+  const toggleAutoFacility = (target: AutoFacility) => {
+    setAutoFacilities((prev) =>
+      prev.map((f) => (f === target ? { ...f, selected: !f.selected } : f))
+    );
+  };
+
+  const addManualFacility = () => {
+    if (!newFacilityName.trim()) return;
+    setManualFacilities((prev) => [...prev, { name: newFacilityName.trim(), category: newFacilityCategory }]);
+    setNewFacilityName('');
+    setShowAddFacilityForm(false);
+  };
 
   const formatPrice = (val: string) => {
     const num = val.replace(/[^0-9]/g, '');
@@ -418,10 +494,9 @@ export default function NewListing() {
     setPayFreq('Monthly'); setBedrooms(2); setBathrooms(1);
     setToilets(2); setParlors(1); setKitchens(1); setArea('');
     setAmenities(['Wifi', 'Electricity']);
-    setNearbyNames({
-      nearbySchoolName: '', nearbyBankName: '', nearbyRestaurantName: '',
-      nearbyMarketName: '', nearbyClinicName: '',
-    });
+    setLatitude(null); setLongitude(null);
+    setAutoFacilities([]); setManualFacilities([]);
+    setShowAddFacilityForm(false); setNewFacilityName('');
     setDescription(''); setVisitHours('');
     setPhotoFiles([]); setVideoFiles([]); setFloorPlans([]); setLegalDocs([]);
   };
@@ -441,6 +516,10 @@ export default function NewListing() {
     }
     if (!legalDocs.length) {
       Alert.alert(t('listing.legalRequired'), t('listing.legalRequiredDesc'));
+      return;
+    }
+    if (latitude == null || longitude == null) {
+      Alert.alert(t('listing.locationRequired'), t('listing.locationRequiredDesc'));
       return;
     }
 
@@ -466,16 +545,15 @@ export default function NewListing() {
       formData.append('visitHours',       visitHours.trim());
       formData.append('facilities',       JSON.stringify(amenities));
 
-      if (nearbyNames.nearbySchoolName.trim())
-        formData.append('nearbySchoolName', nearbyNames.nearbySchoolName.trim());
-      if (nearbyNames.nearbyBankName.trim())
-        formData.append('nearbyBankName', nearbyNames.nearbyBankName.trim());
-      if (nearbyNames.nearbyRestaurantName.trim())
-        formData.append('nearbyRestaurantName', nearbyNames.nearbyRestaurantName.trim());
-      if (nearbyNames.nearbyMarketName.trim())
-        formData.append('nearbyMarketName', nearbyNames.nearbyMarketName.trim());
-      if (nearbyNames.nearbyClinicName.trim())
-        formData.append('nearbyClinicName', nearbyNames.nearbyClinicName.trim());
+      formData.append('latitude',  String(latitude));
+      formData.append('longitude', String(longitude));
+      formData.append('nearbyFacilities', JSON.stringify([
+        ...autoFacilities.filter((f) => f.selected).map((f) => ({
+          name: f.name, category: f.category,
+          latitude: f.latitude, longitude: f.longitude, source: 'google',
+        })),
+        ...manualFacilities.map((f) => ({ ...f, source: 'manual' })),
+      ]));
 
       photoFiles.forEach((photo, i) => {
         formData.append('photos', {
@@ -552,6 +630,13 @@ export default function NewListing() {
   return (
     <SafeAreaView style={s.safe}>
       <ReviewModal visible={showReviewModal} onClose={handleReviewClose} />
+      <MapPickerModal
+        visible={showMapPicker}
+        initialLatitude={latitude}
+        initialLongitude={longitude}
+        onConfirm={handleConfirmLocation}
+        onClose={() => setShowMapPicker(false)}
+      />
 
       {/* ── Header ── */}
       <View style={s.header}>
@@ -593,6 +678,19 @@ export default function NewListing() {
           <Text style={s.label}>{t('listing.neighborhood')}</Text>
           <TextInput style={s.input} placeholderTextColor={TEXT_LIGHT}
             placeholder="e.g. Bastos" value={neighborhood} onChangeText={setNeighborhood} />
+
+          {latitude != null && longitude != null ? (
+            <View style={s.locationSetRow}>
+              <Text style={s.locationSetTxt}>📍 {t('listing.locationSet')}</Text>
+              <TouchableOpacity onPress={() => setShowMapPicker(true)}>
+                <Text style={s.locationEditTxt}>{t('common.edit')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={s.locationBtn} onPress={handleUseCurrentLocation}>
+              <Text style={s.locationBtnTxt}>{t('listing.setExactLocation')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* 3. Pricing */}
@@ -646,31 +744,81 @@ export default function NewListing() {
             ))}
           </View>
 
-          {NEARBY_FACILITY_FIELDS.some((nf) => amenities.includes(nf.facility)) && (
+          {latitude != null && longitude != null && (
             <View style={s.nearbySection}>
               <Text style={s.nearbyHeading}>
-                {t('listing.nearbyPlaces')} <Text style={s.optional}>— {t('common.optional')}</Text>
+                {t('listing.nearbyPlacesHeading')} <Text style={s.optional}>— {t('common.optional')}</Text>
               </Text>
-              <Text style={s.nearbySubtext}>{t('listing.nearbyPlacesDesc')}</Text>
+              <Text style={s.nearbySubtext}>{t('listing.nearbyPlacesAutoDesc')}</Text>
 
-              {NEARBY_FACILITY_FIELDS.map((nf) => {
-                if (!amenities.includes(nf.facility)) return null;
-                return (
-                  <View key={nf.key} style={s.nearbyRow}>
-                    <View style={s.nearbyLabelRow}>
-                      <Text style={s.nearbyDot}>●</Text>
-                      <Text style={s.nearbyLabel}>{nf.facility}</Text>
+              {loadingNearby && <Text style={s.hint}>{t('common.loading')}</Text>}
+
+              {!loadingNearby && autoFacilities.length === 0 && manualFacilities.length === 0 && (
+                <Text style={s.hint}>{t('listing.noNearbyFound')}</Text>
+              )}
+
+              {Object.entries(groupByCategory(autoFacilities)).map(([category, items]) => (
+                <View key={category} style={s.nearbyCategoryGroup}>
+                  <Text style={s.nearbyCategoryTitle}>{category}</Text>
+                  {items.map((facility) => (
+                    <TouchableOpacity
+                      key={`${facility.name}-${facility.latitude}-${facility.longitude}`}
+                      style={s.facilityCheckRow}
+                      onPress={() => toggleAutoFacility(facility)}>
+                      <Text style={s.facilityCheckBox}>{facility.selected ? '☑' : '☐'}</Text>
+                      <Text style={s.facilityCheckLabel} numberOfLines={1}>{facility.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+
+              {manualFacilities.length > 0 && (
+                <View style={s.docFileList}>
+                  {manualFacilities.map((facility, index) => (
+                    <View key={`${facility.name}-${index}`} style={s.docFileRow}>
+                      <Text style={s.docFileName} numberOfLines={1}>
+                        📍 {facility.name} · {facility.category}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => setManualFacilities((prev) => prev.filter((_, i) => i !== index))}>
+                        <Text style={s.docRemove}>✕</Text>
+                      </TouchableOpacity>
                     </View>
-                    <TextInput
-                      style={s.nearbyInput}
-                      placeholderTextColor={TEXT_LIGHT}
-                      placeholder={t(nf.placeholderKey)}
-                      value={nearbyNames[nf.key]}
-                      onChangeText={(val) => updateNearby(nf.key, val)}
-                    />
+                  ))}
+                </View>
+              )}
+
+              {!showAddFacilityForm ? (
+                <TouchableOpacity style={s.docUploadBtn} onPress={() => setShowAddFacilityForm(true)}>
+                  <Text style={s.docUploadTxt}>{t('listing.addMissingPlace')}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={s.addFacilityForm}>
+                  <TextInput
+                    style={s.nearbyInput}
+                    placeholderTextColor={TEXT_LIGHT}
+                    placeholder={t('listing.placeName')}
+                    value={newFacilityName}
+                    onChangeText={setNewFacilityName}
+                  />
+                  <View style={s.chipRow}>
+                    {FACILITY_IDS.map((cat) => (
+                      <Chip key={cat} label={cat} selected={newFacilityCategory === cat}
+                        color={GREEN} onPress={() => setNewFacilityCategory(cat)} />
+                    ))}
                   </View>
-                );
-              })}
+                  <View style={s.addFacilityActions}>
+                    <TouchableOpacity
+                      style={s.draftBtn}
+                      onPress={() => { setShowAddFacilityForm(false); setNewFacilityName(''); }}>
+                      <Text style={s.draftBtnTxt}>{t('common.cancel')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.postBtn} onPress={addManualFacility}>
+                      <Text style={s.postBtnTxt}>{t('common.add')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -918,4 +1066,43 @@ const s = StyleSheet.create({
   modalSubmitTxt: { color: '#fff', fontWeight: '700', fontSize: 15 },
   modalSkipBtn: { alignItems: 'center', padding: 8 },
   modalSkipTxt: { color: TEXT_LIGHT, fontSize: 13 },
+
+  // ── Location capture (Part 1) ──
+  locationBtn: {
+    marginTop: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: PURPLE,
+    borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: PURPLE_LIGHT,
+  },
+  locationBtnTxt: { color: PURPLE, fontWeight: '700', fontSize: 13 },
+  locationSetRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 14, backgroundColor: GREEN_LIGHT, borderRadius: 10, padding: 12,
+  },
+  locationSetTxt: { color: GREEN, fontWeight: '700', fontSize: 13 },
+  locationEditTxt: { color: PURPLE, fontWeight: '700', fontSize: 13 },
+
+  // ── Map picker modal ──
+  mapSearchWrap: { paddingHorizontal: 16, paddingTop: 12, position: 'relative', zIndex: 10 },
+  mapPredictionsBox: {
+    position: 'absolute', top: 68, left: 16, right: 16, backgroundColor: '#fff',
+    borderRadius: 10, borderWidth: 1, borderColor: GRAY_BORDER, maxHeight: 220,
+    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 6, zIndex: 20,
+  },
+  mapPredictionRow: { padding: 12, borderBottomWidth: 1, borderBottomColor: GRAY_BORDER },
+  mapPredictionTxt: { fontSize: 13, color: TEXT_DARK },
+  mapView: { flex: 1, marginTop: 12 },
+  mapBottomBar: { flexDirection: 'row', gap: 12, margin: 16 },
+
+  // ── Nearby facilities checklist (Part 3) ──
+  nearbyCategoryGroup: { marginBottom: 10 },
+  nearbyCategoryTitle: {
+    fontSize: 11, fontWeight: '700', color: TEXT_MID, marginBottom: 6, textTransform: 'capitalize',
+  },
+  facilityCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5 },
+  facilityCheckBox: { fontSize: 15, color: GREEN, width: 18 },
+  facilityCheckLabel: { fontSize: 13, color: TEXT_DARK, flex: 1 },
+  addFacilityForm: {
+    marginTop: 10, backgroundColor: '#fff', borderRadius: 10,
+    borderWidth: 1, borderColor: GRAY_BORDER, padding: 10,
+  },
+  addFacilityActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
 });

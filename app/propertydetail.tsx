@@ -861,7 +861,8 @@ export default function PropertyDetailScreen() {
                   <View style={styles.sectionDot} />
                   <Text style={styles.sectionTitle}>{t('propertyDetail.neighborhood')}</Text>
                 </View>
-                <TouchableOpacity onPress={() => router.push('/neighborhoodmap' as any)}>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/neighborhoodmap', params: { listingId: String(listing.id) } } as any)}>
                   <Text style={styles.linkTxt}>{t('propertyDetail.viewMap')}</Text>
                 </TouchableOpacity>
               </View>

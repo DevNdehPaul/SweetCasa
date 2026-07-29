@@ -1,6 +1,7 @@
 const { getPrisma } = require('../lib/prisma')
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
 const streamifier = require('streamifier')
+const googlePlaces = require('../lib/googlePlaces')
 const { sendMail } = require('../lib/email')
 const { logAction } = require('../lib/audit')
 
@@ -18,6 +19,28 @@ function parseOptionalDecimal(value) {
 function normalizeString(value) {
   const normalized = String(value || '').trim()
   return normalized || null
+}
+
+// Parses the `nearbyFacilities` JSON field sent from the listing-creation screen:
+// [{ name, category, latitude?, longitude?, source: 'google' | 'manual' }, ...]
+function parseNearbyFacilities(value) {
+  if (!value) return []
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((f) => f && typeof f.name === 'string' && f.name.trim())
+      .slice(0, 100) // sanity cap
+      .map((f) => ({
+        name: String(f.name).trim(),
+        category: String(f.category || 'Other').trim(),
+        latitude: Number.isFinite(Number(f.latitude)) ? Number(f.latitude) : null,
+        longitude: Number.isFinite(Number(f.longitude)) ? Number(f.longitude) : null,
+        source: f.source === 'google' ? 'google' : 'manual',
+      }))
+  } catch {
+    return []
+  }
 }
 
 function parseJsonArray(value) {
@@ -142,11 +165,21 @@ exports.createListing = async (req, res) => {
       visitHours, facilities,
       nearbySchoolName, nearbyBankName, nearbyRestaurantName,
       nearbyMarketName, nearbyClinicName,
+      latitude, longitude, nearbyFacilities,
     } = req.body
 
     if (!title || !price || !type || !country || !city || !region || !description) {
       return res.status(400).json({ error: 'Please fill in the required listing fields.' })
     }
+
+    const parsedLatitude  = parseOptionalDecimal(latitude)
+    const parsedLongitude = parseOptionalDecimal(longitude)
+    if (parsedLatitude === null || parsedLongitude === null) {
+      return res.status(400).json({ error: "Please set the property's exact location on the map." })
+    }
+
+    const nearbyFacilitiesInput = parseNearbyFacilities(nearbyFacilities)
+    const googleFacilities = nearbyFacilitiesInput.filter((f) => f.source === 'google')
 
     const filesByField = groupFilesByField(req.files || [])
     const photoFiles = filesByField.photos || []
@@ -209,9 +242,24 @@ exports.createListing = async (req, res) => {
         nearbyRestaurantName: normalizeString(nearbyRestaurantName),
         nearbyMarketName: normalizeString(nearbyMarketName),
         nearbyClinicName: normalizeString(nearbyClinicName),
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
+        nearbyFacilitiesCache: googleFacilities.length ? googleFacilities : undefined,
+        nearbyFacilitiesFetchedAt: googleFacilities.length ? new Date() : undefined,
         floorPlanUrl: uploadedFloorPlan?.url || null,
         legalDocumentUrls: uploadedLegalDocuments,
         images: { create: uploadedPhotos },
+        nearbyFacilities: nearbyFacilitiesInput.length
+          ? {
+              create: nearbyFacilitiesInput.map((f) => ({
+                name: f.name,
+                category: f.category,
+                latitude: f.latitude,
+                longitude: f.longitude,
+                source: f.source,
+              })),
+            }
+          : undefined,
         videos: uploadedVideo
           ? {
               create: {
@@ -224,13 +272,116 @@ exports.createListing = async (req, res) => {
             }
           : undefined,
       },
-      include: { images: true, videos: true },
+      include: { images: true, videos: true, nearbyFacilities: true },
     })
 
     res.status(201).json({ listing: serializeListing(listing) })
   } catch (err) {
     console.error('Create listing error:', err)
     res.status(500).json({ error: err.message || 'Failed to create listing.' })
+  }
+}
+
+// ── GET /listings/preview-nearby?lat=&lng= — used while the owner is still
+// creating the listing, before it has an id. Not persisted here. (Part 5.3) ──
+exports.previewNearby = async (req, res) => {
+  try {
+    const lat = parseOptionalDecimal(req.query.lat)
+    const lng = parseOptionalDecimal(req.query.lng)
+    if (lat === null || lng === null) {
+      return res.status(400).json({ error: 'lat and lng query params are required.' })
+    }
+    const facilities = await googlePlaces.nearbySearch(lat, lng)
+    res.json({ facilities })
+  } catch (err) {
+    console.error('Preview nearby error:', err)
+    res.status(500).json({ error: err.message || 'Failed to load nearby facilities.' })
+  }
+}
+
+// ── GET /listings/places-autocomplete?input=&lat=&lng= — proxy so the Google
+// API key never reaches the client (same rule the spec set for nearby search) ──
+exports.placesAutocomplete = async (req, res) => {
+  try {
+    const input = String(req.query.input || '').trim()
+    if (!input) return res.json({ predictions: [] })
+    const lat = parseOptionalDecimal(req.query.lat)
+    const lng = parseOptionalDecimal(req.query.lng)
+    const predictions = await googlePlaces.autocomplete(input, lat, lng)
+    res.json({ predictions })
+  } catch (err) {
+    console.error('Places autocomplete error:', err)
+    res.status(500).json({ error: err.message || 'Autocomplete failed.' })
+  }
+}
+
+// ── GET /listings/places-details?placeId= — resolves a prediction to lat/lng ──
+exports.getPlaceDetails = async (req, res) => {
+  try {
+    const placeId = String(req.query.placeId || '').trim()
+    if (!placeId) return res.status(400).json({ error: 'placeId is required.' })
+    const place = await googlePlaces.placeDetails(placeId)
+    res.json({ place })
+  } catch (err) {
+    console.error('Place details error:', err)
+    res.status(500).json({ error: err.message || 'Failed to load place details.' })
+  }
+}
+
+// ── GET /listings/:id/nearby-facilities — cached Google results (refreshed if
+// older than 60 days) merged with the listing's saved NearbyFacility rows,
+// i.e. Google-detected ones the owner kept + anything they added manually. (Part 5.5) ──
+exports.getNearbyFacilitiesForListing = async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!id) return res.status(400).json({ error: 'Invalid listing ID.' })
+
+    const listing = await getPrisma().listing.findUnique({
+      where: { id },
+      include: { nearbyFacilities: true },
+    })
+    if (!listing) return res.status(404).json({ error: 'Listing not found.' })
+
+    const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000
+    const cacheAgeMs = listing.nearbyFacilitiesFetchedAt
+      ? Date.now() - new Date(listing.nearbyFacilitiesFetchedAt).getTime()
+      : Infinity
+
+    let googleResults = Array.isArray(listing.nearbyFacilitiesCache) ? listing.nearbyFacilitiesCache : []
+
+    if (listing.latitude !== null && listing.longitude !== null && cacheAgeMs > SIXTY_DAYS_MS) {
+      try {
+        const fresh = await googlePlaces.nearbySearch(listing.latitude, listing.longitude)
+        googleResults = fresh
+        await getPrisma().listing.update({
+          where: { id },
+          data: { nearbyFacilitiesCache: fresh, nearbyFacilitiesFetchedAt: new Date() },
+        })
+      } catch (err) {
+        // Refresh failed (e.g. quota, network) — serve the stale cache rather than erroring out.
+        console.error('[nearby-facilities] cache refresh failed, serving stale cache:', err.message)
+      }
+    }
+
+    const manualAndSaved = listing.nearbyFacilities.map((f) => ({
+      id: f.id,
+      name: f.name,
+      category: f.category,
+      latitude: f.latitude,
+      longitude: f.longitude,
+      source: f.source,
+    }))
+
+    res.json({
+      listing: { id: listing.id, title: listing.title, latitude: listing.latitude, longitude: listing.longitude },
+      facilities: [
+        ...googleResults.map((g) => ({ ...g, source: 'google' })),
+        ...manualAndSaved,
+      ],
+    })
+  } catch (err) {
+    console.error('Get nearby facilities error:', err)
+    res.status(500).json({ error: 'Failed to load nearby facilities.' })
   }
 }
 
