@@ -16,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Callout, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import NeighborhoodMapView from '../components/NeighborhoodMapView';
 
 import { BASE_URL } from '../constants/api';
 
@@ -192,45 +192,13 @@ export default function NeighborhoodMap() {
 
       {!loading && !error && houseCoord && (
         <>
-          <MapView
-            provider={PROVIDER_DEFAULT}
-            style={s.map}
-            initialRegion={{
-              latitude: houseCoord.latitude,
-              longitude: houseCoord.longitude,
-              latitudeDelta: 0.015,
-              longitudeDelta: 0.015,
-            }}>
-            <Marker coordinate={houseCoord} pinColor={PURPLE}>
-              <Callout>
-                <View style={s.calloutBox}>
-                  <Text style={s.calloutTitle} numberOfLines={2}>{houseTitle || t('neighborhoodMap.house')}</Text>
-                  <Text style={s.calloutSub}>{t('neighborhoodMap.house')}</Text>
-                </View>
-              </Callout>
-            </Marker>
-
-            {facilities.map((facility, index) => {
-              const { color } = styleForCategory(facility.category);
-              const km = distanceKm(
-                houseCoord.latitude, houseCoord.longitude,
-                facility.latitude as number, facility.longitude as number
-              );
-              return (
-                <Marker
-                  key={facility.id ?? `${facility.source}-${facility.name}-${index}`}
-                  coordinate={{ latitude: facility.latitude as number, longitude: facility.longitude as number }}
-                  pinColor={color}>
-                  <Callout>
-                    <View style={s.calloutBox}>
-                      <Text style={s.calloutTitle} numberOfLines={2}>{facility.name}</Text>
-                      <Text style={s.calloutSub}>{facility.category} · {formatDistance(km)}</Text>
-                    </View>
-                  </Callout>
-                </Marker>
-              );
-            })}
-          </MapView>
+          <View style={{ flex: 1 }}>
+  <NeighborhoodMapView
+    houseCoord={houseCoord}
+    houseTitle={houseTitle}
+    facilities={facilities}
+  />
+</View>
 
           {facilities.length === 0 && (
             <View style={s.noticeBar}>
