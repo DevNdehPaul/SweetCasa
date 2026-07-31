@@ -184,8 +184,8 @@ exports.suspendUser = async (req, res) => {
 
     const target = await getPrisma().user.findUnique({ where: { id } })
     if (!target) return res.status(404).json({ error: 'User not found.' })
-    if (target.role === 'ADMIN' || target.role === 'STAFF') {
-      return res.status(403).json({ error: 'Admin and staff accounts cannot be suspended here.' })
+    if (target.role === 'ADMIN') {
+      return res.status(403).json({ error: 'Admin accounts cannot be suspended.' })
     }
 
     const reason = req.body?.reason ? String(req.body.reason).trim() : null

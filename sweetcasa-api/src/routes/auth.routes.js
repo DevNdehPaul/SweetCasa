@@ -63,6 +63,11 @@ router.put(
 
 router.post('/logout', requireRole(), logout)
 
+// Lightweight endpoint for clients to verify their session is still valid —
+// requireRole() already checks live account status, so reaching this handler
+// means the token is good and the account isn't suspended.
+router.get('/session', requireRole(), (req, res) => res.json({ ok: true, role: req.user.role }))
+
 // ─── Role-scoped test routes ───────────────────────────────────────────────────
 router.get('/buyer-only',  requireRole('BUYER'),  (_req, res) => res.json({ ok: true, role: 'BUYER' }))
 router.get('/seller-only', requireRole('SELLER'), (_req, res) => res.json({ ok: true, role: 'SELLER' }))

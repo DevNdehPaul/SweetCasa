@@ -7,6 +7,7 @@ import api, { apiErrorMessage } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import type { AdminUser, UserRole } from '@/lib/types'
 import { BadgeAlert, BadgeCheck, Search, ShieldCheck, ShieldOff } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 
@@ -50,10 +51,6 @@ function UsersPageInner() {
 
   function labelFor(u: AdminUser) {
     return u.companyName || u.name || u.email
-  }
-
-  function goToUser(u: AdminUser) {
-    router.push(`/users/${u.id}`)
   }
 
   async function reactivate(u: AdminUser) {
@@ -138,15 +135,13 @@ function UsersPageInner() {
             </thead>
             <tbody>
               {users.map((u) => {
-                const suspendable = u.role !== 'ADMIN' && u.role !== 'STAFF'
+                const suspendable = u.role !== 'ADMIN'
                 return (
-                  <tr
-                    key={u.id}
-                    onClick={() => goToUser(u)}
-                    className="cursor-pointer border-b border-line last:border-0 hover:bg-paper/60"
-                  >
+                  <tr key={u.id} className="border-b border-line last:border-0">
                     <td className="px-5 py-3">
-                      <span className="font-mono text-xs text-navy hover:underline">#{u.id}</span>
+                      <Link href={`/users/${u.id}`} className="font-mono text-xs text-navy hover:underline">
+                        #{u.id}
+                      </Link>
                     </td>
                     <td className="px-5 py-3 font-medium text-ink">{u.companyName || u.name || '—'}</td>
                     <td className="px-5 py-3 text-ink/65">{u.email}</td>
@@ -171,7 +166,7 @@ function UsersPageInner() {
                     </td>
                     <td className="px-5 py-3 text-ink/50">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
                     {isAdmin && (
-                      <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-5 py-3">
                         {!suspendable ? (
                           <span className="text-xs text-ink/30">—</span>
                         ) : u.status === 'Suspended' ? (

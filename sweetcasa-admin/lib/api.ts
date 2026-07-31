@@ -17,10 +17,17 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (typeof window !== 'undefined' && error.response?.status === 401) {
-      Cookies.remove('sc_admin_token')
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+    if (typeof window !== 'undefined') {
+      const status = error.response?.status
+      const code = error.response?.data?.code
+
+      if (status === 401 || (status === 403 && (code === 'ACCOUNT_SUSPENDED' || code === 'ACCOUNT_NOT_FOUND'))) {
+        Cookies.remove('sc_admin_token')
+        window.localStorage.removeItem('sc_admin_profile')
+        if (window.location.pathname !== '/login') {
+          const suffix = code === 'ACCOUNT_SUSPENDED' ? '?suspended=1' : ''
+          window.location.href = `/login${suffix}`
+        }
       }
     }
     return Promise.reject(error)

@@ -834,8 +834,24 @@
     "section3": "3 · Pricing",
     "section4": "4 · Property Details",
     "section5": "5 · Facilities & Amenities",
+    "sectionMedia": "Photos, Floor Plan & Documents",
     "section6": "6 · Description *",
-    "section7": "7 · Availability"
+    "section7": "7 · Availability",
+    "statusPendingTitle": "Under review",
+    "statusPendingDesc": "Your listing is pending review by our team.",
+    "statusApprovedTitle": "Live on SweetCasa",
+    "statusRejectedTitle": "This listing was rejected",
+    "currentPhotos": "Current photos",
+    "addNewPhotos": "Add new photos",
+    "photosReplaceNote": "Uploading new photos will replace all current photos when you save.",
+    "currentFloorPlan": "Current floor plan",
+    "replaceFloorPlan": "Replace floor plan",
+    "currentLegalDocs": "Current legal documents",
+    "replaceLegalDocs": "Replace legal documents",
+    "legalDocsReplaceNote": "Uploading new documents will replace all current legal documents when you save.",
+    "fileUploaded": "File uploaded",
+    "filesCount": "{{count}} file(s) uploaded",
+    "noFileYet": "No file uploaded yet"
   },
 
   "propTypes": {

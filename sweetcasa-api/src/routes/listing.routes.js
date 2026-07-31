@@ -71,9 +71,10 @@ router.patch(
   '/:id',
   requireRole('SELLER'),
   upload.fields([
-    { name: 'photos',    maxCount: 15 },
-    { name: 'video',     maxCount: 1  },
-    { name: 'floorPlan', maxCount: 1  },
+    { name: 'photos',         maxCount: 15 },
+    { name: 'video',          maxCount: 1  },
+    { name: 'floorPlan',      maxCount: 1  },
+    { name: 'legalDocuments', maxCount: 10 },
   ]),
   editListing
 )

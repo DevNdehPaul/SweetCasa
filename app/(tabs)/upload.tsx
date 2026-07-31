@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapPickerModal from '../../components/MapPickerModal';
+import MapView, { Marker, Region } from 'react-native-maps';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
@@ -211,6 +211,139 @@ const ReviewModal = ({ visible, onClose }: { visible: boolean; onClose: () => vo
   );
 };
 
+// ─── Map Picker Modal ─────────────────────────────────────────────────────────
+
+const DEFAULT_MAP_REGION = { latitude: 4.0511, longitude: 9.7679 }; // Douala fallback
+
+const MapPickerModal = ({
+  visible, initialLatitude, initialLongitude, onConfirm, onClose,
+}: {
+  visible: boolean;
+  initialLatitude: number | null;
+  initialLongitude: number | null;
+  onConfirm: (lat: number, lng: number) => void;
+  onClose: () => void;
+}) => {
+  const { t } = useTranslation();
+  const mapRef = useRef<MapView>(null);
+
+  const startLat = initialLatitude ?? DEFAULT_MAP_REGION.latitude;
+  const startLng = initialLongitude ?? DEFAULT_MAP_REGION.longitude;
+
+  const [region, setRegion] = useState<Region>({
+    latitude: startLat, longitude: startLng,
+    latitudeDelta: 0.01, longitudeDelta: 0.01,
+  });
+  const [markerCoord, setMarkerCoord] = useState({ latitude: startLat, longitude: startLng });
+  const [query, setQuery] = useState('');
+  const [predictions, setPredictions] = useState<{ description: string; placeId: string }[]>([]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const lat = initialLatitude ?? DEFAULT_MAP_REGION.latitude;
+    const lng = initialLongitude ?? DEFAULT_MAP_REGION.longitude;
+    setMarkerCoord({ latitude: lat, longitude: lng });
+    setRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+    setQuery('');
+    setPredictions([]);
+  }, [visible, initialLatitude, initialLongitude]);
+
+  const handleSearchChange = async (text: string) => {
+    setQuery(text);
+    if (text.trim().length < 3) { setPredictions([]); return; }
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const params = new URLSearchParams({
+        input: text.trim(),
+        lat: String(markerCoord.latitude),
+        lng: String(markerCoord.longitude),
+      });
+      const res = await fetch(`${BASE_URL}/listings/places-autocomplete?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (res.ok) setPredictions(data.predictions || []);
+    } catch {
+      // Autocomplete is a convenience — fail silently, the map/GPS still work.
+    }
+  };
+
+  const handleSelectPrediction = async (placeId: string) => {
+    setPredictions([]);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const res = await fetch(`${BASE_URL}/listings/places-details?placeId=${placeId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (res.ok && data.place?.latitude != null && data.place?.longitude != null) {
+        const { latitude, longitude } = data.place;
+        const nextRegion = { latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
+        setMarkerCoord({ latitude, longitude });
+        setRegion(nextRegion);
+        mapRef.current?.animateToRegion(nextRegion, 400);
+        setQuery(data.place.formattedAddress || data.place.name || query);
+      }
+    } catch {
+      Alert.alert(t('common.error'), t('listing.setLocation'));
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={s.safe}>
+        <View style={s.header}>
+          <Text style={s.headerTitle}>{t('listing.setLocation')}</Text>
+        </View>
+
+        <View style={s.mapSearchWrap}>
+          <TextInput
+            style={s.input}
+            placeholder={t('listing.searchLocation')}
+            placeholderTextColor={TEXT_LIGHT}
+            value={query}
+            onChangeText={handleSearchChange}
+          />
+          {predictions.length > 0 && (
+            <View style={s.mapPredictionsBox}>
+              {predictions.map((p) => (
+                <TouchableOpacity
+                  key={p.placeId}
+                  style={s.mapPredictionRow}
+                  onPress={() => handleSelectPrediction(p.placeId)}>
+                  <Text style={s.mapPredictionTxt} numberOfLines={2}>{p.description}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <MapView
+          ref={mapRef}
+          style={s.mapView}
+          initialRegion={region}
+          onRegionChangeComplete={setRegion}>
+          <Marker
+            coordinate={markerCoord}
+            draggable
+            onDragEnd={(e) => setMarkerCoord(e.nativeEvent.coordinate)}
+          />
+        </MapView>
+
+        <View style={s.mapBottomBar}>
+          <TouchableOpacity style={s.draftBtn} onPress={onClose}>
+            <Text style={s.draftBtnTxt}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={s.postBtn}
+            onPress={() => onConfirm(markerCoord.latitude, markerCoord.longitude)}>
+            <Text style={s.postBtnTxt}>{t('listing.confirmLocation')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

@@ -1,5 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -49,6 +51,7 @@ interface Listing {
   region: string;
   neighborhood: string | null;
   status: Status;
+  rejectionNote: string | null;
   paymentFrequency: string | null;
   description: string | null;
   bedrooms: number | null;
@@ -65,6 +68,25 @@ interface Listing {
   nearbyMarketName: string | null;
   nearbyClinicName: string | null;
   images: ListingImage[];
+  floorPlanUrl: string | null;
+  legalDocumentUrls: string[] | null;
+}
+
+type SelectedMedia = {
+  uri: string;
+  mimeType?: string | null;
+  fileName?: string | null;
+};
+
+function inferMimeType(uri: string, fallback: string) {
+  const ext = uri.split('.').pop()?.toLowerCase();
+  if (!ext) return fallback;
+  if (['jpg', 'jpeg'].includes(ext)) return 'image/jpeg';
+  if (ext === 'png') return 'image/png';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'pdf') return 'application/pdf';
+  if (['doc', 'docx'].includes(ext)) return 'application/msword';
+  return fallback;
 }
 
 const STATUS_CONFIG: Record<Status, { bg: string; color: string; icon: string }> = {
@@ -244,6 +266,115 @@ function DeleteModal({
   );
 }
 
+const MediaUploadBox = ({
+  label, files, setFiles, max,
+}: {
+  label: string;
+  files: SelectedMedia[];
+  setFiles: React.Dispatch<React.SetStateAction<SelectedMedia[]>>;
+  max?: number;
+}) => {
+  const { t } = useTranslation();
+
+  const handleAdd = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(t('report.permissionNeeded'), t('report.permissionDesc'));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: max !== 1,
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      const newAssets = result.assets.map((a) => ({ uri: a.uri, mimeType: a.mimeType, fileName: a.fileName }));
+      const remaining = max !== undefined ? Math.max(0, max - files.length) : newAssets.length;
+      setFiles((prev) => [...prev, ...newAssets.slice(0, remaining)]);
+    }
+  };
+
+  const canAddMore = max === undefined || files.length < max;
+
+  return (
+    <View style={s.mediaSection}>
+      <Text style={s.fieldLabel}>{label}</Text>
+      <View style={s.mediaRow}>
+        {files.map((file) => (
+          <View key={file.uri} style={s.previewWrap}>
+            <Image source={{ uri: file.uri }} style={s.previewImage} />
+            <TouchableOpacity
+              onPress={() => setFiles((prev) => prev.filter((f) => f.uri !== file.uri))}
+              style={s.removePreviewBtn}>
+              <Text style={s.removePreviewTxt}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+        {canAddMore && (
+          <TouchableOpacity onPress={handleAdd} style={s.uploadBtn}>
+            <Text style={s.uploadPlus}>+</Text>
+            <Text style={s.uploadLabel}>{t('listing.add')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const DocumentUploadBox = ({
+  label, files, setFiles, max,
+}: {
+  label: string;
+  files: SelectedMedia[];
+  setFiles: React.Dispatch<React.SetStateAction<SelectedMedia[]>>;
+  max?: number;
+}) => {
+  const { t } = useTranslation();
+
+  const handleAdd = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: [
+        'image/*',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      ],
+      multiple: max !== 1,
+      copyToCacheDirectory: true,
+    });
+    if (!result.canceled && result.assets) {
+      const newFiles = result.assets.map((a: DocumentPicker.DocumentPickerAsset) => ({
+        uri: a.uri, mimeType: a.mimeType, fileName: a.name,
+      }));
+      const remaining = max !== undefined ? Math.max(0, max - files.length) : newFiles.length;
+      setFiles((prev) => [...prev, ...newFiles.slice(0, remaining)]);
+    }
+  };
+
+  const canAddMore = max === undefined || files.length < max;
+
+  return (
+    <View style={s.mediaSection}>
+      <Text style={s.fieldLabel}>{label}</Text>
+      <View style={s.docFileList}>
+        {files.map((file) => (
+          <View key={file.uri} style={s.docFileRow}>
+            <Text style={s.docFileName} numberOfLines={1}>📄 {file.fileName || 'document'}</Text>
+            <TouchableOpacity onPress={() => setFiles((prev) => prev.filter((f) => f.uri !== file.uri))}>
+              <Text style={s.docRemove}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+        {canAddMore && (
+          <TouchableOpacity onPress={handleAdd} style={s.docUploadBtn}>
+            <Text style={s.docUploadTxt}>{t('listing.addFile')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+};
+
 // ─── Edit Modal ───────────────────────────────────────────────────────────────
 function EditModal({
   visible, listing, onCancel, onSave, saving,
@@ -251,7 +382,10 @@ function EditModal({
   visible: boolean;
   listing: Listing | null;
   onCancel: () => void;
-  onSave: (data: Record<string, any>) => void;
+  onSave: (
+    data: Record<string, any>,
+    files: { photos: SelectedMedia[]; floorPlan: SelectedMedia[]; legalDocuments: SelectedMedia[] }
+  ) => void;
   saving: boolean;
 }) {
   const { t } = useTranslation();
@@ -284,8 +418,16 @@ function EditModal({
   const [description, setDescription]   = useState('');
   const [visitHours, setVisitHours]     = useState('');
 
+  // ── New media (only sent to the server if the owner picks something) ──
+  const [newPhotos, setNewPhotos]       = useState<SelectedMedia[]>([]);
+  const [newFloorPlan, setNewFloorPlan] = useState<SelectedMedia[]>([]);
+  const [newLegalDocs, setNewLegalDocs] = useState<SelectedMedia[]>([]);
+
   useEffect(() => {
     if (!listing) return;
+    setNewPhotos([]);
+    setNewFloorPlan([]);
+    setNewLegalDocs([]);
     setTitle(listing.title ?? '');
     setPropType(listing.type ?? 'Apartment');
     setCountry(listing.country ?? 'Cameroon');
@@ -355,6 +497,10 @@ function EditModal({
       nearbyClinicName:    nearbyClinicName.trim()    || undefined,
       description:         description.trim(),
       visitHours:          visitHours.trim(),
+    }, {
+      photos: newPhotos,
+      floorPlan: newFloorPlan,
+      legalDocuments: newLegalDocs,
     });
   };
 
@@ -378,9 +524,31 @@ function EditModal({
             </TouchableOpacity>
           </View>
 
-          <Text style={s.editNote}>
-            {t('myListings.editNote').replace('Pending', t('myListings.pendingLabel'))}
-          </Text>
+          {listing?.status === 'Rejected' ? (
+            <View style={[s.statusBanner, s.statusBannerRejected]}>
+              <Text style={[s.statusBannerTitle, { color: '#DC2626' }]}>
+                ✕ {t('myListings.statusRejectedTitle')}
+              </Text>
+              {!!listing?.rejectionNote && (
+                <Text style={s.statusBannerNote}>{listing.rejectionNote}</Text>
+              )}
+              <Text style={s.statusBannerFootnote}>{t('myListings.editNote')}</Text>
+            </View>
+          ) : listing?.status === 'Approved' ? (
+            <View style={[s.statusBanner, s.statusBannerApproved]}>
+              <Text style={[s.statusBannerTitle, { color: '#16A34A' }]}>
+                ✓ {t('myListings.statusApprovedTitle')}
+              </Text>
+              <Text style={s.statusBannerFootnote}>{t('myListings.editNote')}</Text>
+            </View>
+          ) : (
+            <View style={[s.statusBanner, s.statusBannerPending]}>
+              <Text style={[s.statusBannerTitle, { color: '#D97706' }]}>
+                ⏱ {t('myListings.statusPendingTitle')}
+              </Text>
+              <Text style={s.statusBannerFootnote}>{t('myListings.statusPendingDesc')}</Text>
+            </View>
+          )}
 
           <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
 
@@ -507,6 +675,39 @@ function EditModal({
                 })}
               </View>
             )}
+
+            {/* Media · Photos, Floor Plan, Legal Documents */}
+            <SectionLabel title={t('myListings.sectionMedia')} />
+
+            {!!listing?.images?.length && (
+              <>
+                <Text style={s.fieldLabel}>{t('myListings.currentPhotos')}</Text>
+                <View style={s.mediaRow}>
+                  {listing.images.map((img) => (
+                    <Image key={img.imageUrl} source={{ uri: img.imageUrl }} style={s.previewImage} />
+                  ))}
+                </View>
+              </>
+            )}
+            <MediaUploadBox label={t('myListings.addNewPhotos')} files={newPhotos} setFiles={setNewPhotos} />
+            {newPhotos.length > 0 && <Text style={s.mediaReplaceNote}>{t('myListings.photosReplaceNote')}</Text>}
+
+            <Text style={s.fieldLabel}>{t('myListings.currentFloorPlan')}</Text>
+            {listing?.floorPlanUrl ? (
+              <Text style={s.currentFileTxt} numberOfLines={1}>📐 {t('myListings.fileUploaded')}</Text>
+            ) : (
+              <Text style={s.currentFileTxtMuted}>{t('myListings.noFileYet')}</Text>
+            )}
+            <DocumentUploadBox label={t('myListings.replaceFloorPlan')} files={newFloorPlan} setFiles={setNewFloorPlan} max={1} />
+
+            <Text style={s.fieldLabel}>{t('myListings.currentLegalDocs')}</Text>
+            {listing?.legalDocumentUrls?.length ? (
+              <Text style={s.currentFileTxt}>📄 {t('myListings.filesCount', { count: listing.legalDocumentUrls.length })}</Text>
+            ) : (
+              <Text style={s.currentFileTxtMuted}>{t('myListings.noFileYet')}</Text>
+            )}
+            <DocumentUploadBox label={t('myListings.replaceLegalDocs')} files={newLegalDocs} setFiles={setNewLegalDocs} max={10} />
+            {newLegalDocs.length > 0 && <Text style={s.mediaReplaceNote}>{t('myListings.legalDocsReplaceNote')}</Text>}
 
             {/* 6 · Description */}
             <SectionLabel title={t('myListings.section6')} />
@@ -647,7 +848,10 @@ export default function MyListings() {
     }
   };
 
-  const handleSaveEdit = async (formData: Record<string, any>) => {
+  const handleSaveEdit = async (
+    formData: Record<string, any>,
+    files: { photos: SelectedMedia[]; floorPlan: SelectedMedia[]; legalDocuments: SelectedMedia[] }
+  ) => {
     if (!editTarget) return;
     setSaving(true);
     try {
@@ -658,6 +862,26 @@ export default function MyListings() {
           body.append(key, String(val));
         }
       });
+
+      files.photos.forEach((photo, i) => {
+        body.append('photos', {
+          uri: photo.uri, name: photo.fileName || `photo-${i + 1}.jpg`,
+          type: photo.mimeType || inferMimeType(photo.uri, 'image/jpeg'),
+        } as any);
+      });
+      if (files.floorPlan[0]) {
+        body.append('floorPlan', {
+          uri: files.floorPlan[0].uri, name: files.floorPlan[0].fileName || 'floor-plan',
+          type: files.floorPlan[0].mimeType || inferMimeType(files.floorPlan[0].uri, 'application/octet-stream'),
+        } as any);
+      }
+      files.legalDocuments.forEach((doc, i) => {
+        body.append('legalDocuments', {
+          uri: doc.uri, name: doc.fileName || `legal-doc-${i + 1}`,
+          type: doc.mimeType || inferMimeType(doc.uri, 'application/octet-stream'),
+        } as any);
+      });
+
       const res = await fetch(`${BASE_URL}/listings/${editTarget.id}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}` },
@@ -877,6 +1101,46 @@ const s = StyleSheet.create({
     fontSize: 12.5, color: TEXT_MID, backgroundColor: '#FEF3C7',
     borderRadius: 10, padding: 10, marginBottom: 14, lineHeight: 18,
   },
+  statusBanner: { borderRadius: 12, padding: 12, marginBottom: 14, borderWidth: 1 },
+  statusBannerPending:  { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
+  statusBannerApproved: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
+  statusBannerRejected: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+  statusBannerTitle: { fontSize: 13.5, fontWeight: '800' },
+  statusBannerNote: { fontSize: 12.5, color: TEXT_DARK, marginTop: 6, lineHeight: 18 },
+  statusBannerFootnote: { fontSize: 11.5, color: TEXT_MID, marginTop: 6, lineHeight: 16 },
+  mediaSection: { marginBottom: 18, marginTop: 6 },
+  mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  previewWrap: { position: 'relative' },
+  previewImage: { width: 72, height: 72, borderRadius: 10 },
+  removePreviewBtn: {
+    position: 'absolute', top: -6, right: -6,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center',
+  },
+  removePreviewTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  uploadBtn: {
+    width: 72, height: 72, borderRadius: 10,
+    borderWidth: 1.5, borderStyle: 'dashed', borderColor: PURPLE,
+    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
+  },
+  uploadPlus: { fontSize: 24, color: PURPLE },
+  uploadLabel: { fontSize: 10, color: PURPLE, fontWeight: '600' },
+  docFileList: { gap: 8 },
+  docFileRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 10,
+    borderWidth: 1, borderColor: GRAY_BORDER,
+  },
+  docFileName: { flex: 1, fontSize: 13, color: TEXT_DARK, marginRight: 8 },
+  docRemove: { fontSize: 14, color: '#EF4444', fontWeight: '700' },
+  docUploadBtn: {
+    borderWidth: 1.5, borderStyle: 'dashed', borderColor: PURPLE,
+    borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: PURPLE_LIGHT,
+  },
+  docUploadTxt: { color: PURPLE, fontSize: 13, fontWeight: '600' },
+  mediaReplaceNote: { fontSize: 11.5, color: '#D97706', marginTop: -2, marginBottom: 10, lineHeight: 16 },
+  currentFileTxt: { fontSize: 13, color: TEXT_DARK, marginBottom: 8 },
+  currentFileTxtMuted: { fontSize: 13, color: TEXT_LIGHT, marginBottom: 8 },
   sectionLabel: {
     fontSize: 13, fontWeight: '800', color: PURPLE,
     backgroundColor: PURPLE_LIGHT, borderRadius: 8,

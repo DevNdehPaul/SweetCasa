@@ -1,11 +1,16 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
-import { ShieldCheck } from 'lucide-react'
+import { CenteredSpinner } from '@/components/ui'
 import { useAuth } from '@/lib/auth'
+import { ShieldCheck } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { FormEvent, Suspense, useState } from 'react'
 
-export default function LoginPage() {
+function LoginPageInner() {
   const { login } = useAuth()
+  const params = useSearchParams()
+  const suspended = params.get('suspended') === '1'
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +43,12 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="rounded-card bg-white p-6 shadow-xl">
           <h1 className="mb-1 font-display text-xl text-ink">Admin sign in</h1>
           <p className="mb-5 text-sm text-ink/55">Verify listings, documents, and reports.</p>
+
+          {suspended && !error && (
+            <div className="mb-4 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">
+              This account has been suspended. Contact a SweetCasa admin if you believe this is a mistake.
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-sm text-danger">
@@ -85,5 +96,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-navy"><CenteredSpinner /></div>}>
+      <LoginPageInner />
+    </Suspense>
   )
 }

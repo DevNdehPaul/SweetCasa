@@ -4,9 +4,11 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { useSessionGuard } from '../hooks/useSessionGuard';
 
 function RootStack() {
   const colorScheme = useResolvedTheme();
+  useSessionGuard();
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>

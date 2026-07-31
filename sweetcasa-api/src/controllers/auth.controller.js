@@ -203,6 +203,7 @@ exports.login = async (req, res) => {
     if (user.status === 'Suspended') {
       return res.status(403).json({
         error: 'This account has been suspended. Contact SweetCasa support if you believe this is a mistake.',
+        code: 'ACCOUNT_SUSPENDED',
       })
     }
 

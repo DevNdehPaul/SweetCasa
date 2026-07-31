@@ -756,6 +756,7 @@ exports.editListing = async (req, res) => {
     const photoFiles = filesByField.photos || []
     const videoFile = filesByField.video?.[0] || null
     const floorPlanFile = filesByField.floorPlan?.[0] || null
+    const legalDocumentFiles = filesByField.legalDocuments || []
 
     let newImages = []
     if (photoFiles.length) {
@@ -781,8 +782,19 @@ exports.editListing = async (req, res) => {
       uploadedFloorPlan = await uploadFileToCloudinary(floorPlanFile, 'sweetcasa/listings/floor-plans', 'raw')
     }
 
+    let uploadedLegalDocuments = []
+    if (legalDocumentFiles.length) {
+      uploadedLegalDocuments = await Promise.all(
+        legalDocumentFiles.map((file) =>
+          uploadFileToCloudinary(file, 'sweetcasa/listings/legal-documents', 'raw').then((u) => u.url)
+        )
+      )
+    }
+
     const updateData = {
       status: 'Pending',
+      // A fresh edit means a fresh review — any earlier rejection note no longer applies.
+      rejectionNote: null,
     }
     if (title)            updateData.title            = String(title).trim()
     if (price)            updateData.price            = Number.parseFloat(String(price))
@@ -806,6 +818,7 @@ exports.editListing = async (req, res) => {
     if (nearbyMarketName !== undefined)     updateData.nearbyMarketName     = normalizeString(nearbyMarketName)
     if (nearbyClinicName !== undefined)     updateData.nearbyClinicName     = normalizeString(nearbyClinicName)
     if (uploadedFloorPlan) updateData.floorPlanUrl = uploadedFloorPlan.url
+    if (uploadedLegalDocuments.length) updateData.legalDocumentUrls = uploadedLegalDocuments
 
     await getPrisma().listing.update({ where: { id }, data: updateData })
 

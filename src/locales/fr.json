@@ -834,8 +834,24 @@
     "section3": "3 · Tarification",
     "section4": "4 · Détails du bien",
     "section5": "5 · Équipements et commodités",
+    "sectionMedia": "Photos, plan et documents",
     "section6": "6 · Description *",
-    "section7": "7 · Disponibilité"
+    "section7": "7 · Disponibilité",
+    "statusPendingTitle": "En cours d'examen",
+    "statusPendingDesc": "Votre annonce est en attente d'examen par notre équipe.",
+    "statusApprovedTitle": "En ligne sur SweetCasa",
+    "statusRejectedTitle": "Cette annonce a été rejetée",
+    "currentPhotos": "Photos actuelles",
+    "addNewPhotos": "Ajouter de nouvelles photos",
+    "photosReplaceNote": "Le téléversement de nouvelles photos remplacera toutes les photos actuelles à l'enregistrement.",
+    "currentFloorPlan": "Plan actuel",
+    "replaceFloorPlan": "Remplacer le plan",
+    "currentLegalDocs": "Documents légaux actuels",
+    "replaceLegalDocs": "Remplacer les documents légaux",
+    "legalDocsReplaceNote": "Le téléversement de nouveaux documents remplacera tous les documents légaux actuels à l'enregistrement.",
+    "fileUploaded": "Fichier téléversé",
+    "filesCount": "{{count}} fichier(s) téléversé(s)",
+    "noFileYet": "Aucun fichier téléversé pour l'instant"
   },
 
   "propTypes": {
