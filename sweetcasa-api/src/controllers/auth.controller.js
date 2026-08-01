@@ -249,13 +249,6 @@ exports.forgotPassword = async (req, res) => {
       return res.json({ message: 'If an account exists for that email, a password reset link has been sent.' })
     }
 
-    if (user.status === 'Suspended') {
-      return res.status(403).json({
-        error: 'This account has been suspended. Contact SweetCasa support if you believe this is a mistake.',
-        code: 'ACCOUNT_SUSPENDED',
-      })
-    }
-
     // ── Generate a secure random token ───────────────────────────────────────
     const resetToken = crypto.randomBytes(32).toString('hex')
     const tokenHash  = crypto.createHash('sha256').update(resetToken).digest('hex')
@@ -269,7 +262,13 @@ exports.forgotPassword = async (req, res) => {
       },
     })
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'https://sweetcasa-production.up.railway.app'}/ResetPassword?token=${resetToken}&email=${encodeURIComponent(email)}`
+    // Build the reset link. Prefer a configured web frontend; fall back to the
+    // Expo deep link scheme (`sweetcasa://ResetPassword?...`) so the emailed
+    // link opens the mobile app directly instead of pointing at the API host.
+    const frontendUrl = process.env.FRONTEND_URL
+      ? String(process.env.FRONTEND_URL).replace(/\/+$/, '')
+      : 'sweetcasa://'
+    const resetUrl = `${frontendUrl}/ResetPassword?token=${resetToken}&email=${encodeURIComponent(email)}`
 
     const name = user.name || user.companyName || 'there'
     await sendMail({
