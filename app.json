@@ -4,7 +4,7 @@
     "slug": "SweetCasa",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.jpeg",
+    "icon": "./assets/images/icon.png",
     "scheme": "sweetcasa",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,10 +16,12 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/icon.jpeg"
+      "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-localization",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
