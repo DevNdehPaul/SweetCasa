@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 const { width, height } = Dimensions.get('window');
 const H_PAD = 20;
 const SLIDER_WIDTH = width - H_PAD * 2 - 8;
-const MIN_BUDGET = 50_000;
+const MIN_BUDGET = 5000;
 const MAX_BUDGET = 2_000_000_000;
 
 // ─── Full 360 municipal cities grouped by region ──────────────────────────────
@@ -150,18 +150,17 @@ const FACILITIES: { id: string; icon: string }[] = [
   { id: 'Parking',       icon: 'truck'        },
 ];
 
-type PropertyStateId = 'Available' | 'Pending' | 'Unavailable';
+type PropertyStateId = 'Available' | 'Pending';
 
 const PROPERTY_STATE_META: Record<PropertyStateId, {
   labelKey: string; subtitleKey: string; icon: string;
   color: string; bg: string; border: string; activeBg: string; activeBorder: string;
 }> = {
-  Available:   { labelKey: 'search.available',   subtitleKey: 'search.availableSub',   icon: 'check-circle', color: '#059669', bg: '#ECFDF5', border: '#6EE7B7', activeBg: '#D1FAE5', activeBorder: '#059669' },
-  Pending:     { labelKey: 'search.pending',     subtitleKey: 'search.pendingSub',     icon: 'clock',        color: '#D97706', bg: '#FFFBEB', border: '#FCD34D', activeBg: '#FEF3C7', activeBorder: '#D97706' },
-  Unavailable: { labelKey: 'search.unavailable', subtitleKey: 'search.unavailableSub', icon: 'x-circle',     color: '#9CA3AF', bg: '#F9FAFB', border: '#E5E7EB', activeBg: '#F3F4F6', activeBorder: '#6B7280' },
+  Available:   { labelKey: 'search.available',   subtitleKey: 'search.availableSub',   icon: 'check-circle', color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD', activeBg: '#EDE9FE', activeBorder: '#7C3AED' },
+  Pending:     { labelKey: 'search.pending',     subtitleKey: 'search.pendingSub',     icon: 'clock',        color: '#A78BFA', bg: '#F3F0FF', border: '#DDD6FE', activeBg: '#EDE9FE', activeBorder: '#8B5CF6' },
 };
 
-const PROPERTY_STATE_IDS: PropertyStateId[] = ['Available', 'Pending', 'Unavailable'];
+const PROPERTY_STATE_IDS: PropertyStateId[] = ['Available', 'Pending'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -272,7 +271,9 @@ export default function SearchFiltersScreen() {
   const sliderRef = React.useRef<View>(null);
   const sliderX   = React.useRef(0);
 
-  const budget = Math.round(MIN_BUDGET + budgetPct * (MAX_BUDGET - MIN_BUDGET));
+  // Logarithmic scale — makes the slider feel smooth & progressive over the
+  // huge 50k → 2B XAF range, instead of jumping by millions per tiny nudge.
+  const budget = Math.round(MIN_BUDGET * Math.pow(MAX_BUDGET / MIN_BUDGET, budgetPct));
 
   const toggleFacility = (id: string) =>
     setSelectedFacilities(p => p.includes(id) ? p.filter(f => f !== id) : [...p, id]);

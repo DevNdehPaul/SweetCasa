@@ -4,6 +4,7 @@ const streamifier = require('streamifier')
 const googlePlaces = require('../lib/googlePlaces')
 const { sendMail } = require('../lib/email')
 const { logAction } = require('../lib/audit')
+const { createNotification } = require('../services/notification.service')
 
 function parseNumber(value, fallback = 0) {
   const parsed = Number(value)
@@ -549,6 +550,16 @@ exports.approveListing = async (req, res) => {
       entityLabel: existing.title,
     })
 
+    // Notify the listing owner that their property was approved
+    if (existing.ownerId) {
+      await createNotification(existing.ownerId, {
+        type: 'listing_approved',
+        title: 'Listing approved 🎉',
+        body: `Your listing "${existing.title}" has been approved and is now live for house seekers.`,
+        data: { listingId: id, listingTitle: existing.title },
+      })
+    }
+
     res.json({ listing: serializeListing(listing) })
   } catch (err) {
     console.error('Approve listing error:', err)
@@ -599,6 +610,16 @@ exports.rejectListing = async (req, res) => {
       entityLabel: existing.title,
       metadata: { note },
     })
+
+    // Notify the listing owner that their property was rejected
+    if (existing.ownerId) {
+      await createNotification(existing.ownerId, {
+        type: 'listing_rejected',
+        title: 'Listing needs changes',
+        body: `Your listing "${existing.title}" was not approved: ${note}`,
+        data: { listingId: id, listingTitle: existing.title, rejectionNote: note },
+      })
+    }
 
     res.json({ listing: serializeListing(listing) })
   } catch (err) {

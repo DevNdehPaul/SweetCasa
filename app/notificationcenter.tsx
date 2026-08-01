@@ -1,6 +1,8 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React from 'react';
 import {
+  ActivityIndicator,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,98 +11,130 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { useNotifications, AppNotification } from '../hooks/useNotifications';
 
 const H_PAD = 20;
+const FILTERS = ['All', 'listing_approved', 'listing_rejected', 'new_message', 'escrow_update', 'casa_match', 'system'];
 
-const FILTERS = ['All', 'Payments', 'Property', 'Updates'];
+function formatTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
 
-type Notif = {
-  id: string;
-  title: string;
-  desc: string;
-  time: string;
-  icon: string;
-  iconBg: string;
-  iconColor: string;
-  unread: boolean;
-  group: 'today' | 'yesterday';
-};
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
 
-const NOTIFICATIONS: Notif[] = [
-  {
-    id: '1', group: 'today', unread: true,
-    title: 'Escrow Funds Released',
-    desc: 'The payment of 450,000 XAF for your rental in Akwa has been successfully released.',
-    time: '2m ago',
-    icon: 'credit-card', iconBg: '#EDE9FE', iconColor: '#7C3AED',
-  },
-  {
-    id: '2', group: 'today', unread: true,
-    title: 'New Casa-Match Found!',
-    desc: 'We found a new 3-bedroom villa in Bastos that matches 95% of your lifestyle preferences.',
-    time: '1h ago',
-    icon: 'home', iconBg: '#EDE9FE', iconColor: '#7C3AED',
-  },
-  {
-    id: '3', group: 'today', unread: false,
-    title: 'Upcoming Viewing',
-    desc: 'Reminder: You have a scheduled viewing for "Sunshine Apartments" tomorrow at 2:00 PM.',
-    time: '4h ago',
-    icon: 'calendar', iconBg: '#F3F4F6', iconColor: '#6B7280',
-  },
-  {
-    id: '4', group: 'yesterday', unread: false,
-    title: 'Login from New Device',
-    desc: "A new login was detected from a Samsung S21 in Douala. If this wasn't you, please secure your account.",
-    time: 'Yesterday',
-    icon: 'alert-circle', iconBg: '#FEE2E2', iconColor: '#EF4444',
-  },
-  {
-    id: '5', group: 'yesterday', unread: false,
-    title: 'Deposit Successful',
-    desc: 'Your deposit of 50,000 XAF via MTN Mobile Money has been confirmed in your escrow wallet.',
-    time: 'Yesterday',
-    icon: 'credit-card', iconBg: '#F3F4F6', iconColor: '#6B7280',
-  },
-];
+function getGroup(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return 'Earlier';
+}
 
-function NotifRow({ item }: { item: Notif }) {
+function getIconForType(type: string): { icon: string; bg: string; color: string } {
+  switch (type) {
+    case 'listing_approved':
+      return { icon: 'check-circle', bg: '#ECFDF5', color: '#16A34A' };
+    case 'listing_rejected':
+      return { icon: 'x-circle', bg: '#FEE2E2', color: '#EF4444' };
+    case 'new_message':
+      return { icon: 'message-circle', bg: '#EDE9FE', color: '#7C3AED' };
+    case 'escrow_update':
+      return { icon: 'credit-card', bg: '#FFFBEB', color: '#D97706' };
+    case 'casa_match':
+      return { icon: 'home', bg: '#EDE9FE', color: '#7C3AED' };
+    default:
+      return { icon: 'bell', bg: '#F3F4F6', color: '#6B7280' };
+  }
+}
+
+function getFilterLabel(filter: string): string {
+  switch (filter) {
+    case 'All': return 'All';
+    case 'listing_approved': return 'Approved';
+    case 'listing_rejected': return 'Rejected';
+    case 'new_message': return 'Messages';
+    case 'escrow_update': return 'Payments';
+    case 'casa_match': return 'Matches';
+    case 'system': return 'System';
+    default: return filter;
+  }
+}
+
+function NotifRow({ item, onPress }: { item: AppNotification; onPress: () => void }) {
+  const meta = getIconForType(item.type);
+
   return (
     <TouchableOpacity
-      style={[styles.notifRow, item.unread && styles.notifRowUnread]}
+      style={[styles.notifRow, !item.read && styles.notifRowUnread]}
       activeOpacity={0.75}
+      onPress={onPress}
     >
-      <View style={[styles.notifIcon, { backgroundColor: item.iconBg }]}>
-        <Feather name={item.icon as any} size={17} color={item.iconColor} />
+      <View style={[styles.notifIcon, { backgroundColor: meta.bg }]}>
+        <Feather name={meta.icon as any} size={17} color={meta.color} />
       </View>
       <View style={{ flex: 1 }}>
         <View style={styles.notifTitleRow}>
-          <Text style={[styles.notifTitle, item.unread && { color: '#7C3AED' }]} numberOfLines={1}>
+          <Text style={[styles.notifTitle, !item.read && { color: '#7C3AED' }]} numberOfLines={1}>
             {item.title}
           </Text>
           <View style={styles.notifTimeRow}>
-            <Text style={styles.notifTime}>{item.time}</Text>
-            {item.unread && <View style={styles.unreadDot} />}
+            <Text style={styles.notifTime}>{formatTime(item.createdAt)}</Text>
+            {!item.read && <View style={styles.unreadDot} />}
           </View>
         </View>
-        <Text style={styles.notifDesc} numberOfLines={2}>{item.desc}</Text>
+        <Text style={styles.notifDesc} numberOfLines={2}>{item.body}</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 export default function NotificationCenterScreen() {
-  const [activeFilter, setActiveFilter] = useState('All');
+  const { t } = useTranslation();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    refreshing,
+    activeType,
+    refresh,
+    markAsRead,
+    markAllAsRead,
+    setFilter,
+  } = useNotifications();
 
-  const todayItems = NOTIFICATIONS.filter(n => n.group === 'today');
-  const yesterdayItems = NOTIFICATIONS.filter(n => n.group === 'yesterday');
+  const grouped = notifications.reduce<Record<string, AppNotification[]>>((acc, n) => {
+    const group = getGroup(n.createdAt);
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(n);
+    return acc;
+  }, {});
+
+  const groupOrder = ['Today', 'Yesterday', 'Earlier'];
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
       {/* ── Header ── */}
-      
+      <View style={styles.header}>
+        <View style={{ width: 38 }} />
+        <Text style={styles.headerTitle}>{t('notifications.title', { defaultValue: 'Notifications' })}</Text>
+        <TouchableOpacity style={styles.iconBtn} onPress={markAllAsRead}>
+          <Feather name="check-circle" size={20} color="#7C3AED" />
+        </TouchableOpacity>
+      </View>
 
       {/* ── Filter Chips ── */}
       <ScrollView
@@ -112,12 +146,12 @@ export default function NotificationCenterScreen() {
         {FILTERS.map(f => (
           <TouchableOpacity
             key={f}
-            style={[styles.filterChip, activeFilter === f && styles.filterChipActive]}
-            onPress={() => setActiveFilter(f)}
+            style={[styles.filterChip, activeType === f && styles.filterChipActive]}
+            onPress={() => setFilter(f)}
             activeOpacity={0.8}
           >
-            <Text style={[styles.filterChipTxt, activeFilter === f && styles.filterChipTxtActive]}>
-              {f}
+            <Text style={[styles.filterChipTxt, activeType === f && styles.filterChipTxtActive]}>
+              {getFilterLabel(f)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -127,50 +161,58 @@ export default function NotificationCenterScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#7C3AED" />
+        }
       >
-        {/* Today */}
-        <Text style={styles.groupLabel}>Today</Text>
-        <View style={styles.notifGroup}>
-          {todayItems.map((n, i) => (
-            <View key={n.id}>
-              <NotifRow item={n} />
-              {i < todayItems.length - 1 && <View style={styles.divider} />}
-            </View>
-          ))}
-        </View>
-
-        {/* Yesterday */}
-        <View style={styles.groupLabelRow}>
-          <Text style={styles.groupLabel}>Yesterday</Text>
-          <TouchableOpacity>
-            <Text style={styles.markAllRead}>Mark all read</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.notifGroup}>
-          {yesterdayItems.map((n, i) => (
-            <View key={n.id}>
-              <NotifRow item={n} />
-              {i < yesterdayItems.length - 1 && <View style={styles.divider} />}
-            </View>
-          ))}
-        </View>
-
-        {/* Empty state */}
-        <View style={styles.emptyState}>
-          <Ionicons name="notifications-outline" size={36} color="#D1D5DB" />
-          <Text style={styles.emptyTitle}>No more notifications</Text>
-          <Text style={styles.emptyDesc}>
-            Check back later for updates on your property matches and payments.
-          </Text>
-        </View>
+        {loading && notifications.length === 0 ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color="#7C3AED" />
+          </View>
+        ) : notifications.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="notifications-outline" size={36} color="#D1D5DB" />
+            <Text style={styles.emptyTitle}>No notifications</Text>
+            <Text style={styles.emptyDesc}>
+              You're all caught up! Check back later for updates.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {groupOrder.map(group => {
+              const items = grouped[group];
+              if (!items?.length) return null;
+              return (
+                <View key={group}>
+                  <View style={styles.groupLabelRow}>
+                    <Text style={styles.groupLabel}>{group}</Text>
+                    {group === 'Today' && unreadCount > 0 && (
+                      <TouchableOpacity onPress={markAllAsRead}>
+                        <Text style={styles.markAllRead}>Mark all read</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <View style={styles.notifGroup}>
+                    {items.map((n, i) => (
+                      <View key={n.id}>
+                        <NotifRow
+                          item={n}
+                          onPress={() => {
+                            if (!n.read) markAsRead(n.id);
+                          }}
+                        />
+                        {i < items.length - 1 && <View style={styles.divider} />}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
 
         <View style={{ height: 80 }} />
       </ScrollView>
-
-      {/* ── Filter FAB ── */}
-      <TouchableOpacity style={styles.filterFab}>
-        <Feather name="sliders" size={20} color="#fff" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -192,6 +234,9 @@ const styles = StyleSheet.create({
   },
   iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
+
+  // Loading
+  loadingWrap: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
 
   // Filter row — fixed height, no wrapping
   filterWrapper: {

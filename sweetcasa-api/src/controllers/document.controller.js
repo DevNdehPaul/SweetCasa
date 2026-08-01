@@ -3,6 +3,7 @@ const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
 const streamifier = require('streamifier')
 const { sendMail } = require('../lib/email')
 const { logAction } = require('../lib/audit')
+const { createNotification } = require('../services/notification.service')
 
 const ALLOWED_TYPES = ['LEGAL_DOCUMENT', 'FLOOR_PLAN', 'NATIONAL_ID', 'OTHER']
 
@@ -154,6 +155,17 @@ exports.verifyDocument = async (req, res) => {
       entityLabel: existing.fileName || existing.type,
     })
 
+    // Notify the uploader that their document was verified
+    if (existing.userId) {
+      const docLabel = existing.type.replace('_', ' ').toLowerCase()
+      await createNotification(existing.userId, {
+        type: 'system',
+        title: 'Document verified ✅',
+        body: `Your ${docLabel}${existing.fileName ? ` (${existing.fileName})` : ''} has been verified successfully.`,
+        data: { documentId: id, listingId: existing.listingId, status: 'Verified' },
+      })
+    }
+
     res.json({ document: serializeDocument(doc) })
   } catch (err) {
     console.error('Verify document error:', err)
@@ -208,6 +220,17 @@ exports.rejectDocument = async (req, res) => {
       entityLabel: existing.fileName || existing.type,
       metadata: { note },
     })
+
+    // Notify the uploader that their document was rejected
+    if (existing.userId) {
+      const docLabel = existing.type.replace('_', ' ').toLowerCase()
+      await createNotification(existing.userId, {
+        type: 'system',
+        title: 'Document needs changes',
+        body: `Your ${docLabel}${existing.listing ? ` for "${existing.listing.title}"` : ''} was rejected: ${note}`,
+        data: { documentId: id, listingId: existing.listingId, status: 'Rejected', reviewNote: note },
+      })
+    }
 
     res.json({ document: serializeDocument(doc) })
   } catch (err) {

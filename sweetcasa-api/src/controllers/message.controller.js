@@ -1,4 +1,6 @@
 const { getPrisma } = require('../lib/prisma')
+const { createNotification } = require('../services/notification.service')
+const { emitToUser, emitToConversation } = require('../lib/socket')
 
 function formatTime(date) {
   if (!date) return ''
@@ -13,7 +15,7 @@ function formatConvTime(date) {
   const diffDays = Math.floor((now - d) / 86400000)
   if (diffDays === 0) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7)  return d.toLocaleDateString([], { weekday: 'long' })
+  if (diffDays < 7) return d.toLocaleDateString([], { weekday: 'long' })
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
@@ -28,7 +30,7 @@ exports.getConversations = async (req, res) => {
         OR: [{ buyerId: userId }, { sellerId: userId }],
       },
       include: {
-        buyer:  { select: { id: true, name: true, companyName: true } },
+        buyer: { select: { id: true, name: true, companyName: true } },
         seller: { select: { id: true, name: true, companyName: true } },
         listing: {
           select: {
@@ -62,32 +64,32 @@ exports.getConversations = async (req, res) => {
     })
 
     const result = conversations.map((conv) => {
-      const other   = conv.buyerId === userId ? conv.seller : conv.buyer
+      const other = conv.buyerId === userId ? conv.seller : conv.buyer
       const lastMsg = conv.messages[0] ?? null
 
       return {
         id: conv.id,
         otherUser: {
-          id:   other.id,
+          id: other.id,
           name: other.companyName || other.name,
         },
         listing: conv.listing
           ? {
-              id:       conv.listing.id,
-              title:    conv.listing.title,
-              location: `${conv.listing.city}, ${conv.listing.region}`,
-              price:    conv.listing.price?.toString() ?? '',
-              type:     conv.listing.type,
-              imageUrl: conv.listing.images[0]?.imageUrl ?? null,
-            }
+            id: conv.listing.id,
+            title: conv.listing.title,
+            location: `${conv.listing.city}, ${conv.listing.region}`,
+            price: conv.listing.price?.toString() ?? '',
+            type: conv.listing.type,
+            imageUrl: conv.listing.images[0]?.imageUrl ?? null,
+          }
           : null,
         lastMessage: lastMsg
           ? {
-              text:   lastMsg.text,
-              fromMe: lastMsg.senderId === userId,
-              seen:   lastMsg.seen,
-              time:   formatConvTime(lastMsg.createdAt),
-            }
+            text: lastMsg.text,
+            fromMe: lastMsg.senderId === userId,
+            seen: lastMsg.seen,
+            time: formatConvTime(lastMsg.createdAt),
+          }
           : null,
         unreadCount: conv._count.messages,   // ← real count now
         updatedAt: conv.updatedAt,
@@ -118,7 +120,7 @@ exports.getMessages = async (req, res) => {
         OR: [{ buyerId: userId }, { sellerId: userId }],
       },
       include: {
-        buyer:  { select: { id: true, name: true, companyName: true } },
+        buyer: { select: { id: true, name: true, companyName: true } },
         seller: { select: { id: true, name: true, companyName: true } },
         listing: {
           select: {
@@ -142,7 +144,7 @@ exports.getMessages = async (req, res) => {
     // Mark received messages as seen
     await prisma.message.updateMany({
       where: { conversationId, senderId: { not: userId }, seen: false },
-      data:  { seen: true },
+      data: { seen: true },
     })
 
     const other = conv.buyerId === userId ? conv.seller : conv.buyer
@@ -153,19 +155,19 @@ exports.getMessages = async (req, res) => {
         otherUser: { id: other.id, name: other.companyName || other.name },
         listing: conv.listing
           ? {
-              id:       conv.listing.id,
-              title:    conv.listing.title,
-              location: `${conv.listing.city}, ${conv.listing.region}`,
-              price:    conv.listing.price?.toString() ?? '',
-              imageUrl: conv.listing.images[0]?.imageUrl ?? null,
-            }
+            id: conv.listing.id,
+            title: conv.listing.title,
+            location: `${conv.listing.city}, ${conv.listing.region}`,
+            price: conv.listing.price?.toString() ?? '',
+            imageUrl: conv.listing.images[0]?.imageUrl ?? null,
+          }
           : null,
         messages: conv.messages.map((m) => ({
-          id:     String(m.id),
-          text:   m.text,
+          id: String(m.id),
+          text: m.text,
           fromMe: m.senderId === userId,
-          seen:   m.seen,
-          time:   formatTime(m.createdAt),
+          seen: m.seen,
+          time: formatTime(m.createdAt),
         })),
       },
     })
@@ -183,7 +185,7 @@ exports.startConversation = async (req, res) => {
 
   if (!recipientId) return res.status(400).json({ error: 'recipientId is required.' })
 
-  const parsedListingId   = listingId ? Number(listingId) : null
+  const parsedListingId = listingId ? Number(listingId) : null
   const parsedRecipientId = Number(recipientId)
   if (!Number.isFinite(parsedRecipientId)) return res.status(400).json({ error: 'Invalid recipientId.' })
 
@@ -193,8 +195,8 @@ exports.startConversation = async (req, res) => {
       select: { role: true },
     })
 
-    const isBuyer  = requester?.role !== 'SELLER'
-    const buyerId  = isBuyer ? userId : parsedRecipientId
+    const isBuyer = requester?.role !== 'SELLER'
+    const buyerId = isBuyer ? userId : parsedRecipientId
     const sellerId = isBuyer ? parsedRecipientId : userId
 
     let conv = await prisma.conversation.findFirst({
@@ -238,16 +240,46 @@ exports.sendMessage = async (req, res) => {
 
     await prisma.conversation.update({
       where: { id: conversationId },
-      data:  { updatedAt: new Date() },
+      data: { updatedAt: new Date() },
     })
+
+    // Notify the other user about the new message (best-effort)
+    const recipientId = conv.buyerId === userId ? conv.sellerId : conv.buyerId
+    if (recipientId) {
+      const sender = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, companyName: true },
+      })
+      const senderName = sender?.companyName || sender?.name || 'Someone'
+      await createNotification(recipientId, {
+        type: 'new_message',
+        title: `New message from ${senderName}`,
+        body: String(text).trim().substring(0, 100),
+        data: { conversationId, senderId: userId, listingId: conv.listingId },
+      })
+
+      // Real-time delivery via Socket.IO (best-effort)
+      const payload = {
+        id: String(message.id),
+        text: message.text,
+        fromMe: false,
+        seen: false,
+        time: formatTime(message.createdAt),
+        conversationId,
+        senderId: userId,
+        senderName,
+      }
+      emitToUser(recipientId, 'new_message', payload)
+      emitToConversation(conversationId, 'message:new', payload)
+    }
 
     res.status(201).json({
       message: {
-        id:     String(message.id),
-        text:   message.text,
+        id: String(message.id),
+        text: message.text,
         fromMe: true,
-        seen:   false,
-        time:   formatTime(message.createdAt),
+        seen: false,
+        time: formatTime(message.createdAt),
       },
     })
   } catch (err) {
@@ -267,7 +299,7 @@ exports.markAsRead = async (req, res) => {
   try {
     await prisma.message.updateMany({
       where: { conversationId, senderId: { not: userId }, seen: false },
-      data:  { seen: true },
+      data: { seen: true },
     })
     res.json({ ok: true })
   } catch (err) {
@@ -335,11 +367,11 @@ exports.getStats = async (req, res) => {
 
     const listingsWithLeads = totalListings
       ? await prisma.listing.count({
-          where: {
-            sellerId: userId,
-            conversations: { some: {} },
-          },
-        })
+        where: {
+          sellerId: userId,
+          conversations: { some: {} },
+        },
+      })
       : 0
 
     const leadConversion =
