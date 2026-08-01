@@ -2,7 +2,7 @@ const express  = require('express')
 const multer   = require('multer')
 const router   = express.Router()
 
-const { register, login, logout, updateProfile } = require('../controllers/auth.controller')
+const { register, login, logout, updateProfile, forgotPassword, resetPassword } = require('../controllers/auth.controller')
 const requireRole = require('../middleware/requireRole')
 
 // ─── Multer – memory storage (buffer handed to Cloudinary stream) ─────────────
@@ -51,6 +51,10 @@ router.post(
 )
 
 router.post('/login', login)
+
+// ── Password reset (public, no auth required) ─────────────────────────────────
+router.post('/forgot-password', express.json(), forgotPassword)
+router.post('/reset-password',  express.json(), resetPassword)
 
 // PUT /auth/profile — optionally accepts a "nationalId" file to replace the stored one
 router.put(

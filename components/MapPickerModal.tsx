@@ -2,8 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert, Modal, SafeAreaView, StyleSheet, Text, TextInput,
-    TouchableOpacity, View,
+  Alert,
+  Modal,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 
@@ -16,17 +22,15 @@ const TEXT_LIGHT = '#9CA3AF';
 
 const DEFAULT_MAP_REGION = { latitude: 4.0511, longitude: 9.7679 }; // Douala fallback
 
-type Props = {
+export default function MapPickerModal({
+  visible, initialLatitude, initialLongitude, onConfirm, onClose,
+}: {
   visible: boolean;
   initialLatitude: number | null;
   initialLongitude: number | null;
   onConfirm: (lat: number, lng: number) => void;
   onClose: () => void;
-};
-
-export default function MapPickerModal({
-  visible, initialLatitude, initialLongitude, onConfirm, onClose,
-}: Props) {
+}) {
   const { t } = useTranslation();
   const mapRef = useRef<MapView>(null);
 
@@ -159,16 +163,6 @@ const s = StyleSheet.create({
     borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 10,
     padding: 12, fontSize: 14, color: TEXT_DARK, backgroundColor: '#fff',
   },
-  mapSearchWrap: { paddingHorizontal: 16, paddingTop: 12, position: 'relative', zIndex: 10 },
-  mapPredictionsBox: {
-    position: 'absolute', top: 68, left: 16, right: 16, backgroundColor: '#fff',
-    borderRadius: 10, borderWidth: 1, borderColor: GRAY_BORDER, maxHeight: 220,
-    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 6, zIndex: 20,
-  },
-  mapPredictionRow: { padding: 12, borderBottomWidth: 1, borderBottomColor: GRAY_BORDER },
-  mapPredictionTxt: { fontSize: 13, color: TEXT_DARK },
-  mapView: { flex: 1, marginTop: 12 },
-  mapBottomBar: { flexDirection: 'row', gap: 12, margin: 16 },
   draftBtn: {
     flex: 1, padding: 14, borderWidth: 1.5,
     borderColor: PURPLE, borderRadius: 14, alignItems: 'center',
@@ -179,4 +173,14 @@ const s = StyleSheet.create({
     backgroundColor: PURPLE, alignItems: 'center',
   },
   postBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  mapSearchWrap: { paddingHorizontal: 16, paddingTop: 12, position: 'relative', zIndex: 10 },
+  mapPredictionsBox: {
+    position: 'absolute', top: 68, left: 16, right: 16, backgroundColor: '#fff',
+    borderRadius: 10, borderWidth: 1, borderColor: GRAY_BORDER, maxHeight: 220,
+    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 6, zIndex: 20,
+  },
+  mapPredictionRow: { padding: 12, borderBottomWidth: 1, borderBottomColor: GRAY_BORDER },
+  mapPredictionTxt: { fontSize: 13, color: TEXT_DARK },
+  mapView: { flex: 1, marginTop: 12 },
+  mapBottomBar: { flexDirection: 'row', gap: 12, margin: 16 },
 });

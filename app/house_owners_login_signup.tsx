@@ -407,7 +407,7 @@ function LoginTab({ email, setEmail, password, setPassword }: {
         icon="lock"
         secure={!showPass}
         topRight={
-          <TouchableOpacity onPress={() => {}}>
+          <TouchableOpacity onPress={() => router.push('/ForgotPassword')}>
             <Text style={styles.forgotLink}>Forgot password?</Text>
           </TouchableOpacity>
         }

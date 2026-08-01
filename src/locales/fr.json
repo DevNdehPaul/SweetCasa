@@ -243,6 +243,7 @@
     "noNearbyFound": "Aucun lieu à proximité détecté — vous pouvez en ajouter manuellement ci-dessous.",
     "addMissingPlace": "+ Ajouter un lieu manqué par Google",
     "placeName": "Nom du lieu",
+    "webMapNotice": "La carte interactive complète est disponible dans l'application mobile SweetCasa. Sur le web, recherchez votre adresse ou utilisez la position de votre navigateur ci-dessous.",
     "nearbyPlaces": "Noms des lieux à proximité",
     "nearbyPlacesDesc": "Nommez les lieux spécifiques à proximité pour que les locataires sachent exactement ce qui est autour.",
     "nearbySchool": "École à proximité",

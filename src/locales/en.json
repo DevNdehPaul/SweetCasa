@@ -242,6 +242,7 @@
     "noNearbyFound": "No nearby places detected — you can add them manually below.",
     "addMissingPlace": "+ Add a place Google missed",
     "placeName": "Place name",
+    "webMapNotice": "The full draggable map is available in the SweetCasa mobile app. On web, search for your address or use your browser location below.",
     "nearbyPlaces": "Nearby Place Names",
     "nearbyPlacesDesc": "Name the specific places nearby so tenants know exactly what's around.",
     "nearbySchool": "Nearby School",

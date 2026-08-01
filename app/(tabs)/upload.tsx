@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapPickerModal from '../../components//MapPickerModal';
+import MapPickerModal from '../../components/MapPickerModal';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
@@ -210,7 +210,6 @@ const ReviewModal = ({ visible, onClose }: { visible: boolean; onClose: () => vo
     </Modal>
   );
 };
-
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 

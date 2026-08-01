@@ -1,10 +1,12 @@
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const crypto = require('crypto')
 const streamifier = require('streamifier')
 require('dotenv').config()
 
 const { getPrisma } = require('../lib/prisma')
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
+const { sendMail } = require('../lib/email')
 
 const ALLOWED_ROLES = ['BUYER', 'SELLER']
 
@@ -33,30 +35,30 @@ function normalizePhone(phone) {
 
 function buildDisplayName({ role, fullName, companyName, email }) {
   const sellerName = String(companyName || '').trim() || String(fullName || '').trim()
-  const buyerName  = String(fullName || '').trim()  || String(companyName || '').trim()
-  const fallback   = normalizeEmail(email).split('@')[0] || 'SweetCasa User'
+  const buyerName = String(fullName || '').trim() || String(companyName || '').trim()
+  const fallback = normalizeEmail(email).split('@')[0] || 'SweetCasa User'
 
   return role === 'SELLER'
     ? sellerName || fallback
-    : buyerName  || fallback
+    : buyerName || fallback
 }
 
 function toProfile(user) {
   return {
-    id:             user.id,
-    name:           user.name,
-    fullName:       user.role === 'BUYER' ? user.name : '',
-    companyName:    user.companyName || '',
-    email:          user.email,
-    phone:          String(user.phone ?? ''),
-    role:           user.role,
-    status:         user.status,
-    country:        user.country        || '',
-    region:         user.region         || '',
-    city:           user.city           || '',
-    street:         user.street         || '',
-    nationalIdUrl:  user.nationalIdUrl  || '',
-    createdAt:      user.createdAt,
+    id: user.id,
+    name: user.name,
+    fullName: user.role === 'BUYER' ? user.name : '',
+    companyName: user.companyName || '',
+    email: user.email,
+    phone: String(user.phone ?? ''),
+    role: user.role,
+    status: user.status,
+    country: user.country || '',
+    region: user.region || '',
+    city: user.city || '',
+    street: user.street || '',
+    nationalIdUrl: user.nationalIdUrl || '',
+    createdAt: user.createdAt,
   }
 }
 
@@ -123,7 +125,7 @@ exports.register = async (req, res) => {
     }
 
     const normalizedEmail = normalizeEmail(email)
-    const userRole        = normalizeRole(role)
+    const userRole = normalizeRole(role)
 
     const name = buildDisplayName({
       role: userRole,
@@ -145,12 +147,12 @@ exports.register = async (req, res) => {
     }
 
     // ── Upload National ID to Cloudinary ──────────────────────────────────────
-    const isPdf       = req.file.mimetype === 'application/pdf'
+    const isPdf = req.file.mimetype === 'application/pdf'
     const uploadResult = await uploadToCloudinary(req.file.buffer, {
-      folder:        'sweetcasa/national_ids',
+      folder: 'sweetcasa/national_ids',
       resource_type: isPdf ? 'raw' : 'image',
       // Keep originals; no destructive transforms on identity documents
-      use_filename:  false,
+      use_filename: false,
       unique_filename: true,
     })
 
@@ -158,19 +160,19 @@ exports.register = async (req, res) => {
 
     const user = await getPrisma().user.create({
       data: {
-        name:              fullName ? String(fullName).trim() : companyName ? String(companyName).trim() : null,
-        companyName:       userRole === 'SELLER'
-                             ? String(companyName || '').trim() || null
-                             : null,
-        email:             normalizedEmail,
-        password:          hashedPassword,
-        phone:             normalizePhone(phone),
-        role:              userRole,
-        country:           String(country || '').trim() || null,
-        region:            String(region  || '').trim() || null,
-        city:              String(city    || '').trim() || null,
-        street:            String(street  || '').trim() || null,
-        nationalIdUrl:     uploadResult.secure_url,
+        name: fullName ? String(fullName).trim() : companyName ? String(companyName).trim() : null,
+        companyName: userRole === 'SELLER'
+          ? String(companyName || '').trim() || null
+          : null,
+        email: normalizedEmail,
+        password: hashedPassword,
+        phone: normalizePhone(phone),
+        role: userRole,
+        country: String(country || '').trim() || null,
+        region: String(region || '').trim() || null,
+        city: String(city || '').trim() || null,
+        street: String(street || '').trim() || null,
+        nationalIdUrl: uploadResult.secure_url,
         nationalIdPublicId: uploadResult.public_id,
       },
     })
@@ -209,9 +211,8 @@ exports.login = async (req, res) => {
 
     if (expectedRole && user.role !== normalizeRole(expectedRole)) {
       return res.status(403).json({
-        error: `This account is not registered as a ${
-          normalizeRole(expectedRole) === 'BUYER' ? 'House Seeker' : 'House Owner'
-        }. Please use the correct portal.`,
+        error: `This account is not registered as a ${normalizeRole(expectedRole) === 'BUYER' ? 'House Seeker' : 'House Owner'
+          }. Please use the correct portal.`,
       })
     }
 
@@ -227,6 +228,125 @@ exports.login = async (req, res) => {
 
 exports.logout = (_req, res) => {
   res.json({ message: 'Logged out. Discard your token on the client.' })
+}
+
+// ─── FORGOT PASSWORD ──────────────────────────────────────────────────────────
+// POST /auth/forgot-password  { email }
+// Generates a single-use reset token (valid 30 min), stores its SHA-256 hash on
+// the user, and emails a reset link to the inbox.
+exports.forgotPassword = async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body?.email)
+    if (!email) {
+      return res.status(400).json({ error: 'Please enter your email address.' })
+    }
+
+    const user = await getPrisma().user.findFirst({ where: { email } })
+
+    // Always return the same success message whether or not the account exists,
+    // to avoid leaking which emails are registered.
+    if (!user) {
+      return res.json({ message: 'If an account exists for that email, a password reset link has been sent.' })
+    }
+
+    // ── Generate a secure random token ───────────────────────────────────────
+    const resetToken = crypto.randomBytes(32).toString('hex')
+    const tokenHash  = crypto.createHash('sha256').update(resetToken).digest('hex')
+    const expiresAt  = new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
+
+    await getPrisma().user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken:  tokenHash,
+        passwordResetExpires: expiresAt,
+      },
+    })
+
+    // Build the reset link. Prefer a configured web frontend; fall back to the
+    // Expo deep link scheme (`sweetcasa://ResetPassword?...`) so the emailed
+    // link opens the mobile app directly instead of pointing at the API host.
+    const frontendUrl = process.env.FRONTEND_URL
+      ? String(process.env.FRONTEND_URL).replace(/\/+$/, '')
+      : 'sweetcasa://'
+    const resetUrl = `${frontendUrl}/ResetPassword?token=${resetToken}&email=${encodeURIComponent(email)}`
+
+    const name = user.name || user.companyName || 'there'
+    await sendMail({
+      to: user.email,
+      subject: 'Reset your SweetCasa password',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;border:1px solid #EDE9FE;border-radius:16px;">
+          <h2 style="color:#5B21B6;margin:0 0 8px;">SweetCasa</h2>
+          <p style="color:#374151;font-size:14px;line-height:1.6;">Hi ${name},</p>
+          <p style="color:#374151;font-size:14px;line-height:1.6;">
+            We received a request to reset your SweetCasa password. Click the button below to
+            choose a new one. This link expires in <strong>30 minutes</strong>.
+          </p>
+          <p style="text-align:center;margin:28px 0;">
+            <a href="${resetUrl}" style="background:#6D28D9;color:#fff;text-decoration:none;padding:12px 28px;border-radius:12px;font-weight:700;display:inline-block;">
+              Reset Password
+            </a>
+          </p>
+          <p style="color:#9CA3AF;font-size:12px;line-height:1.6;">
+            If you didn't request this, you can safely ignore this email. Your password will
+            not be changed until you click the link above and set a new one.
+          </p>
+          <hr style="border:none;border-top:1px solid #F0F0F0;margin:20px 0;" />
+          <p style="color:#B0B0B0;font-size:11px;">If the button doesn't work, copy and paste this link into your browser:<br/>${resetUrl}</p>
+        </div>
+      `,
+    })
+
+    res.json({ message: 'If an account exists for that email, a password reset link has been sent.' })
+  } catch (err) {
+    console.error('Forgot password error:', err)
+    res.status(500).json({ error: 'Failed to send password reset email.' })
+  }
+}
+
+// ─── RESET PASSWORD ───────────────────────────────────────────────────────────
+// POST /auth/reset-password  { token, password }
+// Validates the (hashed) token and expiry, then updates the password.
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body || {}
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required.' })
+    }
+    if (String(password).length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long.' })
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex')
+
+    const user = await getPrisma().user.findFirst({
+      where: {
+        passwordResetToken: tokenHash,
+        passwordResetExpires: { gt: new Date() },
+      },
+    })
+
+    if (!user) {
+      return res.status(400).json({ error: 'This reset link is invalid or has expired. Please request a new one.' })
+    }
+
+    const hashedPassword = await bcrypt.hash(String(password), 12)
+
+    await getPrisma().user.update({
+      where: { id: user.id },
+      data: {
+        password:            hashedPassword,
+        passwordResetToken:  null,
+        passwordResetExpires: null,
+      },
+    })
+
+    res.json({ message: 'Your password has been reset successfully. You can now log in with your new password.' })
+  } catch (err) {
+    console.error('Reset password error:', err)
+    res.status(500).json({ error: 'Failed to reset password.' })
+  }
 }
 
 // ── UPDATE PROFILE ────────────────────────────────────────────────────────────
@@ -248,12 +368,12 @@ exports.updateProfile = async (req, res) => {
 
     const data = {}
 
-    if (name        !== undefined) data.name        = String(name).trim()
+    if (name !== undefined) data.name = String(name).trim()
     if (companyName !== undefined) data.companyName = String(companyName).trim()
-    if (country     !== undefined) data.country     = String(country).trim()
-    if (region      !== undefined) data.region      = String(region).trim()
-    if (city        !== undefined) data.city        = String(city).trim()
-    if (street      !== undefined) data.street      = String(street).trim()
+    if (country !== undefined) data.country = String(country).trim()
+    if (region !== undefined) data.region = String(region).trim()
+    if (city !== undefined) data.city = String(city).trim()
+    if (street !== undefined) data.street = String(street).trim()
 
     if (phone !== undefined && phone !== null && String(phone).trim() !== '') {
       const cleaned = String(phone).replace(/\D/g, '')
@@ -268,11 +388,11 @@ exports.updateProfile = async (req, res) => {
       }
       const isPdf = req.file.mimetype === 'application/pdf'
       const uploadResult = await uploadToCloudinary(req.file.buffer, {
-        folder:          'sweetcasa/national_ids',
-        resource_type:   isPdf ? 'raw' : 'image',
+        folder: 'sweetcasa/national_ids',
+        resource_type: isPdf ? 'raw' : 'image',
         unique_filename: true,
       })
-      data.nationalIdUrl      = uploadResult.secure_url
+      data.nationalIdUrl = uploadResult.secure_url
       data.nationalIdPublicId = uploadResult.public_id
     }
 
@@ -284,19 +404,19 @@ exports.updateProfile = async (req, res) => {
       where: { id: userId },
       data,
       select: {
-        id:                true,
-        name:              true,
-        companyName:       true,
-        email:             true,
-        phone:             true,
-        role:              true,
-        country:           true,
-        region:            true,
-        city:              true,
-        street:            true,
-        nationalIdUrl:     true,
+        id: true,
+        name: true,
+        companyName: true,
+        email: true,
+        phone: true,
+        role: true,
+        country: true,
+        region: true,
+        city: true,
+        street: true,
+        nationalIdUrl: true,
         nationalIdPublicId: true,
-        createdAt:         true,
+        createdAt: true,
       },
     })
 
