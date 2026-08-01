@@ -25,8 +25,6 @@ model User {
   street              String?
   nationalIdUrl       String?            @map("national_id_url")
   nationalIdPublicId  String?            @map("national_id_public_id") @db.VarChar(255)
-  passwordResetToken  String?            @unique @map("password_reset_token") @db.VarChar(255)
-  passwordResetExpires DateTime?         @map("password_reset_expires")
   createdAt           DateTime?          @default(now()) @map("created_at")
   casaMatchHistory    CasaMatchHistory[]
   aiConversations     AiConversation[]
@@ -38,10 +36,56 @@ model User {
   sellerConversations Conversation[]     @relation("SellerConversations")
   sentMessages        Message[]          @relation("SentMessages")
   documents           Document[]
-  pushTokens          PushToken[]
-  notifications       Notification[]
+  wallet              Wallet?
 
   @@map("users")
+}
+
+// ─── Escrow Wallet ─────────────────────────────────────────────────────────────
+model Wallet {
+  id               Int           @id @default(autoincrement())
+  userId           Int           @unique @map("user_id")
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// funds deposited by seekers, tagged to a listing, not yet released — XAF
+  heldBalance      Decimal       @default(0) @db.Decimal(12, 2) @map("held_balance")
+  /// funds released to this wallet's owner, ready to withdraw — XAF
+  availableBalance Decimal       @default(0) @db.Decimal(12, 2) @map("available_balance")
+  createdAt        DateTime?     @default(now()) @map("created_at")
+  updatedAt        DateTime?     @updatedAt @map("updated_at")
+  transactions      Transaction[]
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id            Int       @id @default(autoincrement())
+  walletId      Int       @map("wallet_id")
+  wallet        Wallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  /// 'Deposit' | 'Hold' | 'Release' | 'Refund' | 'Withdrawal'
+  type          String    @db.VarChar(20)
+  /// 'Pending' | 'Completed' | 'Failed' | 'Cancelled'
+  status        String    @default("Pending") @db.VarChar(20)
+  /// gross XAF amount this ledger entry moves
+  amount        Decimal   @db.Decimal(12, 2)
+  /// Fapshi's 3% collection fee, only set on Deposit rows (payouts are free)
+  feeAmount     Decimal?  @db.Decimal(12, 2) @map("fee_amount")
+  listingId     Int?      @map("listing_id")
+  listing       Listing?  @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  /// links a Hold/Release/Refund back to the Deposit that created the held funds
+  relatedTransactionId Int? @map("related_transaction_id")
+  /// destination phone number for a Refund/Withdrawal payout
+  phone         String?   @db.VarChar(20)
+  /// 'mobile money' | 'orange money' | 'fapshi'
+  medium        String?   @db.VarChar(20)
+  fapshiTransId String?   @map("fapshi_trans_id")
+  fapshiStatus  String?   @map("fapshi_status") @db.VarChar(20)
+  /// admin's note on a Release/Refund, or the user id who triggered a self-service action
+  reason        String?
+  initiatedBy   Int?      @map("initiated_by")
+  createdAt     DateTime? @default(now()) @map("created_at")
+  updatedAt     DateTime? @updatedAt @map("updated_at")
+
+  @@map("transactions")
 }
 
 model Report {
@@ -102,6 +146,7 @@ model Listing {
   conversations        Conversation[]
   documents            Document[]
   nearbyFacilities     NearbyFacility[]
+  transactions         Transaction[]
 
   @@map("listings")
 }
@@ -304,34 +349,4 @@ model Message {
   sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@map("messages")
-}
-
-// ─── Push Notifications ──────────────────────────────────────────────────────
-model PushToken {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  token     String    @db.VarChar(255)
-  platform  String    @default("ios") @db.VarChar(20) /// 'ios' | 'android' | 'web'
-  createdAt DateTime? @default(now()) @map("created_at")
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, token], map: "unique_user_push_token")
-  @@map("push_tokens")
-}
-
-// ─── In-App Notifications ─────────────────────────────────────────────────────
-model Notification {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  /// 'listing_approved' | 'listing_rejected' | 'new_message' | 'escrow_update' | 'casa_match' | 'system'
-  type      String    @db.VarChar(50)
-  title     String    @db.VarChar(200)
-  body      String
-  data      Json?     /// Optional metadata payload (e.g. listingId, conversationId)
-  read      Boolean   @default(false)
-  sent      Boolean   @default(false) /// Whether a push notification was sent
-  createdAt DateTime? @default(now()) @map("created_at")
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("notifications")
 }

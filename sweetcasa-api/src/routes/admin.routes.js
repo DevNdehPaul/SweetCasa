@@ -12,6 +12,7 @@ const {
   acceptInvite,
   getAuditLogs,
 } = require('../controllers/admin.controller')
+const { adminListTransactions } = require('../controllers/wallet.controller')
 const requireRole = require('../middleware/requireRole')
 
 const router = express.Router()
@@ -21,6 +22,7 @@ router.get('/stats', requireRole('ADMIN', 'STAFF'), getStats)
 router.get('/users', requireRole('ADMIN', 'STAFF'), getUsers)
 router.get('/users/:id', requireRole('ADMIN', 'STAFF'), getUserById)
 router.get('/audit-logs', requireRole('ADMIN', 'STAFF'), getAuditLogs)
+router.get('/wallet/transactions', requireRole('ADMIN', 'STAFF'), adminListTransactions)
 
 // ── Admin-only — suspending/reactivating accounts ─────────────────────────────
 router.patch('/users/:id/suspend', requireRole('ADMIN'), suspendUser)
