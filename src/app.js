@@ -11,7 +11,7 @@ const casamatchChatRoute = require('./routes/casamatchChat')   // ← NEW
 const adminRoutes        = require('./routes/admin.routes')    // ← NEW (admin dashboard)
 const documentRoutes     = require('./routes/document.routes') // ← NEW (Document Vault review queue)
 const walletRoutes       = require('./routes/wallet.routes')   // ← NEW (Escrow Wallet)
-const favouriteRoutes    = require('./routes/favourite.routes') // ← NEW (Saved / Favourite listings)
+const favouriteRoutes    = require('./routes/favourites.routes') // ← NEW (Saved / Favourite listings)
 const { ensureDatabaseCompatibility } = require('./lib/db-compat')
 const { getPrisma }      = require('./lib/prisma')
 
