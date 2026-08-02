@@ -412,6 +412,7 @@ exports.getListings = async (req, res) => {
       maxBudget, minBudget,
       facilities,
       paymentFrequency,
+      search,
       page = '1',
       limit = '20',
     } = req.query
@@ -424,6 +425,7 @@ exports.getListings = async (req, res) => {
     if (type)             where.type             = { equals: type,           mode: 'insensitive' }
     if (state)            where.state            = { equals: state,          mode: 'insensitive' }
     if (paymentFrequency) where.paymentFrequency = { equals: paymentFrequency, mode: 'insensitive' }
+    if (search)           where.title            = { contains: search,       mode: 'insensitive' }
 
     if (minBudget || maxBudget) {
       where.price = {}
