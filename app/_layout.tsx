@@ -76,6 +76,7 @@ function RootStack() {
             name="propertydetail"
             options={{ headerShown: false }}
           />
+          <Stack.Screen name="favourites" options={{ headerShown: false }} />
           <Stack.Screen
             name="MessagesScreen"
             options={{ headerShown: false }}
