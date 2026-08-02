@@ -12,6 +12,7 @@ const casamatchChatRoute = require('./routes/casamatchChat')   // ← NEW
 const adminRoutes = require('./routes/admin.routes')    // ← NEW (admin dashboard)
 const documentRoutes = require('./routes/document.routes') // ← NEW (Document Vault review queue)
 const notificationRoutes = require('./routes/notification.routes') // ← NEW (push notifications)
+const favouriteRoutes = require('./routes/favourites.routes') // ← NEW (favourites / saved listings)
 const { ensureDatabaseCompatibility } = require('./lib/db-compat')
 const { getPrisma } = require('./lib/prisma')
 const { initSocket } = require('./lib/socket')
@@ -31,6 +32,7 @@ app.use('/api/casamatch-chat', casamatchChatRoute)   // ← NEW
 app.use('/admin', express.json(), adminRoutes)     // ← NEW
 app.use('/documents', express.json(), documentRoutes) // ← NEW (handles its own body parsing)
 app.use('/notifications', express.json(), notificationRoutes) // ← NEW (push notifications)
+app.use('/favourites', express.json(), favouriteRoutes) // ← NEW (favourites)
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 

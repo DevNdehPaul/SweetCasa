@@ -14,8 +14,8 @@ async function tableExists(prisma, tableName) {
 async function ensureDatabaseCompatibility() {
   const prisma = getPrisma()
 
-  const usersExist         = await tableExists(prisma, 'users')
-  const listingsExist      = await tableExists(prisma, 'listings')
+  const usersExist = await tableExists(prisma, 'users')
+  const listingsExist = await tableExists(prisma, 'listings')
   const listingsVideosExist = await tableExists(prisma, 'listings_videos')
 
   if (!usersExist || !listingsExist) {
@@ -107,6 +107,23 @@ async function ensureDatabaseCompatibility() {
         ADD COLUMN IF NOT EXISTS cloudinary_public_id VARCHAR(255);
     `)
   }
+
+  // ── Saved Listings (Favourites) ───────────────────────────────────────────
+  // Table already exists on fresh installs via Prisma migrations; this ensures
+  // it also exists on the legacy production database without a migration run.
+  await prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS public.saved_listings (
+      id         SERIAL PRIMARY KEY,
+      user_id    INTEGER NOT NULL REFERENCES public.users(id)    ON DELETE CASCADE,
+      listing_id INTEGER NOT NULL REFERENCES public.listings(id) ON DELETE CASCADE,
+      saved_at   TIMESTAMPTZ DEFAULT NOW(),
+      CONSTRAINT unique_user_saved_listing UNIQUE (user_id, listing_id)
+    );
+  `)
+
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS idx_saved_listings_user_id ON public.saved_listings (user_id);
+  `)
 
   console.log('Database compatibility updates applied successfully.')
 }

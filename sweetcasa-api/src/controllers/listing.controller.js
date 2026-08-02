@@ -74,6 +74,8 @@ function serializeListing(listing) {
   }
 }
 
+module.exports.serializeListing = serializeListing
+
 // ─── Upload helper ────────────────────────────────────────────────────────────
 // Uses streamifier for raw files (PDF, DOCX) so the buffer is piped correctly.
 // Images and videos use stream.end(buffer) as before.
