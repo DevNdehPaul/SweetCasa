@@ -1,5 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -11,8 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { useNotifications, AppNotification } from '../hooks/useNotifications';
+import { AppNotification, useNotifications } from '../hooks/useNotifications';
 
 const H_PAD = 20;
 const FILTERS = ['All', 'listing_approved', 'listing_rejected', 'new_message', 'escrow_update', 'casa_match', 'system'];
@@ -129,7 +130,9 @@ export default function NotificationCenterScreen() {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <View style={{ width: 38 }} />
+        <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
+          <Feather name="arrow-left" size={20} color="#111" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('notifications.title', { defaultValue: 'Notifications' })}</Text>
         <TouchableOpacity style={styles.iconBtn} onPress={markAllAsRead}>
           <Feather name="check-circle" size={20} color="#7C3AED" />

@@ -85,6 +85,8 @@ function RootStack() {
           <Stack.Screen name="messages" options={{ headerShown: false }} />
           <Stack.Screen name="TermsOwner" options={{ headerShown: false }} />
           <Stack.Screen name="TermsSeeker" options={{ headerShown: false }} />
+          <Stack.Screen name="settings" options={{ headerShown: false }} />
+          <Stack.Screen name="notificationcenter" options={{ headerShown: false }} />
           <Stack.Screen
             name="TermsOwnerRead"
             options={{ headerShown: false }}

@@ -53,6 +53,7 @@ function MenuRow({ item }: { item: MenuItem }) {
 }
 
 function MenuGroup({ items }: { items: MenuItem[] }) {
+  if (!items.length) return null;
   return (
     <View style={styles.menuGroup}>
       {items.map((item, index) => (
@@ -131,6 +132,8 @@ export default function ProfileScreen() {
       ? t("profile.appLanguageSub") // "Français (Cameroun)"
       : "English (Cameroon)";
 
+  // Favourites is a Seeker (buyer) concept — House Owners don't browse/save listings,
+  // so it's excluded from the menu entirely for SELLER accounts.
   const MENU_GROUP_1: MenuItem[] = [
     {
       id: "account",
@@ -141,23 +144,19 @@ export default function ProfileScreen() {
       iconColor: "#7C3AED",
       onPress: () => router.push("/AccountInformation"),
     },
-    {
-      id: "favourites",
-      icon: "heart",
-      label: t("profile.favourites"),
-      sub: t("profile.favouritesSub"),
-      iconBg: "#FFF1F1",
-      iconColor: "#EF4444",
-      onPress: () => router.push("/favourites"),
-    },
-    {
-      id: "history",
-      icon: "rotate-ccw",
-      label: t("profile.transactionHistory"),
-      sub: t("profile.transactionHistorySub"),
-      iconBg: "#F3F0FF",
-      iconColor: "#7C3AED",
-    },
+    ...(!isSeller
+      ? [
+          {
+            id: "favourites",
+            icon: "heart",
+            label: t("profile.favourites"),
+            sub: t("profile.favouritesSub"),
+            iconBg: "#FFF1F1",
+            iconColor: "#EF4444",
+            onPress: () => router.push("/favourites"),
+          } as MenuItem,
+        ]
+      : []),
   ];
 
   const MENU_GROUP_2: MenuItem[] = [
