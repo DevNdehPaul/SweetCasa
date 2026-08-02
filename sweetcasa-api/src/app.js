@@ -11,10 +11,7 @@ const casamatchChatRoute = require('./routes/casamatchChat')   // ← NEW
 const adminRoutes        = require('./routes/admin.routes')    // ← NEW (admin dashboard)
 const documentRoutes     = require('./routes/document.routes') // ← NEW (Document Vault review queue)
 const walletRoutes       = require('./routes/wallet.routes')   // ← NEW (Escrow Wallet)
-const adminRoutes = require('./routes/admin.routes')    // ← NEW (admin dashboard)
-const documentRoutes = require('./routes/document.routes') // ← NEW (Document Vault review queue)
-const notificationRoutes = require('./routes/notification.routes') // ← NEW (push notifications)
-const favouriteRoutes = require('./routes/favourites.routes') // ← NEW (favourites / saved listings)
+const favouriteRoutes    = require('./routes/favourite.routes') // ← NEW (Saved / Favourite listings)
 const { ensureDatabaseCompatibility } = require('./lib/db-compat')
 const { getPrisma }      = require('./lib/prisma')
 
@@ -33,15 +30,7 @@ app.use('/api/casamatch-chat',        casamatchChatRoute)   // ← NEW
 app.use('/admin',                     express.json(), adminRoutes)     // ← NEW
 app.use('/documents',                 express.json(), documentRoutes) // ← NEW (handles its own body parsing)
 app.use('/wallet',                    express.json(), walletRoutes)   // ← NEW (Escrow Wallet + Fapshi webhook)
-app.use('/auth', express.json(), authRoutes)
-app.use('/reports', express.json(), reportRoutes)
-app.use('/messages/conversations', messageRoutes)
-app.use('/api/casa-match', express.json(), casaMatchRoute)
-app.use('/api/casamatch-chat', casamatchChatRoute)   // ← NEW
-app.use('/admin', express.json(), adminRoutes)     // ← NEW
-app.use('/documents', express.json(), documentRoutes) // ← NEW (handles its own body parsing)
-app.use('/notifications', express.json(), notificationRoutes) // ← NEW (push notifications)
-app.use('/favourites', express.json(), favouriteRoutes) // ← NEW (favourites)
+app.use('/favourites',                express.json(), favouriteRoutes) // ← NEW (Saved / Favourite listings)
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 
