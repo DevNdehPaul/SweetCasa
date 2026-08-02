@@ -1,87 +1,113 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
-import React, { useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   FlatList,
   Modal,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 
 import { useTranslation } from 'react-i18next';
+import { BASE_URL } from '../../constants/api';
 
 const { width, height } = Dimensions.get('window');
 const H_PAD = 20;
 const PROTECTION_CARD_W = width * 0.62;
 
-// ─── Static data ──────────────────────────────────────────────────────────────
-// Dollar amounts, IDs, and dates are never translated.
-// Activity labels are kept as-is here; add escrow.activity.* keys if needed.
+// ─── Types (mirror sweetcasa-api's wallet.controller.js serializers) ─────────
 
-const PROTECTIONS = [
-  { id: 'E104', title: 'Studio Bastos',  status: 'Locked', amount: '450,000 XAF',   progress: 2, total: 3 },
-  { id: 'E105', title: 'Mini Villa',     status: 'Locked', amount: '1,200,000 XAF', progress: 1, total: 3 },
-];
+type TxType = 'Deposit' | 'Hold' | 'Release' | 'Refund' | 'Withdrawal';
+type TxStatus = 'Pending' | 'Completed' | 'Failed' | 'Cancelled';
 
-type Activity = {
-  id: string; label: string; date: string; amount: string;
-  sign: '+' | '-'; status: 'PENDING' | 'COMPLETED';
-  iconName: string; iconBg: string; iconColor: string;
-};
+interface Transaction {
+  id: number;
+  type: TxType;
+  status: TxStatus;
+  amount: string;
+  feeAmount: string | null;
+  listingId: number | null;
+  listing?: { id: number; title: string };
+  phone: string | null;
+  medium: string | null;
+  fapshiTransId: string | null;
+  reason: string | null;
+  resolvedAs?: 'Release' | 'Refund' | null;
+  createdAt: string | null;
+}
 
-const ACTIVITIES: Activity[] = [
-  { id: '1', label: 'Locked: Modern Studio in', date: 'Oct 24, 14:20', amount: '450,000 XAF',  sign: '-', status: 'PENDING',   iconName: 'rotate-ccw',  iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-  { id: '2', label: 'Deposit via Mobile Money', date: 'Oct 24, 10:15', amount: '+500,000 XAF', sign: '+', status: 'COMPLETED', iconName: 'smartphone',  iconBg: '#FFF7ED', iconColor: '#EA580C' },
-  { id: '3', label: 'Released: 2-Bedroom',      date: 'Oct 20, 09:45', amount: '350,000 XAF',  sign: '+', status: 'COMPLETED', iconName: 'rotate-ccw',  iconBg: '#F3F0FF', iconColor: '#7C3AED' },
-  { id: '4', label: 'Deposit via Visa Card',     date: 'Oct 15, 16:30', amount: '+120,000 XAF', sign: '+', status: 'COMPLETED', iconName: 'credit-card', iconBg: '#EFF6FF', iconColor: '#2563EB' },
-];
+interface WalletData {
+  id: number;
+  heldBalance: string;
+  availableBalance: string;
+}
 
-// How It Works steps — content keyed through i18n
-const HOW_IT_WORKS_STEPS = [
-  { step: '1', titleKey: 'escrow.step1Title', descKey: 'escrow.step1Desc', icon: 'arrow-up-circle', color: '#7C3AED', bg: '#F3F0FF' },
-  { step: '2', titleKey: 'escrow.step2Title', descKey: 'escrow.step2Desc', icon: 'shield',          color: '#2563EB', bg: '#EFF6FF' },
-  { step: '3', titleKey: 'escrow.step3Title', descKey: 'escrow.step3Desc', icon: 'clock',           color: '#059669', bg: '#ECFDF5' },
-];
+interface ListingOption {
+  id: number;
+  title: string;
+  price: string;
+  city: string;
+}
 
-// Quick action i18n keys (icon stays the same)
-const PRIMARY_ACTIONS = [
-  { icon: 'arrow-up-circle', labelKey: 'escrow.deposit', variant: 'deposit' },
-  { icon: 'arrow-down-circle', labelKey: 'escrow.withdraw', variant: 'withdraw' },
-] as const;
+function formatXAF(value: string | number): string {
+  const n = Math.round(Number(value) || 0);
+  return `${n.toLocaleString('en-US')} XAF`;
+}
 
-// ─── Protection Card ──────────────────────────────────────────────────────────
+function formatDate(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
-function ProtectionCard({ item }: { item: typeof PROTECTIONS[0] }) {
+async function authedFetch(path: string, options: RequestInit = {}) {
+  const token = await AsyncStorage.getItem('token');
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || 'Request failed.');
+  return data;
+}
+
+// ─── Protection Card (an active Hold) ─────────────────────────────────────────
+
+function ProtectionCard({ item }: { item: Transaction }) {
   const { t } = useTranslation();
-  const pct = item.progress / item.total;
   return (
     <View style={styles.protectionCard}>
       <View style={styles.protectionTopRow}>
         <View style={styles.protectionIdRow}>
           <Feather name="lock" size={12} color="#A0A0A0" />
           <View>
-            <Text style={styles.protectionTitle}>{item.title}</Text>
-            <Text style={styles.protectionId}>ID: {item.id}</Text>
+            <Text style={styles.protectionTitle} numberOfLines={1}>{item.listing?.title || '—'}</Text>
+            <Text style={styles.protectionId}>ID: E{item.id}</Text>
           </View>
         </View>
         <View style={styles.lockedChip}>
           <Text style={styles.lockedChipTxt}>{t('escrow.locked')}</Text>
         </View>
       </View>
-      <Text style={styles.protectionAmount}>{item.amount}</Text>
+      <Text style={styles.protectionAmount}>{formatXAF(item.amount)}</Text>
       <View style={styles.progressRow}>
-        <Text style={styles.progressLabel}>{t('escrow.verification')}</Text>
-        <Text style={styles.progressFrac}>{item.progress}/{item.total}</Text>
-      </View>
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${pct * 100}%` }]} />
+        <Text style={styles.progressLabel}>{formatDate(item.createdAt)}</Text>
       </View>
     </View>
   );
@@ -89,33 +115,281 @@ function ProtectionCard({ item }: { item: typeof PROTECTIONS[0] }) {
 
 // ─── Activity Row ─────────────────────────────────────────────────────────────
 
-function ActivityRow({ item }: { item: Activity }) {
-  const isNeg = item.sign === '-';
+const TYPE_META: Record<TxType, { labelKey: string; iconName: string; iconBg: string; iconColor: string; sign: '+' | '-' }> = {
+  Deposit:    { labelKey: 'escrow.deposit',       iconName: 'smartphone',      iconBg: '#FFF7ED', iconColor: '#EA580C', sign: '-' },
+  Hold:       { labelKey: 'escrow.locked',        iconName: 'lock',            iconBg: '#F3F0FF', iconColor: '#7C3AED', sign: '-' },
+  Release:    { labelKey: 'escrow.released',      iconName: 'check-circle',    iconBg: '#ECFDF5', iconColor: '#059669', sign: '+' },
+  Refund:     { labelKey: 'escrow.refunded',      iconName: 'rotate-ccw',      iconBg: '#F3F0FF', iconColor: '#7C3AED', sign: '+' },
+  Withdrawal: { labelKey: 'escrow.withdrawalLabel', iconName: 'arrow-down-circle', iconBg: '#EFF6FF', iconColor: '#2563EB', sign: '-' },
+};
+
+function ActivityRow({ item }: { item: Transaction }) {
+  const { t } = useTranslation();
+  const meta = TYPE_META[item.type];
+  const label = item.listing?.title ? `${t(meta.labelKey)} — ${item.listing.title}` : t(meta.labelKey);
+  const statusLabel = item.status === 'Completed'
+    ? (item.type === 'Hold' && item.resolvedAs ? t(`escrow.${item.resolvedAs === 'Release' ? 'released' : 'refunded'}`) : null)
+    : t(`escrow.${item.status.toLowerCase()}`);
+
   return (
     <View style={styles.activityRow}>
-      <View style={[styles.activityIcon, { backgroundColor: item.iconBg }]}>
-        <Feather name={item.iconName as any} size={16} color={item.iconColor} />
+      <View style={[styles.activityIcon, { backgroundColor: meta.iconBg }]}>
+        <Feather name={meta.iconName as any} size={16} color={meta.iconColor} />
       </View>
       <View style={styles.activityInfo}>
-        <Text style={styles.activityLabel}>{item.label}</Text>
-        <Text style={styles.activityDate}>{item.date}</Text>
+        <Text style={styles.activityLabel} numberOfLines={1}>{label}</Text>
+        <Text style={styles.activityDate}>{formatDate(item.createdAt)}</Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Text style={[styles.activityAmount, { color: '#111' }]}>
-          {isNeg ? '-' : '+'}{item.amount.replace('+', '')}
+          {meta.sign}{formatXAF(item.amount)}
         </Text>
-        <Text style={[
-          styles.activityStatus,
-          { color: item.status === 'PENDING' ? '#F59E0B' : '#22C55E' },
-        ]}>
-          {item.status}
-        </Text>
+        {statusLabel && (
+          <Text style={[
+            styles.activityStatus,
+            { color: item.status === 'Pending' ? '#F59E0B' : item.status === 'Failed' ? '#DC2626' : '#22C55E' },
+          ]}>
+            {statusLabel}
+          </Text>
+        )}
       </View>
     </View>
   );
 }
 
-// ─── How It Works Modal ───────────────────────────────────────────────────────
+// ─── Deposit Modal ────────────────────────────────────────────────────────────
+
+function DepositModal({
+  visible, onClose, onDeposited,
+}: { visible: boolean; onClose: () => void; onDeposited: () => void }) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<ListingOption[]>([]);
+  const [selected, setSelected] = useState<ListingOption | null>(null);
+  const [amount, setAmount] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) {
+      setQuery(''); setResults([]); setSelected(null); setAmount(''); setError(null);
+    }
+  }, [visible]);
+
+  const handleSearch = async (text: string) => {
+    setQuery(text);
+    if (text.trim().length < 2) { setResults([]); return; }
+    try {
+      const res = await fetch(`${BASE_URL}/listings?search=${encodeURIComponent(text.trim())}&limit=10`);
+      const data = await res.json();
+      if (res.ok) setResults(data.listings || []);
+    } catch {
+      // search is a convenience — fail silently
+    }
+  };
+
+  const handleConfirm = async () => {
+    setError(null);
+    if (!selected) { setError(t('escrow.selectAPropertyError')); return; }
+    const amt = Number.parseInt(amount.replace(/[^0-9]/g, ''), 10);
+    if (!Number.isFinite(amt) || amt < 100) { setError(t('escrow.enterValidAmount')); return; }
+
+    setBusy(true);
+    try {
+      const data = await authedFetch('/wallet/deposit', {
+        method: 'POST',
+        body: JSON.stringify({ listingId: selected.id, amount: amt }),
+      });
+      onClose();
+
+      if (data.link) {
+        await WebBrowser.openBrowserAsync(data.link);
+        // Sync status right after the checkout closes rather than waiting on the webhook.
+        try {
+          const verified = await authedFetch(`/wallet/deposit/${data.transaction.id}/verify`);
+          const status = verified.transaction?.status;
+          if (status === 'Completed') {
+            Alert.alert(t('escrow.depositSuccessTitle'), t('escrow.depositSuccessDesc'));
+          } else if (status === 'Failed' || status === 'Cancelled') {
+            Alert.alert(t('escrow.depositFailedTitle'), t('escrow.depositFailedDesc'));
+          } else {
+            Alert.alert(t('escrow.depositPendingTitle'), t('escrow.depositPendingDesc'));
+          }
+        } catch {
+          Alert.alert(t('escrow.depositPendingTitle'), t('escrow.depositPendingDesc'));
+        }
+      }
+      onDeposited();
+    } catch (err: any) {
+      setError(err.message || t('common.error'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent>
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.sheet}>
+          <Text style={modalStyles.title}>{t('escrow.depositModalTitle')}</Text>
+          <Text style={modalStyles.desc}>{t('escrow.depositModalDesc')}</Text>
+
+          {error && <Text style={modalStyles.error}>{error}</Text>}
+
+          {!selected ? (
+            <>
+              <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
+              <TextInput
+                style={modalStyles.input}
+                placeholder={t('escrow.searchProperties')}
+                placeholderTextColor="#9CA3AF"
+                value={query}
+                onChangeText={handleSearch}
+              />
+              <ScrollView style={{ maxHeight: 200 }}>
+                {results.map((r) => (
+                  <TouchableOpacity key={r.id} style={modalStyles.resultRow} onPress={() => setSelected(r)}>
+                    <Text style={modalStyles.resultTitle} numberOfLines={1}>{r.title}</Text>
+                    <Text style={modalStyles.resultMeta}>{r.city} · {formatXAF(r.price)}</Text>
+                  </TouchableOpacity>
+                ))}
+                {query.length >= 2 && results.length === 0 && (
+                  <Text style={modalStyles.hint}>{t('common.noResults')}</Text>
+                )}
+              </ScrollView>
+            </>
+          ) : (
+            <>
+              <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
+              <View style={modalStyles.selectedRow}>
+                <Text style={modalStyles.selectedTxt} numberOfLines={1}>{selected.title}</Text>
+                <TouchableOpacity onPress={() => setSelected(null)}>
+                  <Text style={modalStyles.changeTxt}>{t('common.edit')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={modalStyles.label}>{t('escrow.amountXAF')}</Text>
+              <TextInput
+                style={modalStyles.input}
+                placeholder={t('escrow.amountPlaceholder')}
+                placeholderTextColor="#9CA3AF"
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="number-pad"
+              />
+            </>
+          )}
+
+          <View style={modalStyles.actions}>
+            <TouchableOpacity style={modalStyles.cancelBtn} onPress={onClose} disabled={busy}>
+              <Text style={modalStyles.cancelTxt}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[modalStyles.confirmBtn, (!selected || busy) && { opacity: 0.5 }]}
+              onPress={handleConfirm}
+              disabled={!selected || busy}>
+              {busy ? <ActivityIndicator color="#fff" size="small" /> : (
+                <Text style={modalStyles.confirmTxt}>{t('common.confirm')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── Withdraw Modal ───────────────────────────────────────────────────────────
+
+function WithdrawModal({
+  visible, availableBalance, onClose, onWithdrawn,
+}: { visible: boolean; availableBalance: string; onClose: () => void; onWithdrawn: () => void }) {
+  const { t } = useTranslation();
+  const [amount, setAmount] = useState('');
+  const [phone, setPhone] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) { setAmount(''); setPhone(''); setError(null); }
+  }, [visible]);
+
+  const handleConfirm = async () => {
+    setError(null);
+    const amt = Number.parseInt(amount.replace(/[^0-9]/g, ''), 10);
+    if (!Number.isFinite(amt) || amt < 100) { setError(t('escrow.enterValidAmount')); return; }
+    if (amt > Number(availableBalance)) { setError(t('escrow.insufficientBalance')); return; }
+    if (!phone.trim()) { setError(t('escrow.enterPhoneNumber')); return; }
+
+    setBusy(true);
+    try {
+      await authedFetch('/wallet/withdraw', {
+        method: 'POST',
+        body: JSON.stringify({ amount: amt, phone: phone.trim() }),
+      });
+      onClose();
+      Alert.alert(t('escrow.withdrawSuccessTitle'), t('escrow.withdrawSuccessDesc'));
+      onWithdrawn();
+    } catch (err: any) {
+      setError(err.message || t('common.error'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent>
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.sheet}>
+          <Text style={modalStyles.title}>{t('escrow.withdrawModalTitle')}</Text>
+          <Text style={modalStyles.desc}>{t('escrow.withdrawModalDesc')}</Text>
+
+          {error && <Text style={modalStyles.error}>{error}</Text>}
+
+          <Text style={modalStyles.label}>{t('escrow.amountXAF')}</Text>
+          <TextInput
+            style={modalStyles.input}
+            placeholder={t('escrow.amountPlaceholder')}
+            placeholderTextColor="#9CA3AF"
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="number-pad"
+          />
+          <Text style={modalStyles.hint}>{formatXAF(availableBalance)} {t('escrow.withdrawable').toLowerCase()}</Text>
+
+          <Text style={modalStyles.label}>{t('escrow.phoneNumber')}</Text>
+          <TextInput
+            style={modalStyles.input}
+            placeholder={t('escrow.phonePlaceholder')}
+            placeholderTextColor="#9CA3AF"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+          />
+
+          <View style={modalStyles.actions}>
+            <TouchableOpacity style={modalStyles.cancelBtn} onPress={onClose} disabled={busy}>
+              <Text style={modalStyles.cancelTxt}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[modalStyles.confirmBtn, busy && { opacity: 0.5 }]} onPress={handleConfirm} disabled={busy}>
+              {busy ? <ActivityIndicator color="#fff" size="small" /> : (
+                <Text style={modalStyles.confirmTxt}>{t('common.confirm')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─── How It Works Modal (static content — unchanged) ─────────────────────────
+
+const HOW_IT_WORKS_STEPS = [
+  { step: '1', titleKey: 'escrow.step1Title', descKey: 'escrow.step1Desc', icon: 'arrow-up-circle', color: '#7C3AED', bg: '#F3F0FF' },
+  { step: '2', titleKey: 'escrow.step2Title', descKey: 'escrow.step2Desc', icon: 'shield',          color: '#2563EB', bg: '#EFF6FF' },
+  { step: '3', titleKey: 'escrow.step3Title', descKey: 'escrow.step3Desc', icon: 'clock',           color: '#059669', bg: '#ECFDF5' },
+];
 
 function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useTranslation();
@@ -138,7 +412,6 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
       <Animated.View style={[styles.modalSheet, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.modalHandle} />
 
-        {/* Title Row */}
         <View style={styles.modalTitleRow}>
           <View style={styles.modalTitleIconWrap}>
             <Ionicons name="information-circle" size={22} color="#7C3AED" />
@@ -153,8 +426,6 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
-
-          {/* Steps */}
           {HOW_IT_WORKS_STEPS.map((step, index) => (
             <View key={step.step} style={styles.stepCard}>
               {index < HOW_IT_WORKS_STEPS.length - 1 && (
@@ -179,7 +450,6 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
 
           <View style={styles.modalDivider} />
 
-          {/* Price Ceiling */}
           <View style={styles.priceCeilingCard}>
             <View style={styles.priceCeilingHeader}>
               <View style={styles.priceCeilingIconWrap}>
@@ -206,7 +476,6 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
               </Text>
             </View>
 
-            {/* Why it works */}
             <View style={styles.whyItWorksBox}>
               <Text style={styles.whyItWorksTitle}>{t('escrow.whyProtectsTitle')}</Text>
               <View style={styles.whyRow}>
@@ -244,13 +513,52 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
 
 export default function EscrowWalletScreen() {
   const { t } = useTranslation();
-  const [infoVisible, setInfoVisible] = React.useState(false);
+  const [infoVisible, setInfoVisible] = useState(false);
+  const [depositVisible, setDepositVisible] = useState(false);
+  const [withdrawVisible, setWithdrawVisible] = useState(false);
+
+  const [wallet, setWallet] = useState<WalletData | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const data = await authedFetch('/wallet/me');
+      setWallet(data.wallet);
+      setTransactions(data.transactions || []);
+    } catch (err: any) {
+      setError(err.message || t('escrow.loadFailed'));
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [t]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const onRefresh = () => { setRefreshing(true); load(); };
+
+  const activeProtections = transactions.filter((t) => t.type === 'Hold' && t.status === 'Completed' && !t.resolvedAs);
+  const totalBalance = wallet ? Number(wallet.heldBalance) + Number(wallet.availableBalance) : 0;
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+          <ActivityIndicator size="large" color="#7C3AED" />
+          <Text style={{ color: '#888', fontSize: 13 }}>{t('escrow.loadingWallet')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* ── Header ── */}
       <View style={styles.header}>
         <View style={{ width: 38 }} />
         <Text style={styles.headerTitle}>{t('escrow.title')}</Text>
@@ -258,15 +566,20 @@ export default function EscrowWalletScreen() {
           <TouchableOpacity style={styles.infoBtn} onPress={() => setInfoVisible(true)} activeOpacity={0.75}>
             <Ionicons name="information-circle-outline" size={20} color="#7C3AED" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn}>
-            <Feather name="bell" size={20} color="#111" />
-          </TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7C3AED" />}>
 
-        {/* ── Balance Card ── */}
+        {error && (
+          <TouchableOpacity style={{ margin: H_PAD, padding: 12, backgroundColor: '#FEF2F2', borderRadius: 12 }} onPress={load}>
+            <Text style={{ color: '#DC2626', fontSize: 13 }}>{error} — {t('common.retry')}</Text>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.balanceCard}>
           <View style={styles.shieldWatermark}>
             <Ionicons name="shield-checkmark" size={90} color="rgba(255,255,255,0.1)" />
@@ -279,7 +592,7 @@ export default function EscrowWalletScreen() {
           </TouchableOpacity>
 
           <Text style={styles.balanceLabel}>{t('escrow.totalBalance')}</Text>
-          <Text style={styles.balanceAmount}>850,500 XAF</Text>
+          <Text style={styles.balanceAmount}>{formatXAF(totalBalance)}</Text>
 
           <View style={styles.balanceSubRow}>
             <View style={styles.balanceSubCard}>
@@ -287,14 +600,14 @@ export default function EscrowWalletScreen() {
                 <Feather name="lock" size={11} color="rgba(255,255,255,0.7)" />
                 <Text style={styles.balanceSubLabel}>{t('escrow.lockedEscrow')}</Text>
               </View>
-              <Text style={styles.balanceSubAmount}>1,650,000{'\n'}XAF</Text>
+              <Text style={styles.balanceSubAmount}>{formatXAF(wallet?.heldBalance || 0)}</Text>
             </View>
             <View style={styles.balanceSubCard}>
               <View style={styles.balanceSubLabelRow}>
                 <Feather name="unlock" size={11} color="rgba(255,255,255,0.7)" />
                 <Text style={styles.balanceSubLabel}>{t('escrow.withdrawable')}</Text>
               </View>
-              <Text style={styles.balanceSubAmount}>850,500 XAF</Text>
+              <Text style={styles.balanceSubAmount}>{formatXAF(wallet?.availableBalance || 0)}</Text>
             </View>
           </View>
 
@@ -304,52 +617,44 @@ export default function EscrowWalletScreen() {
           </View>
         </View>
 
-        {/* ── Primary Actions ── */}
         <View style={styles.primaryActions}>
-          {PRIMARY_ACTIONS.map(a => (
-            <TouchableOpacity
-              key={a.labelKey}
-              style={[
-                styles.primaryActionBtn,
-                a.variant === 'deposit' ? styles.depositBtn : styles.withdrawBtn,
-              ]}
-              activeOpacity={0.85}
-            >
-              <Feather
-                name={a.icon as any}
-                size={18}
-                color={a.variant === 'deposit' ? '#7C3AED' : '#fff'}
-              />
-              <Text style={[
-                styles.primaryActionTxt,
-                a.variant === 'deposit' ? styles.primaryActionTxtDeposit : styles.primaryActionTxtWithdraw,
-              ]}>
-                {t(a.labelKey)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ── Active Protections ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('escrow.activeProtections')}</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAll}>{t('common.seeAll')}</Text>
+          <TouchableOpacity
+            style={[styles.primaryActionBtn, styles.depositBtn]}
+            activeOpacity={0.85}
+            onPress={() => setDepositVisible(true)}>
+            <Feather name="arrow-up-circle" size={18} color="#7C3AED" />
+            <Text style={[styles.primaryActionTxt, styles.primaryActionTxtDeposit]}>{t('escrow.deposit')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.primaryActionBtn, styles.withdrawBtn]}
+            activeOpacity={0.85}
+            onPress={() => setWithdrawVisible(true)}>
+            <Feather name="arrow-down-circle" size={18} color="#fff" />
+            <Text style={[styles.primaryActionTxt, styles.primaryActionTxtWithdraw]}>{t('escrow.withdraw')}</Text>
           </TouchableOpacity>
         </View>
 
-        <FlatList
-          data={PROTECTIONS}
-          horizontal
-          keyExtractor={i => i.id}
-          renderItem={({ item }) => <ProtectionCard item={item} />}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.protectionList}
-          snapToInterval={PROTECTION_CARD_W + 14}
-          decelerationRate="fast"
-        />
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t('escrow.activeProtections')}</Text>
+        </View>
 
-        {/* ── Escrow Active Banner ── */}
+        {activeProtections.length === 0 ? (
+          <Text style={{ color: '#B0B0B0', fontSize: 13, marginHorizontal: H_PAD, marginBottom: 8 }}>
+            {t('escrow.noActiveProtections')}
+          </Text>
+        ) : (
+          <FlatList
+            data={activeProtections}
+            horizontal
+            keyExtractor={(i) => String(i.id)}
+            renderItem={({ item }) => <ProtectionCard item={item} />}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.protectionList}
+            snapToInterval={PROTECTION_CARD_W + 14}
+            decelerationRate="fast"
+          />
+        )}
+
         <View style={styles.escrowBanner}>
           <View style={styles.escrowBannerIcon}>
             <Ionicons name="shield-checkmark-outline" size={18} color="#7C3AED" />
@@ -358,41 +663,40 @@ export default function EscrowWalletScreen() {
             <Text style={styles.escrowBannerTitle}>{t('escrow.protectionActive')}</Text>
             <Text style={styles.escrowBannerSub}>{t('escrow.protectionActiveSub')}</Text>
           </View>
-          <TouchableOpacity
-            onPress={() => setInfoVisible(true)}
-            style={styles.escrowBannerInfoBtn}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity onPress={() => setInfoVisible(true)} style={styles.escrowBannerInfoBtn} activeOpacity={0.7}>
             <Text style={styles.escrowBannerInfoTxt}>{t('escrow.info')}</Text>
             <Feather name="chevron-right" size={11} color="#7C3AED" />
           </TouchableOpacity>
         </View>
 
-        {/* ── Recent Activity ── */}
         <View style={[styles.sectionHeader, { marginTop: 24 }]}>
           <Text style={styles.sectionTitle}>{t('escrow.recentActivity')}</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAll}>{t('common.filter')}</Text>
-          </TouchableOpacity>
         </View>
 
-        <View style={styles.activityList}>
-          {ACTIVITIES.map((item, index) => (
-            <View key={item.id}>
-              <ActivityRow item={item} />
-              {index < ACTIVITIES.length - 1 && <View style={styles.activityDivider} />}
-            </View>
-          ))}
-        </View>
-
-        <TouchableOpacity style={styles.historyBtn} activeOpacity={0.8}>
-          <Text style={styles.historyBtnTxt}>{t('escrow.viewHistory')}</Text>
-        </TouchableOpacity>
+        {transactions.length === 0 ? (
+          <Text style={{ color: '#B0B0B0', fontSize: 13, marginHorizontal: H_PAD }}>{t('escrow.noActivity')}</Text>
+        ) : (
+          <View style={styles.activityList}>
+            {transactions.map((item, index) => (
+              <View key={item.id}>
+                <ActivityRow item={item} />
+                {index < transactions.length - 1 && <View style={styles.activityDivider} />}
+              </View>
+            ))}
+          </View>
+        )}
 
         <View style={{ height: 32 }} />
       </ScrollView>
 
       <HowItWorksModal visible={infoVisible} onClose={() => setInfoVisible(false)} />
+      <DepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} onDeposited={load} />
+      <WithdrawModal
+        visible={withdrawVisible}
+        availableBalance={wallet?.availableBalance || '0'}
+        onClose={() => setWithdrawVisible(false)}
+        onWithdrawn={load}
+      />
     </SafeAreaView>
   );
 }
@@ -405,7 +709,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   infoBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F0FF', borderRadius: 19 },
-  iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   balanceCard: { margin: H_PAD, borderRadius: 22, backgroundColor: '#6D28D9', padding: 22, overflow: 'hidden', position: 'relative' },
   shieldWatermark: { position: 'absolute', right: 12, top: 10 },
   balanceInfoHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
@@ -428,21 +731,17 @@ const styles = StyleSheet.create({
   primaryActionTxtWithdraw: { color: '#fff' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 14 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
-  seeAll: { fontSize: 12.5, color: '#7C3AED', fontWeight: '600' },
   protectionList: { paddingLeft: H_PAD, paddingRight: H_PAD / 2, gap: 14, paddingBottom: 4 },
   protectionCard: { width: PROTECTION_CARD_W, backgroundColor: '#fff', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#EFEFEF', gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   protectionTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   protectionIdRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  protectionTitle: { fontSize: 13.5, fontWeight: '700', color: '#111', letterSpacing: -0.1 },
+  protectionTitle: { fontSize: 13.5, fontWeight: '700', color: '#111', letterSpacing: -0.1, maxWidth: 140 },
   protectionId: { fontSize: 10.5, color: '#B0B0B0' },
   lockedChip: { backgroundColor: '#F3F0FF', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
   lockedChipTxt: { fontSize: 10.5, color: '#7C3AED', fontWeight: '700' },
   protectionAmount: { fontSize: 17, fontWeight: '800', color: '#111', letterSpacing: -0.3 },
   progressRow: { flexDirection: 'row', justifyContent: 'space-between' },
   progressLabel: { fontSize: 11, color: '#B0B0B0' },
-  progressFrac: { fontSize: 11, color: '#B0B0B0', fontWeight: '600' },
-  progressTrack: { height: 5, backgroundColor: '#F0F0F0', borderRadius: 10, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: '#7C3AED', borderRadius: 10 },
   escrowBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: H_PAD, marginTop: 16, backgroundColor: '#F3F0FF', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#EDE9FE' },
   escrowBannerIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
   escrowBannerTitle: { fontSize: 13, fontWeight: '700', color: '#7C3AED', marginBottom: 2 },
@@ -458,8 +757,6 @@ const styles = StyleSheet.create({
   activityAmount: { fontSize: 13.5, fontWeight: '700', color: '#111', textAlign: 'right', marginBottom: 2 },
   activityStatus: { fontSize: 9.5, fontWeight: '700', letterSpacing: 0.5 },
   activityDivider: { height: 1, backgroundColor: '#F5F5F5', marginLeft: 66 },
-  historyBtn: { marginHorizontal: H_PAD, marginTop: 16, paddingVertical: 14, alignItems: 'center' },
-  historyBtnTxt: { fontSize: 14, fontWeight: '700', color: '#7C3AED' },
   modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' },
   modalSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 0, maxHeight: height * 0.88 },
   modalHandle: { width: 40, height: 4, backgroundColor: '#E5E5E5', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
@@ -491,4 +788,32 @@ const styles = StyleSheet.create({
   whyRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   whyDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#7C3AED', marginTop: 5, flexShrink: 0 },
   whyTxt: { flex: 1, fontSize: 12, color: '#555', lineHeight: 17 },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32 },
+  title: { fontSize: 17, fontWeight: '800', color: '#111' },
+  desc: { fontSize: 12.5, color: '#888', marginTop: 4, marginBottom: 16, lineHeight: 17 },
+  error: { fontSize: 12.5, color: '#DC2626', backgroundColor: '#FEF2F2', borderRadius: 10, padding: 10, marginBottom: 12 },
+  label: { fontSize: 12.5, fontWeight: '700', color: '#374151', marginBottom: 6, marginTop: 4 },
+  input: {
+    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
+    padding: 12, fontSize: 14, color: '#111', backgroundColor: '#fff',
+  },
+  hint: { fontSize: 11.5, color: '#9CA3AF', marginTop: 4 },
+  resultRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  resultTitle: { fontSize: 13.5, fontWeight: '600', color: '#111' },
+  resultMeta: { fontSize: 11.5, color: '#9CA3AF', marginTop: 1 },
+  selectedRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#F5F3FF', borderRadius: 12, padding: 12,
+  },
+  selectedTxt: { flex: 1, fontSize: 13.5, fontWeight: '600', color: '#111', marginRight: 8 },
+  changeTxt: { fontSize: 12.5, fontWeight: '700', color: '#7C3AED' },
+  actions: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  cancelBtn: { flex: 1, padding: 14, borderWidth: 1.5, borderColor: '#7C3AED', borderRadius: 14, alignItems: 'center' },
+  cancelTxt: { color: '#7C3AED', fontWeight: '700', fontSize: 14 },
+  confirmBtn: { flex: 2, padding: 14, borderRadius: 14, backgroundColor: '#7C3AED', alignItems: 'center' },
+  confirmTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

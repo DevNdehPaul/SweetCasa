@@ -25,6 +25,7 @@ function serializeTransaction(t) {
     fapshiStatus: t.fapshiStatus,
     reason: t.reason,
     initiatedBy: t.initiatedBy,
+    resolvedAs: t.resolvedAs ?? undefined,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   }
@@ -41,6 +42,25 @@ function serializeWallet(w) {
   }
 }
 
+// A Hold's Release lives on the OWNER's wallet, not the depositor's — so a
+// seeker looking at their own transactions can't tell "still locked" from
+// "released to the owner" just from rows in their own wallet. This looks up
+// resolution status across all wallets for whichever Hold rows are present.
+async function attachHoldResolution(transactions) {
+  const holdIds = transactions.filter((t) => t.type === 'Hold').map((t) => t.id)
+  if (!holdIds.length) return transactions
+
+  const resolutions = await getPrisma().transaction.findMany({
+    where: { relatedTransactionId: { in: holdIds }, type: { in: ['Release', 'Refund'] } },
+    select: { relatedTransactionId: true, type: true },
+  })
+  const resolvedMap = new Map(resolutions.map((r) => [r.relatedTransactionId, r.type]))
+
+  return transactions.map((t) =>
+    t.type === 'Hold' ? { ...t, resolvedAs: resolvedMap.get(t.id) || null } : t
+  )
+}
+
 async function getOrCreateWallet(userId) {
   return getPrisma().wallet.upsert({
     where: { userId },
@@ -53,12 +73,13 @@ async function getOrCreateWallet(userId) {
 exports.getMyWallet = async (req, res) => {
   try {
     const wallet = await getOrCreateWallet(req.user.id)
-    const transactions = await getPrisma().transaction.findMany({
+    const rawTransactions = await getPrisma().transaction.findMany({
       where: { walletId: wallet.id },
       include: { listing: { select: { id: true, title: true } } },
       orderBy: { createdAt: 'desc' },
       take: 50,
     })
+    const transactions = await attachHoldResolution(rawTransactions)
     res.json({ wallet: serializeWallet(wallet), transactions: transactions.map(serializeTransaction) })
   } catch (err) {
     console.error('Get wallet error:', err)
@@ -79,7 +100,7 @@ exports.listMyTransactions = async (req, res) => {
     const pageNum  = Math.max(1, Number.parseInt(page, 10))
     const pageSize = Math.min(100, Math.max(1, Number.parseInt(limit, 10)))
 
-    const [transactions, total] = await Promise.all([
+    const [rawTransactions, total] = await Promise.all([
       getPrisma().transaction.findMany({
         where,
         include: { listing: { select: { id: true, title: true } } },
@@ -89,6 +110,7 @@ exports.listMyTransactions = async (req, res) => {
       }),
       getPrisma().transaction.count({ where }),
     ])
+    const transactions = await attachHoldResolution(rawTransactions)
 
     res.json({ transactions: transactions.map(serializeTransaction), total, page: pageNum, pages: Math.ceil(total / pageSize) })
   } catch (err) {
