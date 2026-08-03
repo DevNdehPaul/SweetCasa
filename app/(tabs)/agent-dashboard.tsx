@@ -20,7 +20,7 @@ import api from '../../constants/api';
 const H_PAD = 20;
 const PURPLE = '#7C3AED';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://sweetcasa.bonto.run/';
 
 // ─── Welcome Modal ────────────────────────────────────────────────────────────
 function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -85,6 +85,8 @@ export default function AgentHubScreen() {
   const [profile, setProfile]         = useState<any>(null);
   const [listings, setListings]       = useState<any[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [wallet, setWallet]           = useState<{ heldBalance: string; availableBalance: string } | null>(null);
+  const [walletReady, setWalletReady] = useState(false);
 
   // Live stats derived from existing endpoints — no new backend needed
   const [unreadMessages, setUnreadMessages] = useState<number>(0);
@@ -113,11 +115,12 @@ export default function AgentHubScreen() {
       const token = await AsyncStorage.getItem('token');
       const authHeader = { Authorization: `Bearer ${token}` };
 
-      const [listingsRes, convsRes] = await Promise.allSettled([
+      const [listingsRes, convsRes, walletRes] = await Promise.allSettled([
         api.get('/listings/mine'),
         fetch(`${API_BASE}/messages/conversations`, { headers: authHeader }).then((r) =>
           r.ok ? r.json() : Promise.reject(r.status),
         ),
+        api.get('/wallet/me'),
       ]);
 
       // ── Listings ──────────────────────────────────────────────────────────
@@ -160,14 +163,24 @@ export default function AgentHubScreen() {
           setLeadConversion('0%');
         }
       }
+      // ── Wallet ────────────────────────────────────────────────────────────
+      if (walletRes.status === 'fulfilled') {
+        setWallet((walletRes.value as any).data?.wallet ?? null);
+      }
     } catch {
       // Stats stay at defaults (0 / 0%)
     } finally {
       setStatsReady(true);
+      setWalletReady(true);
     }
   };
 
   const latestListings = listings.slice(0, 3);
+
+  // Mirrors wallet.tsx: total = held + available; pending payout = held (still in escrow)
+  const totalBalance   = wallet ? Number(wallet.heldBalance) + Number(wallet.availableBalance) : 0;
+  const pendingPayout  = wallet ? Number(wallet.heldBalance) : 0;
+  const formatXAF = (value: number) => `${Math.round(value).toLocaleString('en-US')} XAF`;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -177,7 +190,7 @@ export default function AgentHubScreen() {
       {/* ── Header ── */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('agentHub.title')}</Text>
-        <TouchableOpacity style={styles.bellBtn} onPress={() => router.push('/MessagesInbox')}>
+        <TouchableOpacity style={styles.bellBtn} onPress={() => router.push('/notificationcenter')}>
           <Feather name="bell" size={22} color="#111" />
           {unreadMessages > 0 && <View style={styles.bellDot} />}
         </TouchableOpacity>
@@ -209,8 +222,14 @@ export default function AgentHubScreen() {
             <MaterialCommunityIcons name="currency-usd" size={16} color={PURPLE} />
             <Text style={styles.walletLabel}>{t('agentHub.escrowBalance')}</Text>
           </View>
-          <Text style={styles.walletAmount}>1,250,000 XAF</Text>
-          <Text style={styles.walletPending}>450,000 XAF {t('agentHub.pendingPayout')}</Text>
+          {walletReady ? (
+            <Text style={styles.walletAmount}>{formatXAF(totalBalance)}</Text>
+          ) : (
+            <View style={[styles.skeleton, { height: 34, width: 140, marginBottom: 6 }]} />
+          )}
+          <Text style={styles.walletPending}>
+            {walletReady ? formatXAF(pendingPayout) : '—'} {t('agentHub.pendingPayout')}
+          </Text>
           <Link href="/wallet">
             <TouchableOpacity style={styles.walletBtn} activeOpacity={0.85}>
               <Text style={styles.walletBtnTxt}>{t('agentHub.manageWallet')}</Text>

@@ -352,6 +352,13 @@ export default function SearchResultsScreen() {
     .filter(Boolean)
     .join(" · ");
 
+  // No exact (strict) matches — we'll fall back to the relaxed "other options" results.
+  const noExactMatches = !loading && !error && listings.length === 0;
+  const displayListings = noExactMatches ? otherOptions : listings;
+  // Only the true empty state: nothing strict AND nothing relaxed either.
+  const trulyEmpty =
+    noExactMatches && !otherOptionsLoading && otherOptions.length === 0;
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -369,9 +376,6 @@ export default function SearchResultsScreen() {
             </Text>
           ) : null}
         </View>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
-          <Feather name="sliders" size={18} color={PURPLE} />
-        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -389,73 +393,91 @@ export default function SearchResultsScreen() {
             <Text style={styles.retryTxt}>{t("common.retry")}</Text>
           </TouchableOpacity>
         </View>
+      ) : trulyEmpty ? (
+        <View style={styles.centered}>
+          <Text style={styles.emptyIcon}>🏘️</Text>
+          <Text style={styles.emptyTitle}>
+            {t("searchResults.noPropertiesTitle")}
+          </Text>
+          <Text style={styles.emptyDesc}>
+            {t("searchResults.noPropertiesDesc")}
+          </Text>
+          <TouchableOpacity
+            style={styles.adjustBtn}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.adjustTxt}>
+              {t("searchResults.adjustFilters")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : noExactMatches && otherOptionsLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={PURPLE} />
+          <Text style={styles.loadingTxt}>
+            {t("searchResults.loadingAlternatives")}
+          </Text>
+        </View>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
           <View style={styles.metaRow}>
-            <View>
-              <Text style={styles.metaSmall}>
-                {t("searchResults.foundForYou")}
-              </Text>
-              <Text style={styles.metaBig}>
-                {total}{" "}
-                {t(
-                  total !== 1
-                    ? "searchResults.listings"
-                    : "searchResults.listing",
-                )}
-              </Text>
-            </View>
+            {noExactMatches ? (
+              <View>
+                <Text style={styles.metaSmall}>
+                  {t("searchResults.otherOptionsTitle")}
+                </Text>
+                <Text style={styles.altSub}>
+                  {t("searchResults.otherOptionsSub")}
+                </Text>
+              </View>
+            ) : (
+              <View>
+                <Text style={styles.metaSmall}>
+                  {t("searchResults.foundForYou")}
+                </Text>
+                <Text style={styles.metaBig}>
+                  {total}{" "}
+                  {t(
+                    total !== 1
+                      ? "searchResults.listings"
+                      : "searchResults.listing",
+                  )}
+                </Text>
+              </View>
+            )}
           </View>
 
-          {listings.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyIcon}>🏘️</Text>
-              <Text style={styles.emptyTitle}>
-                {t("searchResults.noPropertiesTitle")}
+          <View style={styles.grid}>
+            {displayListings.map((item) => (
+              <ListingCard key={item.id} item={item} t={t} />
+            ))}
+          </View>
+
+          {!noExactMatches && hasMore && (
+            <TouchableOpacity
+              style={styles.seeMoreBtn}
+              activeOpacity={0.8}
+              onPress={() => fetchListings(page + 1)}
+              disabled={loading}
+            >
+              <Text style={styles.seeMoreTxt}>
+                {t("searchResults.loadMore")}
               </Text>
-              <Text style={styles.emptyDesc}>
-                {t("searchResults.noPropertiesDesc")}
-              </Text>
-              <TouchableOpacity
-                style={styles.adjustBtn}
-                onPress={() => router.back()}
-              >
-                <Text style={styles.adjustTxt}>
-                  {t("searchResults.adjustFilters")}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <View style={styles.grid}>
-                {listings.map((item) => (
-                  <ListingCard key={item.id} item={item} t={t} />
-                ))}
-              </View>
-              {hasMore && (
-                <TouchableOpacity
-                  style={styles.seeMoreBtn}
-                  activeOpacity={0.8}
-                  onPress={() => fetchListings(page + 1)}
-                  disabled={loading}
-                >
-                  <Text style={styles.seeMoreTxt}>
-                    {t("searchResults.loadMore")}
-                  </Text>
-                  <Feather name="chevron-down" size={16} color={PURPLE} />
-                </TouchableOpacity>
-              )}
-              <Text style={styles.showingTxt}>
-                {t("searchResults.showing")} {listings.length}{" "}
-                {t("searchResults.of")} {total} {t("searchResults.results")}
-              </Text>
-            </>
+              <Feather name="chevron-down" size={16} color={PURPLE} />
+            </TouchableOpacity>
           )}
 
-          {otherOptions.length > 0 && (
+          {!noExactMatches && (
+            <Text style={styles.showingTxt}>
+              {t("searchResults.showing")} {listings.length}{" "}
+              {t("searchResults.of")} {total} {t("searchResults.results")}
+            </Text>
+          )}
+
+          {!noExactMatches && otherOptions.length > 0 && (
             <View style={styles.altSection}>
               <View style={styles.altHeader}>
                 <Text style={styles.altTitle}>
@@ -477,22 +499,9 @@ export default function SearchResultsScreen() {
             </View>
           )}
 
-          {otherOptionsLoading && listings.length === 0 && (
-            <View style={styles.altLoadingBox}>
-              <ActivityIndicator size="small" color={PURPLE} />
-              <Text style={styles.altLoadingTxt}>
-                {t("searchResults.loadingAlternatives")}
-              </Text>
-            </View>
-          )}
-
           <View style={{ height: 80 }} />
         </ScrollView>
       )}
-
-      <TouchableOpacity style={styles.filterFab} onPress={() => router.back()}>
-        <Feather name="sliders" size={20} color="#fff" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -629,24 +638,19 @@ const styles = StyleSheet.create({
   },
   typeChipTxt: { fontSize: 10.5, color: "#6B7280", fontWeight: "600" },
 
-  emptyBox: {
-    alignItems: "center",
-    paddingVertical: 60,
-    paddingHorizontal: 24,
-  },
-  emptyIcon: { fontSize: 48, marginBottom: 16 },
+  emptyIcon: { fontSize: 48, marginBottom: 4 },
   emptyTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: "#111",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   emptyDesc: {
     fontSize: 14,
     color: "#888",
     textAlign: "center",
     lineHeight: 22,
-    marginBottom: 24,
+    marginBottom: 8,
   },
   adjustBtn: {
     backgroundColor: PURPLE,
@@ -718,28 +722,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   compactType: { fontSize: 10.5, color: "#6B7280", fontWeight: "600" },
-  altLoadingBox: {
-    marginTop: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  altLoadingTxt: { fontSize: 12, color: "#6B7280" },
-
-  filterFab: {
-    position: "absolute",
-    bottom: 30,
-    right: 20,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: PURPLE,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: PURPLE,
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
 });

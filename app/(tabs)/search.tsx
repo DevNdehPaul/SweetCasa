@@ -2,7 +2,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
-  Dimensions, Modal, PanResponder, SafeAreaView, ScrollView, SectionList,
+  Dimensions, Modal, SafeAreaView, ScrollView, SectionList,
   StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 
@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 
 const { width, height } = Dimensions.get('window');
 const H_PAD = 20;
-const SLIDER_WIDTH = width - H_PAD * 2 - 8;
 const MIN_BUDGET = 5000;
 const MAX_BUDGET = 2_000_000_000;
 
@@ -137,7 +136,7 @@ const HOUSE_TYPES: { id: string; icon: string }[] = [
 ];
 
 const FACILITIES: { id: string; icon: string }[] = [
-  { id: 'Nearby School', icon: 'book-open'    },
+  { id: 'School', icon: 'book-open'    },
   { id: 'Restaurant',    icon: 'coffee'       },
   { id: 'Bank',          icon: 'credit-card'  },
   { id: 'Water Supply',  icon: 'droplet'      },
@@ -267,35 +266,39 @@ export default function SearchFiltersScreen() {
   const [selectedType, setSelectedType]              = useState('');
   const [selectedFacilities, setSelectedFacilities]  = useState<string[]>([]);
   const [selectedState, setSelectedState]            = useState<PropertyStateId>('Available');
-  const [budgetPct, setBudgetPct]                    = useState(1);
-  const sliderRef = React.useRef<View>(null);
-  const sliderX   = React.useRef(0);
 
-  // Logarithmic scale — makes the slider feel smooth & progressive over the
-  // huge 50k → 2B XAF range, instead of jumping by millions per tiny nudge.
-  const budget = Math.round(MIN_BUDGET * Math.pow(MAX_BUDGET / MIN_BUDGET, budgetPct));
+  // Budget — plain min/max text entry instead of a slider.
+  const [minBudgetInput, setMinBudgetInput] = useState('');
+  const [maxBudgetInput, setMaxBudgetInput] = useState('');
+
+  const handleMinBudgetChange = (txt: string) => setMinBudgetInput(txt.replace(/[^0-9]/g, ''));
+  const handleMaxBudgetChange = (txt: string) => setMaxBudgetInput(txt.replace(/[^0-9]/g, ''));
+
+  const previewMin = minBudgetInput ? Number(minBudgetInput) : MIN_BUDGET;
+  const previewMax = maxBudgetInput ? Number(maxBudgetInput) : MAX_BUDGET;
 
   const toggleFacility = (id: string) =>
     setSelectedFacilities(p => p.includes(id) ? p.filter(f => f !== id) : [...p, id]);
 
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder:  () => true,
-    onPanResponderGrant: (e) => setBudgetPct(Math.min(1, Math.max(0, (e.nativeEvent.pageX - sliderX.current) / SLIDER_WIDTH))),
-    onPanResponderMove:  (e) => setBudgetPct(Math.min(1, Math.max(0, (e.nativeEvent.pageX - sliderX.current) / SLIDER_WIDTH))),
-  });
-
-  const thumbLeft = budgetPct * SLIDER_WIDTH;
-
   const handleReset = () => {
     setSelectedCity(null); setNeighborhood('');
     setSelectedType(''); setSelectedFacilities([]);
-    setSelectedState('Available'); setBudgetPct(1);
+    setSelectedState('Available');
+    setMinBudgetInput(''); setMaxBudgetInput('');
   };
 
   const handleSearch = () => {
+    const rawMin = minBudgetInput ? Number(minBudgetInput) : MIN_BUDGET;
+    const rawMax = maxBudgetInput ? Number(maxBudgetInput) : MAX_BUDGET;
+    const clampedMin = Math.min(Math.max(rawMin, MIN_BUDGET), MAX_BUDGET);
+    const clampedMax = Math.min(Math.max(rawMax, MIN_BUDGET), MAX_BUDGET);
+    // If the user typed them backwards, just swap rather than erroring out.
+    const minBudget = Math.min(clampedMin, clampedMax);
+    const maxBudget = Math.max(clampedMin, clampedMax);
+
     const params: Record<string, string> = {
-      maxBudget: String(budget),
+      minBudget: String(minBudget),
+      maxBudget: String(maxBudget),
       state:     selectedState,
     };
     if (selectedCity) {
@@ -423,22 +426,47 @@ export default function SearchFiltersScreen() {
         {/* ── Budget ── */}
         <View style={s.budgetHeader}>
           <Text style={s.sectionTitle}>{t('search.budget')}</Text>
-          <Text style={s.budgetValue}>{t('search.upTo')} {formatBudget(budget)} XAF</Text>
+          <Text style={s.budgetValue}>{formatBudget(previewMin)} – {formatBudget(previewMax)} XAF</Text>
         </View>
-        <View
-          style={s.sliderContainer} ref={sliderRef}
-          onLayout={() => sliderRef.current?.measure((_x, _y, _w, _h, px) => { sliderX.current = px; })}
-          {...panResponder.panHandlers}
-        >
-          <View style={s.sliderTrack}>
-            <View style={[s.sliderFill, { width: thumbLeft + 10 }]} />
+
+        <View style={s.budgetInputsRow}>
+          <View style={s.budgetInputWrap}>
+            <View style={s.budgetInputLabelRow}>
+              <Text style={s.budgetInputLabel}>{t('search.minBudget').replace(':', '')}</Text>
+              <Text style={s.budgetInputUnit}>XAF</Text>
+            </View>
+            <TextInput
+              style={s.budgetInputField}
+              keyboardType="number-pad"
+              placeholder={String(MIN_BUDGET)}
+              placeholderTextColor="#C0C0C0"
+              value={minBudgetInput}
+              onChangeText={handleMinBudgetChange}
+              returnKeyType="done"
+            />
           </View>
-          <View style={[s.sliderThumb, { left: thumbLeft - 10 }]} />
+
+          <View style={s.budgetInputDivider}>
+            <Feather name="minus" size={14} color="#C0C0C0" />
+          </View>
+
+          <View style={s.budgetInputWrap}>
+            <View style={s.budgetInputLabelRow}>
+              <Text style={s.budgetInputLabel}>{t('search.maxBudget').replace(':', '')}</Text>
+              <Text style={s.budgetInputUnit}>XAF</Text>
+            </View>
+            <TextInput
+              style={s.budgetInputField}
+              keyboardType="number-pad"
+              placeholder={String(MAX_BUDGET)}
+              placeholderTextColor="#C0C0C0"
+              value={maxBudgetInput}
+              onChangeText={handleMaxBudgetChange}
+              returnKeyType="done"
+            />
+          </View>
         </View>
-        <View style={s.sliderLabels}>
-          <Text style={s.sliderLabel}>{t('search.minBudget')} {formatBudget(MIN_BUDGET)}</Text>
-          <Text style={s.sliderLabel}>{t('search.maxBudget')} {formatBudget(MAX_BUDGET)}</Text>
-        </View>
+        <Text style={s.budgetHint}>{t('listing.priceMax')}</Text>
 
         {/* ── Facilities ── */}
         <Text style={[s.sectionTitle, { marginTop: 26 }]}>{t('search.facilities')}</Text>
@@ -518,14 +546,17 @@ const s = StyleSheet.create({
   typeLabel:       { fontSize: 12, color: '#888', fontWeight: '500' },
   typeLabelActive: { color: '#7C3AED', fontWeight: '700' },
 
-  budgetHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 20 },
-  budgetValue:     { fontSize: 13, fontWeight: '700', color: '#7C3AED' },
-  sliderContainer: { height: 30, justifyContent: 'center', position: 'relative', marginHorizontal: 4 },
-  sliderTrack:     { height: 4, backgroundColor: '#EFEFEF', borderRadius: 4, overflow: 'hidden' },
-  sliderFill:      { height: '100%', backgroundColor: '#7C3AED', borderRadius: 4 },
-  sliderThumb:     { position: 'absolute', top: 5, width: 20, height: 20, borderRadius: 10, backgroundColor: '#7C3AED', shadowColor: '#7C3AED', shadowOpacity: 0.35, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
-  sliderLabels:    { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginHorizontal: 4 },
-  sliderLabel:     { fontSize: 10.5, color: '#B0B0B0', fontWeight: '500' },
+  budgetHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 14 },
+  budgetValue:   { fontSize: 13, fontWeight: '700', color: '#7C3AED' },
+
+  budgetInputsRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  budgetInputWrap:      { flex: 1 },
+  budgetInputLabelRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  budgetInputLabel:     { fontSize: 10.5, fontWeight: '700', color: '#9CA3AF', letterSpacing: 0.4 },
+  budgetInputUnit:      { fontSize: 10.5, fontWeight: '600', color: '#C0C0C0' },
+  budgetInputField:     { fontSize: 14, color: '#333', fontWeight: '600', borderWidth: 1.5, borderColor: '#EFEFEF', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff' },
+  budgetInputDivider:   { width: 16, height: 44, marginTop: 22, alignItems: 'center', justifyContent: 'center' },
+  budgetHint:           { fontSize: 11, color: '#B0B0B0', marginTop: 10 },
 
   facilitiesGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   facilityRow:         { flexDirection: 'row', alignItems: 'center', gap: 8, width: (width - H_PAD * 2 - 10) / 2, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: '#EFEFEF', backgroundColor: '#fff' },

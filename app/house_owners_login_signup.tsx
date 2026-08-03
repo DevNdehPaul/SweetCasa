@@ -8,6 +8,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  findNodeHandle,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   SafeAreaView,
@@ -26,7 +28,35 @@ const H_PAD = 20;
 const PURPLE_LIGHT = '#F0EBFF';
 const GOOGLE_EMAIL_SIGNUP_URL =
   'https://accounts.google.com/signup/v2/webcreateaccount?flowName=GlifWebSignIn&flowEntry=SignUp';
-const YAHOO_EMAIL_SIGNUP_URL = 'https://login.yahoo.com/account/create';
+
+// Opens Google's account creation page directly in the browser — no
+// intermediate provider-choice dialog.
+function openEmailSignupOptions() {
+  WebBrowser.openBrowserAsync(GOOGLE_EMAIL_SIGNUP_URL);
+}
+
+// ─── Scroll-into-view helper ───────────────────────────────────────────────
+// Measures a field's position relative to the enclosing ScrollView and
+// scrolls it fully clear of the keyboard when the field is focused.
+function scrollFieldIntoView(
+  scrollRef: React.RefObject<ScrollView | null>,
+  fieldRef: React.RefObject<View | null>,
+  offset = 24
+) {
+  if (!scrollRef.current || !fieldRef.current) return;
+  // Small delay lets the keyboard finish animating in before we measure.
+  setTimeout(() => {
+    const scrollNode = findNodeHandle(scrollRef.current);
+    if (!scrollNode) return;
+    fieldRef.current?.measureLayout(
+      scrollNode,
+      (_x: number, y: number) => {
+        scrollRef.current?.scrollTo({ y: Math.max(y - offset, 0), animated: true });
+      },
+      () => {}
+    );
+  }, 60);
+}
 
 // ─── Cross-platform Alert ─────────────────────────────────────────────────────
 // Alert.alert is a no-op on React Native Web — it just logs to console and
@@ -59,7 +89,6 @@ function crossAlert(
   if (_setWebAlertState) {
     _setWebAlertState({ visible: true, title, message: message ?? '', buttons });
   } else {
-    // Extremely defensive fallback in case the host hasn't mounted yet.
     window.alert(message ? `${title}\n\n${message}` : title);
   }
 }
@@ -128,20 +157,6 @@ function WebAlertHost() {
   );
 }
 
-async function openEmailSignupOptions() {
-  crossAlert('Create an email', 'Choose a provider to continue in your browser.', [
-    {
-      text: 'Google',
-      onPress: () => WebBrowser.openBrowserAsync(GOOGLE_EMAIL_SIGNUP_URL),
-    },
-    {
-      text: 'Yahoo',
-      onPress: () => WebBrowser.openBrowserAsync(YAHOO_EMAIL_SIGNUP_URL),
-    },
-    { text: 'Cancel', style: 'cancel' },
-  ]);
-}
-
 type Tab = 'login' | 'signup';
 
 const EMPTY_OWNER_FORM = {
@@ -161,6 +176,7 @@ type NationalIdFile = {
 function Field({
   label, placeholder, value, onChangeText,
   icon, secure, keyboardType, hint, rightEl, topRight,
+  scrollRef, scrollOffset,
 }: {
   label?: string;
   placeholder: string;
@@ -172,9 +188,17 @@ function Field({
   hint?: string;
   rightEl?: React.ReactNode;
   topRight?: React.ReactNode;
+  scrollRef?: React.RefObject<ScrollView | null>;
+  scrollOffset?: number;
 }) {
+  const fieldRef = useRef<View>(null);
+
+  const handleFocus = () => {
+    if (scrollRef) scrollFieldIntoView(scrollRef, fieldRef, scrollOffset);
+  };
+
   return (
-    <View style={styles.fieldGroup}>
+    <View style={styles.fieldGroup} ref={fieldRef}>
       {(label || topRight) && (
         <View style={styles.fieldLabelRow}>
           {label && <Text style={styles.fieldLabel}>{label}</Text>}
@@ -192,6 +216,7 @@ function Field({
           secureTextEntry={secure}
           keyboardType={keyboardType}
           autoCapitalize="none"
+          onFocus={handleFocus}
         />
         {rightEl}
       </View>
@@ -310,7 +335,6 @@ function NationalIdUpload({
         </View>
       </View>
 
-      {/* Info card */}
       <View style={styles.idInfoCard}>
         <Feather name="shield" size={13} color="#7C3AED" style={{ marginTop: 1 }} />
         <Text style={styles.idInfoText}>
@@ -354,6 +378,7 @@ function LoginTab({ email, setEmail, password, setPassword }: {
 }) {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -379,7 +404,14 @@ function LoginTab({ email, setEmail, password, setPassword }: {
   };
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+    <ScrollView
+      ref={scrollRef}
+      style={{ flex: 1 }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.tabScroll}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+    >
       <View style={styles.authHero}>
         <View style={styles.shieldWrap}>
           <Ionicons name="shield-checkmark-outline" size={30} color="#7C3AED" />
@@ -397,6 +429,7 @@ function LoginTab({ email, setEmail, password, setPassword }: {
         onChangeText={setEmail}
         icon="mail"
         keyboardType="email-address"
+        scrollRef={scrollRef}
       />
 
       <Field
@@ -406,6 +439,8 @@ function LoginTab({ email, setEmail, password, setPassword }: {
         onChangeText={setPassword}
         icon="lock"
         secure={!showPass}
+        scrollRef={scrollRef}
+        scrollOffset={140}
         topRight={
           <TouchableOpacity onPress={() => router.push('/ForgotPassword')}>
             <Text style={styles.forgotLink}>Forgot password?</Text>
@@ -473,21 +508,21 @@ function SignupTab({
   const [nationalIdFile, setNationalIdFile] = useState<NationalIdFile>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const passwordFieldRef = useRef<View>(null);
+  const confirmPasswordFieldRef = useRef<View>(null);
 
   const set = (k: keyof typeof EMPTY_OWNER_FORM) => (v: string) =>
     setForm(p => ({ ...p, [k]: v }));
 
-  const clearSensitiveRegistrationState = useCallback(() => {
-    setForm(EMPTY_OWNER_FORM);
-    setNationalIdFile(null);
-    setShowPassword(false);
-    setShowConfirmPassword(false);
-    AsyncStorage.removeItem('owner_signup_draft');
-  }, [setForm]);
+  // NOTE: validation failures below intentionally do NOT clear the form or the
+  // uploaded ID — the user is still on the signup flow (e.g. going to read the
+  // Terms screen and coming back), so their entered data should stay put. The
+  // form is only wiped after a successful registration, or when the user
+  // explicitly presses the back arrow to leave the signup screen entirely.
 
   const handleSignup = async () => {
     if (!termsAccepted) {
-      clearSensitiveRegistrationState();
       crossAlert(
         'Agreement Required',
         'You must read and accept the Terms & Privacy Policy before creating an account.',
@@ -504,17 +539,14 @@ function SignupTab({
       !form.email.trim()       ||
       !form.password.trim()
     ) {
-      clearSensitiveRegistrationState();
       crossAlert('Missing Fields', 'Please fill in your full name, company name, email, and password.');
       return;
     }
     if (form.password !== form.confirmPassword) {
-      clearSensitiveRegistrationState();
       crossAlert('Password Mismatch', 'The passwords you entered do not match. Please try again.');
       return;
     }
     if (!nationalIdFile) {
-      clearSensitiveRegistrationState();
       crossAlert('Missing Fields', 'Please upload your national ID to verify your identity.');
       return;
     }
@@ -548,9 +580,15 @@ function SignupTab({
       if (profile) await AsyncStorage.setItem('profile', JSON.stringify(profile));
       await AsyncStorage.removeItem('owner_signup_draft');
       await AsyncStorage.removeItem('agent_welcome_seen');
+
+      // Registration succeeded — safe to clear the local form state now.
+      setForm(EMPTY_OWNER_FORM);
+      setNationalIdFile(null);
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+
       router.replace('/agent-dashboard');
     } catch (err: any) {
-      clearSensitiveRegistrationState();
       const message = err.response?.data?.error || 'Registration failed. Please try again.';
       crossAlert('Sign Up Failed', message);
     } finally {
@@ -559,7 +597,14 @@ function SignupTab({
   };
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+    <ScrollView
+      ref={scrollRef}
+      style={{ flex: 1 }}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={styles.tabScroll}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+    >
       <Text style={styles.stepTitle}>List Your Property</Text>
 
       {/* Partner benefits banner */}
@@ -608,26 +653,28 @@ function SignupTab({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.fieldGroup}>
+        <View style={styles.fieldGroup} ref={passwordFieldRef}>
           <RegLabel>PASSWORD</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="lock" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="Min. 8 characters"
               placeholderTextColor="#9CA3AF" value={form.password} onChangeText={set('password')}
-              secureTextEntry={!showPassword} />
+              secureTextEntry={!showPassword}
+              onFocus={() => scrollFieldIntoView(scrollRef, passwordFieldRef, 140)} />
             <TouchableOpacity onPress={() => setShowPassword(v => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
               <Feather name={showPassword ? 'eye-off' : 'eye'} size={15} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.fieldGroup}>
+        <View style={styles.fieldGroup} ref={confirmPasswordFieldRef}>
           <RegLabel>CONFIRM PASSWORD</RegLabel>
           <View style={styles.inputWrap}>
             <Feather name="lock" size={14} color="#9CA3AF" />
             <TextInput style={styles.fieldInput} placeholder="Repeat your password"
               placeholderTextColor="#9CA3AF" value={form.confirmPassword}
-              onChangeText={set('confirmPassword')} secureTextEntry={!showConfirmPassword} />
+              onChangeText={set('confirmPassword')} secureTextEntry={!showConfirmPassword}
+              onFocus={() => scrollFieldIntoView(scrollRef, confirmPasswordFieldRef, 140)} />
             <TouchableOpacity onPress={() => setShowConfirmPassword(v => !v)} accessibilityRole="button" accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}>
               <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={15} color="#9CA3AF" />
             </TouchableOpacity>
@@ -790,48 +837,54 @@ export default function HouseOwnersLoginSignup() {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#F7F7FB" />
       <WebAlertHost />
-      <View style={{ height: 16 }} />
-      <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-        <Feather name="arrow-left" size={22} color="#111827" />
-      </TouchableOpacity>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={{ height: 16 }} />
+        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
+          <Feather name="arrow-left" size={22} color="#111827" />
+        </TouchableOpacity>
 
-      <View style={styles.tabRow}>
-        {(['login', 'signup'] as Tab[]).map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
-            onPress={() => setActiveTab(tab)}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnTxt, activeTab === tab && styles.tabBtnTxtActive]}>
-              {tab === 'login' ? 'Login' : 'Register'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+        <View style={styles.tabRow}>
+          {(['login', 'signup'] as Tab[]).map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabBtnTxt, activeTab === tab && styles.tabBtnTxtActive]}>
+                {tab === 'login' ? 'Login' : 'Register'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      <View style={styles.formHeader}>
-        <Text style={styles.formHeaderTitle}>
-          {activeTab === 'login' ? 'Welcome Back, Owner' : 'Create Owner Account'}
-        </Text>
-        <Text style={styles.formHeaderSub}>House Owners Portal</Text>
-      </View>
+        <View style={styles.formHeader}>
+          <Text style={styles.formHeaderTitle}>
+            {activeTab === 'login' ? 'Welcome Back, Owner' : 'Create Owner Account'}
+          </Text>
+          <Text style={styles.formHeaderSub}>House Owners Portal</Text>
+        </View>
 
-      {activeTab === 'login' && (
-        <LoginTab
-          email={loginEmail}
-          setEmail={setLoginEmail}
-          password={loginPassword}
-          setPassword={setLoginPassword}
-        />
-      )}
-      {activeTab === 'signup' && (
-        <SignupTab
-          termsAccepted={termsAccepted}
-          form={form}
-          setForm={setForm}
-        />
-      )}
+        {activeTab === 'login' && (
+          <LoginTab
+            email={loginEmail}
+            setEmail={setLoginEmail}
+            password={loginPassword}
+            setPassword={setLoginPassword}
+          />
+        )}
+        {activeTab === 'signup' && (
+          <SignupTab
+            termsAccepted={termsAccepted}
+            form={form}
+            setForm={setForm}
+          />
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -889,7 +942,7 @@ const styles = StyleSheet.create({
   formHeader: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 4 },
   formHeaderTitle: { fontSize: 17, fontWeight: '700', color: '#111827', letterSpacing: -0.2 },
   formHeaderSub: { fontSize: 12, color: '#7C3AED', fontWeight: '600', marginTop: 2 },
-  tabScroll: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 40 },
+  tabScroll: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 220 },
   authHero: { alignItems: 'center', marginBottom: 22 },
   shieldWrap: {
     width: 60, height: 60, backgroundColor: '#F5F3FF', borderRadius: 20,
