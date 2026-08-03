@@ -43,7 +43,7 @@ const PROP_TYPE_IDS = [
 
 const FACILITY_IDS = [
   'Wifi', 'Electricity', 'Water Supply', 'Gated',
-  'Parking', 'Green Area', 'Generator', 'Nearby School',
+  'Parking', 'Green Area', 'Generator', 'School',
   'Bank', 'Restaurant', 'Market', 'Clinic',
 ];
 

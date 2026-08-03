@@ -49,8 +49,8 @@ export default function LegalPolicyScreen({ role }: Props) {
 
         {SECTION_KEYS.map((key) => (
           <View key={key} style={s.section}>
-            <Text style={s.sectionTitle}>{t(`terms.${role}.privacy.${key}_title`)}</Text>
-            <Text style={s.sectionBody}>{t(`terms.${role}.privacy.${key}_body`)}</Text>
+            <Text style={s.sectionTitle}>{t(`terms.${role}.privacy.${key}.title`)}</Text>
+            <Text style={s.sectionBody}>{t(`terms.${role}.privacy.${key}.body`)}</Text>
           </View>
         ))}
 
