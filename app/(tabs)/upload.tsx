@@ -2,7 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -11,6 +11,7 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -22,15 +23,8 @@ import MapPickerModal from '../../components/MapPickerModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { BASE_URL } from '../../constants/api';
-
-const PURPLE = '#7C5CFC';
-const PURPLE_LIGHT = '#F0EBFF';
-const GREEN = '#22C55E';
-const GREEN_LIGHT = '#DCFCE7';
-const GRAY_BORDER = '#E5E7EB';
-const TEXT_DARK = '#111827';
-const TEXT_MID = '#6B7280';
-const TEXT_LIGHT = '#9CA3AF';
+import { ThemeColors } from '../../constants/theme';
+import { useAppTheme } from '../../hooks/use-app-theme';
 
 const UPLOAD_COUNT_KEY = 'sweetcasa_successful_uploads';
 
@@ -149,6 +143,8 @@ async function shouldShowReview(): Promise<boolean> {
 
 const ReviewModal = ({ visible, onClose }: { visible: boolean; onClose: () => void }) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
   const [reviewText, setReviewText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -186,7 +182,7 @@ const ReviewModal = ({ visible, onClose }: { visible: boolean; onClose: () => vo
           <TextInput
             style={s.modalInput}
             placeholder={t('review.placeholder')}
-            placeholderTextColor={TEXT_LIGHT}
+            placeholderTextColor={colors.textLight}
             multiline
             value={reviewText}
             onChangeText={setReviewText}
@@ -213,42 +209,55 @@ const ReviewModal = ({ visible, onClose }: { visible: boolean; onClose: () => vo
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-const SectionHeader = ({ num, title }: { num: number | string; title: string }) => (
-  <View style={s.sectionHeader}>
-    <View style={s.sectionNum}>
-      <Text style={s.sectionNumTxt}>{num}</Text>
+const SectionHeader = ({ num, title }: { num: number | string; title: string }) => {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+  return (
+    <View style={s.sectionHeader}>
+      <View style={s.sectionNum}>
+        <Text style={s.sectionNumTxt}>{num}</Text>
+      </View>
+      <Text style={s.sectionTitle}>{title}</Text>
     </View>
-    <Text style={s.sectionTitle}>{title}</Text>
-  </View>
-);
+  );
+};
 
-const Chip = ({ label, selected, onPress, color = PURPLE }: {
+const Chip = ({ label, selected, onPress, color }: {
   label: string; selected: boolean; onPress: () => void; color?: string;
-}) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={[
-      s.chip,
-      { borderColor: selected ? color : GRAY_BORDER },
-      selected && { backgroundColor: color === GREEN ? GREEN_LIGHT : PURPLE_LIGHT },
-    ]}>
-    <Text style={[s.chipTxt, { color: selected ? color : TEXT_MID }]}>{label}</Text>
-  </TouchableOpacity>
-);
-
-const Stepper = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
-  <View style={s.stepperRow}>
-    <TouchableOpacity onPress={() => onChange(Math.max(0, value - 1))} style={s.stepBtn}>
-      <Text style={s.stepBtnText}>-</Text>
-    </TouchableOpacity>
-    <Text style={s.stepperValue}>{value}</Text>
+}) => {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+  const c = color ?? colors.primary;
+  return (
     <TouchableOpacity
-      onPress={() => onChange(value + 1)}
-      style={[s.stepBtn, { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT }]}>
-      <Text style={[s.stepBtnText, { color: PURPLE }]}>+</Text>
+      onPress={onPress}
+      style={[
+        s.chip,
+        { borderColor: selected ? c : colors.border },
+        selected && { backgroundColor: c === colors.success ? '#DCFCE7' : colors.primaryTint }, // success-tint has no token yet
+      ]}>
+      <Text style={[s.chipTxt, { color: selected ? c : colors.textMuted }]}>{label}</Text>
     </TouchableOpacity>
-  </View>
-);
+  );
+};
+
+const Stepper = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+  return (
+    <View style={s.stepperRow}>
+      <TouchableOpacity onPress={() => onChange(Math.max(0, value - 1))} style={s.stepBtn}>
+        <Text style={s.stepBtnText}>-</Text>
+      </TouchableOpacity>
+      <Text style={s.stepperValue}>{value}</Text>
+      <TouchableOpacity
+        onPress={() => onChange(value + 1)}
+        style={[s.stepBtn, { borderColor: colors.primary, backgroundColor: colors.primaryTint }]}>
+        <Text style={[s.stepBtnText, { color: colors.primary }]}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const MediaUploadBox = ({
   label, files, setFiles, pickerMode, max,
@@ -260,6 +269,8 @@ const MediaUploadBox = ({
   max?: number;
 }) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const handleAdd = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -321,6 +332,8 @@ const DocumentUploadBox = ({
   max?: number;
 }) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const handleAdd = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -375,6 +388,8 @@ const DocumentUploadBox = ({
 
 export default function NewListing() {
   const { t } = useTranslation();
+  const { colors, isDark } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const [title, setTitle]           = useState('');
   const [propType, setPropType]     = useState('Apartment');
@@ -628,6 +643,7 @@ export default function NewListing() {
 
   return (
     <SafeAreaView style={s.safe}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.card} />
       <ReviewModal visible={showReviewModal} onClose={handleReviewClose} />
       <MapPickerModal
         visible={showMapPicker}
@@ -649,7 +665,7 @@ export default function NewListing() {
           <SectionHeader num="1" title={t('listing.basicInfo')} />
           <Text style={s.label}>{t('listing.propertyTitle')}</Text>
           <TextInput
-            style={s.input} placeholderTextColor={TEXT_LIGHT}
+            style={s.input} placeholderTextColor={colors.textLight}
             placeholder={t('listing.propertyTitlePlaceholder')}
             value={title} onChangeText={setTitle}
           />
@@ -666,16 +682,16 @@ export default function NewListing() {
         <View style={s.section}>
           <SectionHeader num="2" title={t('listing.location')} />
           <Text style={s.label}>{t('listing.country')}</Text>
-          <TextInput style={s.input} placeholderTextColor={TEXT_LIGHT}
+          <TextInput style={s.input} placeholderTextColor={colors.textLight}
             placeholder="Cameroon" value={country} onChangeText={setCountry} />
           <Text style={s.label}>{t('listing.region')}</Text>
-          <TextInput style={s.input} placeholderTextColor={TEXT_LIGHT}
+          <TextInput style={s.input} placeholderTextColor={colors.textLight}
             placeholder="e.g. Littoral" value={region} onChangeText={setRegion} />
           <Text style={s.label}>{t('listing.city')}</Text>
-          <TextInput style={s.input} placeholderTextColor={TEXT_LIGHT}
+          <TextInput style={s.input} placeholderTextColor={colors.textLight}
             placeholder="e.g. Douala" value={city} onChangeText={setCity} />
           <Text style={s.label}>{t('listing.neighborhood')}</Text>
-          <TextInput style={s.input} placeholderTextColor={TEXT_LIGHT}
+          <TextInput style={s.input} placeholderTextColor={colors.textLight}
             placeholder="e.g. Bastos" value={neighborhood} onChangeText={setNeighborhood} />
 
           {latitude != null && longitude != null ? (
@@ -698,7 +714,7 @@ export default function NewListing() {
           <Text style={s.label}>{t('listing.price')}</Text>
           <View style={s.priceWrap}>
             <TextInput
-              style={[s.input, s.priceInput]} placeholderTextColor={TEXT_LIGHT}
+              style={[s.input, s.priceInput]} placeholderTextColor={colors.textLight}
               placeholder={t('listing.pricePlaceholder')} keyboardType="numeric"
               value={price} onChangeText={(v) => setPrice(formatPrice(v))}
             />
@@ -727,7 +743,7 @@ export default function NewListing() {
             {t('listing.totalArea')} <Text style={s.optional}>— {t('common.optional')}</Text>
           </Text>
           <TextInput
-            style={s.input} placeholderTextColor={TEXT_LIGHT}
+            style={s.input} placeholderTextColor={colors.textLight}
             placeholder="e.g. 120" keyboardType="numeric"
             value={area} onChangeText={setArea}
           />
@@ -738,7 +754,7 @@ export default function NewListing() {
           <SectionHeader num="5" title={t('listing.facilities')} />
           <View style={s.chipRow}>
             {FACILITY_IDS.map((f) => (
-              <Chip key={f} label={f} selected={amenities.includes(f)} color={GREEN}
+              <Chip key={f} label={f} selected={amenities.includes(f)} color={colors.success}
                 onPress={() => toggle(amenities, setAmenities, f)} />
             ))}
           </View>
@@ -795,7 +811,7 @@ export default function NewListing() {
                 <View style={s.addFacilityForm}>
                   <TextInput
                     style={s.nearbyInput}
-                    placeholderTextColor={TEXT_LIGHT}
+                    placeholderTextColor={colors.textLight}
                     placeholder={t('listing.placeName')}
                     value={newFacilityName}
                     onChangeText={setNewFacilityName}
@@ -803,7 +819,7 @@ export default function NewListing() {
                   <View style={s.chipRow}>
                     {FACILITY_IDS.map((cat) => (
                       <Chip key={cat} label={cat} selected={newFacilityCategory === cat}
-                        color={GREEN} onPress={() => setNewFacilityCategory(cat)} />
+                        color={colors.success} onPress={() => setNewFacilityCategory(cat)} />
                     ))}
                   </View>
                   <View style={s.addFacilityActions}>
@@ -840,7 +856,7 @@ export default function NewListing() {
           <SectionHeader num="7" title={t('listing.documents')} />
           <View style={s.docInfoBox}>
             <Text style={s.docInfoDesc}>{t('listing.floorPlanDesc')}</Text>
-            <Text style={[s.docInfoDesc, { color: PURPLE, fontWeight: '600', marginTop: 4 }]}>
+            <Text style={[s.docInfoDesc, { color: colors.primary, fontWeight: '600', marginTop: 4 }]}>
               📐 {t('listing.floorPlanFormat') ?? 'Accepted formats: JPG, JPEG, PNG only'}
             </Text>
           </View>
@@ -866,7 +882,7 @@ export default function NewListing() {
         <View style={s.section}>
           <SectionHeader num="8" title={t('listing.description')} />
           <TextInput
-            style={[s.input, s.multilineInput]} placeholderTextColor={TEXT_LIGHT}
+            style={[s.input, s.multilineInput]} placeholderTextColor={colors.textLight}
             placeholder={t('listing.descriptionPlaceholder')}
             multiline value={description} onChangeText={setDescription}
           />
@@ -877,7 +893,7 @@ export default function NewListing() {
           <SectionHeader num="9" title={t('listing.availability')} />
           <Text style={s.label}>{t('listing.visitingHours')}</Text>
           <TextInput
-            style={s.input} placeholderTextColor={TEXT_LIGHT}
+            style={s.input} placeholderTextColor={colors.textLight}
             placeholder={t('listing.visitingHoursPlaceholder')}
             value={visitHours} onChangeText={setVisitHours}
           />
@@ -910,198 +926,200 @@ export default function NewListing() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFAFA' },
-  header: {
-    backgroundColor: '#fff', padding: 16, alignItems: 'center',
-    borderBottomWidth: 1, borderBottomColor: GRAY_BORDER,
-  },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: TEXT_DARK },
-  scrollContent: { paddingBottom: 40 },
-  section: {
-    backgroundColor: '#fff', margin: 10, borderRadius: 16, padding: 16,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
-  },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  sectionNum: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
-  },
-  sectionNumTxt: { fontSize: 13, fontWeight: '700', color: PURPLE },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: TEXT_DARK },
-  label: { fontSize: 12, fontWeight: '600', color: TEXT_MID, marginBottom: 6, marginTop: 10 },
-  optional: { fontWeight: '400', color: TEXT_LIGHT },
-  hint: { fontSize: 11, color: TEXT_LIGHT, marginTop: 4, fontStyle: 'italic' },
-  input: {
-    borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 10,
-    padding: 12, fontSize: 14, color: TEXT_DARK, backgroundColor: '#fff',
-  },
-  multilineInput: { minHeight: 110, textAlignVertical: 'top' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 13, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5, backgroundColor: '#fff',
-  },
-  chipTxt: { fontSize: 13, fontWeight: '500' },
-  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stepBtn: {
-    width: 32, height: 32, borderRadius: 16, borderWidth: 1.5,
-    borderColor: GRAY_BORDER, backgroundColor: '#fff',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  stepBtnText: { fontSize: 18, color: TEXT_MID },
-  stepperValue: { fontSize: 15, fontWeight: '700', width: 24, textAlign: 'center' },
-  detailRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 14, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: GRAY_BORDER,
-  },
-  detailLabel: { fontSize: 14, color: TEXT_DARK },
-  priceWrap: { position: 'relative' },
-  priceInput: { paddingRight: 52 },
-  priceSuffix: {
-    position: 'absolute', right: 14, top: 13,
-    fontSize: 13, fontWeight: '700', color: PURPLE,
-  },
-  nearbySection: {
-    marginTop: 16, backgroundColor: '#F9FAFB', borderRadius: 12,
-    padding: 14, borderWidth: 1, borderColor: GRAY_BORDER,
-  },
-  nearbyHeading: { fontSize: 13, fontWeight: '700', color: TEXT_DARK, marginBottom: 4 },
-  nearbySubtext: { fontSize: 12, color: TEXT_MID, marginBottom: 10, lineHeight: 17 },
-  nearbyRow: { marginBottom: 12 },
-  nearbyLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 },
-  nearbyDot: { fontSize: 10, color: GREEN },
-  nearbyLabel: { fontSize: 12, fontWeight: '600', color: TEXT_DARK },
-  nearbyInput: {
-    borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 10,
-    padding: 10, fontSize: 13, color: TEXT_DARK, backgroundColor: '#fff',
-  },
-  mediaSection: { marginBottom: 18 },
-  mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  previewWrap: { position: 'relative' },
-  previewImage: { width: 72, height: 72, borderRadius: 10 },
-  removePreviewBtn: {
-    position: 'absolute', top: -6, right: -6,
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center',
-  },
-  removePreviewTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  uploadBtn: {
-    width: 72, height: 72, borderRadius: 10,
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: PURPLE,
-    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
-  },
-  uploadPlus: { fontSize: 24, color: PURPLE },
-  uploadLabel: { fontSize: 10, color: PURPLE, fontWeight: '600' },
-  docFileList: { gap: 8 },
-  docFileRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 10,
-    borderWidth: 1, borderColor: GRAY_BORDER,
-  },
-  docFileName: { flex: 1, fontSize: 13, color: TEXT_DARK, marginRight: 8 },
-  docRemove: { fontSize: 14, color: '#EF4444', fontWeight: '700' },
-  docUploadBtn: {
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: PURPLE,
-    borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: PURPLE_LIGHT,
-  },
-  docUploadTxt: { color: PURPLE, fontSize: 13, fontWeight: '600' },
-  docInfoBox: {
-    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginBottom: 10,
-    borderWidth: 1, borderColor: GRAY_BORDER,
-  },
-  docInfoTitle: { fontSize: 13, fontWeight: '700', color: TEXT_DARK, marginBottom: 4 },
-  docInfoDesc: { fontSize: 12, color: TEXT_MID, lineHeight: 18 },
-  pendingNotice: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    margin: 10, padding: 14, borderRadius: 12,
-    backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A',
-  },
-  pendingIcon: { fontSize: 18 },
-  pendingTxt: { flex: 1, fontSize: 13, color: '#92400E', lineHeight: 20 },
-  bottomBar: { flexDirection: 'row', gap: 12, margin: 16 },
-  draftBtn: {
-    flex: 1, padding: 14, borderWidth: 1.5,
-    borderColor: PURPLE, borderRadius: 14, alignItems: 'center',
-  },
-  draftBtnTxt: { color: PURPLE, fontWeight: '700', fontSize: 14 },
-  postBtn: {
-    flex: 2, padding: 14, borderRadius: 14,
-    backgroundColor: PURPLE, alignItems: 'center',
-  },
-  postBtnDisabled: { opacity: 0.55 },
-  postBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center', alignItems: 'center', padding: 20,
-  },
-  modalCard: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 24,
-    width: '100%', maxWidth: 420,
-    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
-  },
-  modalIconRow: { alignItems: 'center', marginBottom: 12 },
-  modalIcon: { fontSize: 40 },
-  modalTitle: {
-    fontSize: 18, fontWeight: '800', color: TEXT_DARK,
-    textAlign: 'center', marginBottom: 8,
-  },
-  modalSubtitle: {
-    fontSize: 13, color: TEXT_MID, textAlign: 'center',
-    lineHeight: 20, marginBottom: 18,
-  },
-  modalInput: {
-    borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 12,
-    padding: 14, fontSize: 14, color: TEXT_DARK,
-    minHeight: 110, textAlignVertical: 'top', backgroundColor: '#FAFAFA',
-    marginBottom: 16,
-  },
-  modalSubmitBtn: {
-    backgroundColor: PURPLE, borderRadius: 12,
-    padding: 14, alignItems: 'center', marginBottom: 10,
-  },
-  modalSubmitTxt: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  modalSkipBtn: { alignItems: 'center', padding: 8 },
-  modalSkipTxt: { color: TEXT_LIGHT, fontSize: 13 },
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    header: {
+      backgroundColor: colors.card, padding: 16, alignItems: 'center',
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+    scrollContent: { paddingBottom: 40 },
+    section: {
+      backgroundColor: colors.card, margin: 10, borderRadius: 16, padding: 16,
+      shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+    },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+    sectionNum: {
+      width: 26, height: 26, borderRadius: 13,
+      backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center',
+    },
+    sectionNumTxt: { fontSize: 13, fontWeight: '700', color: colors.primary },
+    sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+    label: { fontSize: 12, fontWeight: '600', color: colors.textMuted, marginBottom: 6, marginTop: 10 },
+    optional: { fontWeight: '400', color: colors.textLight },
+    hint: { fontSize: 11, color: colors.textLight, marginTop: 4, fontStyle: 'italic' },
+    input: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+      padding: 12, fontSize: 14, color: colors.text, backgroundColor: colors.card,
+    },
+    multilineInput: { minHeight: 110, textAlignVertical: 'top' },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    chip: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      paddingHorizontal: 13, paddingVertical: 7,
+      borderRadius: 20, borderWidth: 1.5, backgroundColor: colors.card,
+    },
+    chipTxt: { fontSize: 13, fontWeight: '500' },
+    stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    stepBtn: {
+      width: 32, height: 32, borderRadius: 16, borderWidth: 1.5,
+      borderColor: colors.border, backgroundColor: colors.card,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    stepBtnText: { fontSize: 18, color: colors.textMuted },
+    stepperValue: { fontSize: 15, fontWeight: '700', width: 24, textAlign: 'center', color: colors.text },
+    detailRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      marginBottom: 14, paddingBottom: 14,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    detailLabel: { fontSize: 14, color: colors.text },
+    priceWrap: { position: 'relative' },
+    priceInput: { paddingRight: 52 },
+    priceSuffix: {
+      position: 'absolute', right: 14, top: 13,
+      fontSize: 13, fontWeight: '700', color: colors.primary,
+    },
+    nearbySection: {
+      marginTop: 16, backgroundColor: colors.cardMuted, borderRadius: 12,
+      padding: 14, borderWidth: 1, borderColor: colors.border,
+    },
+    nearbyHeading: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 4 },
+    nearbySubtext: { fontSize: 12, color: colors.textMuted, marginBottom: 10, lineHeight: 17 },
+    nearbyRow: { marginBottom: 12 },
+    nearbyLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 },
+    nearbyDot: { fontSize: 10, color: colors.success },
+    nearbyLabel: { fontSize: 12, fontWeight: '600', color: colors.text },
+    nearbyInput: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+      padding: 10, fontSize: 13, color: colors.text, backgroundColor: colors.card,
+    },
+    mediaSection: { marginBottom: 18 },
+    mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    previewWrap: { position: 'relative' },
+    previewImage: { width: 72, height: 72, borderRadius: 10 },
+    removePreviewBtn: {
+      position: 'absolute', top: -6, right: -6,
+      width: 20, height: 20, borderRadius: 10,
+      backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center', // dark chrome badge — fixed in both themes
+    },
+    removePreviewTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
+    uploadBtn: {
+      width: 72, height: 72, borderRadius: 10,
+      borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary,
+      backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center',
+    },
+    uploadPlus: { fontSize: 24, color: colors.primary },
+    uploadLabel: { fontSize: 10, color: colors.primary, fontWeight: '600' },
+    docFileList: { gap: 8 },
+    docFileRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: colors.cardMuted, borderRadius: 10, padding: 10,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    docFileName: { flex: 1, fontSize: 13, color: colors.text, marginRight: 8 },
+    docRemove: { fontSize: 14, color: colors.danger, fontWeight: '700' },
+    docUploadBtn: {
+      borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary,
+      borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: colors.primaryTint,
+    },
+    docUploadTxt: { color: colors.primary, fontSize: 13, fontWeight: '600' },
+    docInfoBox: {
+      backgroundColor: colors.cardMuted, borderRadius: 12, padding: 12, marginBottom: 10,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    docInfoTitle: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 4 },
+    docInfoDesc: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+    pendingNotice: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+      margin: 10, padding: 14, borderRadius: 12,
+      backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A', // amber notice — no matching token yet
+    },
+    pendingIcon: { fontSize: 18 },
+    pendingTxt: { flex: 1, fontSize: 13, color: '#92400E', lineHeight: 20 }, // amber notice text — fixed in both themes
+    bottomBar: { flexDirection: 'row', gap: 12, margin: 16 },
+    draftBtn: {
+      flex: 1, padding: 14, borderWidth: 1.5,
+      borderColor: colors.primary, borderRadius: 14, alignItems: 'center',
+    },
+    draftBtnTxt: { color: colors.primary, fontWeight: '700', fontSize: 14 },
+    postBtn: {
+      flex: 2, padding: 14, borderRadius: 14,
+      backgroundColor: colors.primary, alignItems: 'center',
+    },
+    postBtnDisabled: { opacity: 0.55 },
+    postBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    modalOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center', alignItems: 'center', padding: 20,
+    },
+    modalCard: {
+      backgroundColor: colors.card, borderRadius: 20, padding: 24,
+      width: '100%', maxWidth: 420,
+      shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10,
+    },
+    modalIconRow: { alignItems: 'center', marginBottom: 12 },
+    modalIcon: { fontSize: 40 },
+    modalTitle: {
+      fontSize: 18, fontWeight: '800', color: colors.text,
+      textAlign: 'center', marginBottom: 8,
+    },
+    modalSubtitle: {
+      fontSize: 13, color: colors.textMuted, textAlign: 'center',
+      lineHeight: 20, marginBottom: 18,
+    },
+    modalInput: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
+      padding: 14, fontSize: 14, color: colors.text,
+      minHeight: 110, textAlignVertical: 'top', backgroundColor: colors.cardMuted,
+      marginBottom: 16,
+    },
+    modalSubmitBtn: {
+      backgroundColor: colors.primary, borderRadius: 12,
+      padding: 14, alignItems: 'center', marginBottom: 10,
+    },
+    modalSubmitTxt: { color: '#fff', fontWeight: '700', fontSize: 15 },
+    modalSkipBtn: { alignItems: 'center', padding: 8 },
+    modalSkipTxt: { color: colors.textLight, fontSize: 13 },
 
-  // ── Location capture (Part 1) ──
-  locationBtn: {
-    marginTop: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: PURPLE,
-    borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: PURPLE_LIGHT,
-  },
-  locationBtnTxt: { color: PURPLE, fontWeight: '700', fontSize: 13 },
-  locationSetRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: 14, backgroundColor: GREEN_LIGHT, borderRadius: 10, padding: 12,
-  },
-  locationSetTxt: { color: GREEN, fontWeight: '700', fontSize: 13 },
-  locationEditTxt: { color: PURPLE, fontWeight: '700', fontSize: 13 },
+    // ── Location capture (Part 1) ──
+    locationBtn: {
+      marginTop: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary,
+      borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: colors.primaryTint,
+    },
+    locationBtnTxt: { color: colors.primary, fontWeight: '700', fontSize: 13 },
+    locationSetRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      marginTop: 14, backgroundColor: '#DCFCE7', borderRadius: 10, padding: 12, // success-tint — no matching token yet
+    },
+    locationSetTxt: { color: colors.success, fontWeight: '700', fontSize: 13 },
+    locationEditTxt: { color: colors.primary, fontWeight: '700', fontSize: 13 },
 
-  // ── Map picker modal ──
-  mapSearchWrap: { paddingHorizontal: 16, paddingTop: 12, position: 'relative', zIndex: 10 },
-  mapPredictionsBox: {
-    position: 'absolute', top: 68, left: 16, right: 16, backgroundColor: '#fff',
-    borderRadius: 10, borderWidth: 1, borderColor: GRAY_BORDER, maxHeight: 220,
-    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 6, zIndex: 20,
-  },
-  mapPredictionRow: { padding: 12, borderBottomWidth: 1, borderBottomColor: GRAY_BORDER },
-  mapPredictionTxt: { fontSize: 13, color: TEXT_DARK },
-  mapView: { flex: 1, marginTop: 12 },
-  mapBottomBar: { flexDirection: 'row', gap: 12, margin: 16 },
+    // ── Map picker modal ──
+    mapSearchWrap: { paddingHorizontal: 16, paddingTop: 12, position: 'relative', zIndex: 10 },
+    mapPredictionsBox: {
+      position: 'absolute', top: 68, left: 16, right: 16, backgroundColor: colors.card,
+      borderRadius: 10, borderWidth: 1, borderColor: colors.border, maxHeight: 220,
+      shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 6, zIndex: 20,
+    },
+    mapPredictionRow: { padding: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+    mapPredictionTxt: { fontSize: 13, color: colors.text },
+    mapView: { flex: 1, marginTop: 12 },
+    mapBottomBar: { flexDirection: 'row', gap: 12, margin: 16 },
 
-  // ── Nearby facilities checklist (Part 3) ──
-  nearbyCategoryGroup: { marginBottom: 10 },
-  nearbyCategoryTitle: {
-    fontSize: 11, fontWeight: '700', color: TEXT_MID, marginBottom: 6, textTransform: 'capitalize',
-  },
-  facilityCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5 },
-  facilityCheckBox: { fontSize: 15, color: GREEN, width: 18 },
-  facilityCheckLabel: { fontSize: 13, color: TEXT_DARK, flex: 1 },
-  addFacilityForm: {
-    marginTop: 10, backgroundColor: '#fff', borderRadius: 10,
-    borderWidth: 1, borderColor: GRAY_BORDER, padding: 10,
-  },
-  addFacilityActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
-});
+    // ── Nearby facilities checklist (Part 3) ──
+    nearbyCategoryGroup: { marginBottom: 10 },
+    nearbyCategoryTitle: {
+      fontSize: 11, fontWeight: '700', color: colors.textMuted, marginBottom: 6, textTransform: 'capitalize',
+    },
+    facilityCheckRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5 },
+    facilityCheckBox: { fontSize: 15, color: colors.success, width: 18 },
+    facilityCheckLabel: { fontSize: 13, color: colors.text, flex: 1 },
+    addFacilityForm: {
+      marginTop: 10, backgroundColor: colors.card, borderRadius: 10,
+      borderWidth: 1, borderColor: colors.border, padding: 10,
+    },
+    addFacilityActions: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  });
+}

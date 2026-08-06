@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next"; // adjust path as needed
 import {
   ActivityIndicator,
@@ -16,12 +16,13 @@ import {
   View
 } from "react-native";
 import { BASE_URL } from "../constants/api";
+import { ThemeColors } from "../constants/theme";
+import { useAppTheme } from "../hooks/use-app-theme"; // adjust relative path if needed
 import useFavourite from "../hooks/useFavourite";
 
 const { width } = Dimensions.get("window");
 const H_PAD = 16;
 const CARD_W = (width - H_PAD * 2 - 12) / 2;
-const PURPLE = "#7C3AED";
 
 interface ListingImage {
   imageUrl: string;
@@ -68,9 +69,13 @@ function formatPrice(
 function ListingCard({
   item,
   t,
+  colors,
+  styles,
 }: {
   item: Listing;
   t: (key: string) => string;
+  colors: ThemeColors;
+  styles: ReturnType<typeof getStyles>;
 }) {
   const { isFavourite, toggleFavourite } = useFavourite();
   const saved = isFavourite(String(item.id));
@@ -129,7 +134,7 @@ function ListingCard({
           <Ionicons
             name={saved ? "heart" : "heart-outline"}
             size={14}
-            color={saved ? "#EF4444" : "#888"}
+            color={saved ? colors.danger : colors.textMuted}
           />
         </TouchableOpacity>
         {item.status === "Approved" && (
@@ -145,7 +150,7 @@ function ListingCard({
           {item.title}
         </Text>
         <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={11} color="#B0B0B0" />
+          <Ionicons name="location-outline" size={11} color={colors.textLight} />
           <Text style={styles.locationTxt} numberOfLines={1}>
             {location}
           </Text>
@@ -154,7 +159,7 @@ function ListingCard({
           <View style={styles.typeChip}>
             <Text style={styles.typeChipTxt}>{item.type}</Text>
           </View>
-          <Feather name="arrow-right" size={14} color={PURPLE} />
+          <Feather name="arrow-right" size={14} color={colors.primary} />
         </View>
       </View>
     </TouchableOpacity>
@@ -164,9 +169,13 @@ function ListingCard({
 function CompactCard({
   item,
   t,
+  colors,
+  styles,
 }: {
   item: Listing;
   t: (key: string) => string;
+  colors: ThemeColors;
+  styles: ReturnType<typeof getStyles>;
 }) {
   const img = getPrimaryImage(item.images);
   const location = [item.neighborhood, item.city, item.region]
@@ -214,7 +223,7 @@ function CompactCard({
         </Text>
         <View style={styles.compactFooter}>
           <Text style={styles.compactType}>{item.type}</Text>
-          <Feather name="arrow-right" size={14} color={PURPLE} />
+          <Feather name="arrow-right" size={14} color={colors.primary} />
         </View>
       </View>
     </TouchableOpacity>
@@ -223,6 +232,8 @@ function CompactCard({
 
 export default function SearchResultsScreen() {
   const { t } = useTranslation();
+  const { colors, isDark } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
 
   const raw = useLocalSearchParams<{
     region?: string;
@@ -361,12 +372,15 @@ export default function SearchResultsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={colors.background}
+      />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
-          <Feather name="chevron-left" size={22} color="#111" />
+          <Feather name="chevron-left" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>{t("searchResults.title")}</Text>
@@ -380,7 +394,7 @@ export default function SearchResultsScreen() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={PURPLE} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingTxt}>{t("searchResults.finding")}</Text>
         </View>
       ) : error ? (
@@ -413,7 +427,7 @@ export default function SearchResultsScreen() {
         </View>
       ) : noExactMatches && otherOptionsLoading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={PURPLE} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingTxt}>
             {t("searchResults.loadingAlternatives")}
           </Text>
@@ -452,7 +466,13 @@ export default function SearchResultsScreen() {
 
           <View style={styles.grid}>
             {displayListings.map((item) => (
-              <ListingCard key={item.id} item={item} t={t} />
+              <ListingCard
+                key={item.id}
+                item={item}
+                t={t}
+                colors={colors}
+                styles={styles}
+              />
             ))}
           </View>
 
@@ -466,7 +486,7 @@ export default function SearchResultsScreen() {
               <Text style={styles.seeMoreTxt}>
                 {t("searchResults.loadMore")}
               </Text>
-              <Feather name="chevron-down" size={16} color={PURPLE} />
+              <Feather name="chevron-down" size={16} color={colors.primary} />
             </TouchableOpacity>
           )}
 
@@ -493,7 +513,13 @@ export default function SearchResultsScreen() {
                 contentContainerStyle={styles.altRow}
               >
                 {otherOptions.map((item) => (
-                  <CompactCard key={`alt-${item.id}`} item={item} t={t} />
+                  <CompactCard
+                    key={`alt-${item.id}`}
+                    item={item}
+                    t={t}
+                    colors={colors}
+                    styles={styles}
+                  />
                 ))}
               </ScrollView>
             </View>
@@ -506,220 +532,222 @@ export default function SearchResultsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
-  scroll: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 16 },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    padding: 24,
-  },
-  loadingTxt: { fontSize: 14, color: "#888" },
-  errorTxt: { fontSize: 14, color: "#DC2626", textAlign: "center" },
-  retryBtn: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    backgroundColor: PURPLE,
-    borderRadius: 12,
-  },
-  retryTxt: { color: "#fff", fontWeight: "700", fontSize: 14 },
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    scroll: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 16 },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 12,
+      padding: 24,
+    },
+    loadingTxt: { fontSize: 14, color: colors.textMuted },
+    errorTxt: { fontSize: 14, color: colors.danger, textAlign: "center" },
+    retryBtn: {
+      paddingHorizontal: 24,
+      paddingVertical: 10,
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+    },
+    retryTxt: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
-    gap: 8,
-  },
-  iconBtn: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: { fontSize: 16, fontWeight: "700", color: "#111" },
-  headerSub: { fontSize: 11, color: "#888", marginTop: 1 },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      gap: 8,
+    },
+    iconBtn: {
+      width: 38,
+      height: 38,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    headerTitle: { fontSize: 16, fontWeight: "700", color: colors.text },
+    headerSub: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
 
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    marginBottom: 16,
-  },
-  metaSmall: { fontSize: 11.5, color: "#B0B0B0", marginBottom: 2 },
-  metaBig: { fontSize: 15, fontWeight: "700", color: "#111" },
+    metaRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-end",
+      marginBottom: 16,
+    },
+    metaSmall: { fontSize: 11.5, color: colors.textLight, marginBottom: 2 },
+    metaBig: { fontSize: 15, fontWeight: "700", color: colors.text },
 
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
 
-  card: {
-    borderRadius: 16,
-    backgroundColor: "#fff",
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#F0F0F0",
-    shadowColor: "#000",
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
-  },
-  cardImgWrap: { width: "100%", height: CARD_W * 0.85, position: "relative" },
-  cardImg: { width: "100%", height: "100%" },
-  cardImgPlaceholder: {
-    backgroundColor: "#F5F3FF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pricePill: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    backgroundColor: PURPLE,
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  pricePillTxt: { fontSize: 9, fontWeight: "700", color: "#fff" },
-  saveBtn: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  verifiedBadge: {
-    position: "absolute",
-    bottom: 8,
-    left: 8,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  verifiedTxt: {
-    fontSize: 8.5,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.5,
-  },
+    card: {
+      borderRadius: 16,
+      backgroundColor: colors.card,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      shadowColor: "#000",
+      shadowOpacity: 0.07,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 3,
+    },
+    cardImgWrap: { width: "100%", height: CARD_W * 0.85, position: "relative" },
+    cardImg: { width: "100%", height: "100%" },
+    cardImgPlaceholder: {
+      backgroundColor: colors.primaryTintAlt,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    pricePill: {
+      position: "absolute",
+      top: 8,
+      left: 8,
+      backgroundColor: colors.primary,
+      borderRadius: 20,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    pricePillTxt: { fontSize: 9, fontWeight: "700", color: "#fff" },
+    saveBtn: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.card,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    verifiedBadge: {
+      position: "absolute",
+      bottom: 8,
+      left: 8,
+      backgroundColor: "rgba(0,0,0,0.5)", // sits over a photo — same in both themes
+      borderRadius: 10,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+    },
+    verifiedTxt: {
+      fontSize: 8.5,
+      fontWeight: "700",
+      color: "#fff",
+      letterSpacing: 0.5,
+    },
 
-  cardBody: { padding: 10, gap: 4 },
-  cardTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#111",
-    letterSpacing: -0.1,
-  },
-  locationRow: { flexDirection: "row", alignItems: "center", gap: 3 },
-  locationTxt: { fontSize: 11, color: "#B0B0B0", flex: 1 },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 2,
-  },
-  typeChip: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  typeChipTxt: { fontSize: 10.5, color: "#6B7280", fontWeight: "600" },
+    cardBody: { padding: 10, gap: 4 },
+    cardTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.text,
+      letterSpacing: -0.1,
+    },
+    locationRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+    locationTxt: { fontSize: 11, color: colors.textLight, flex: 1 },
+    cardFooter: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 2,
+    },
+    typeChip: {
+      backgroundColor: colors.divider,
+      borderRadius: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    typeChipTxt: { fontSize: 10.5, color: colors.textMuted, fontWeight: "600" },
 
-  emptyIcon: { fontSize: 48, marginBottom: 4 },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111",
-    marginBottom: 4,
-  },
-  emptyDesc: {
-    fontSize: 14,
-    color: "#888",
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 8,
-  },
-  adjustBtn: {
-    backgroundColor: PURPLE,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  adjustTxt: { color: "#fff", fontWeight: "700", fontSize: 14 },
+    emptyIcon: { fontSize: 48, marginBottom: 4 },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 4,
+    },
+    emptyDesc: {
+      fontSize: 14,
+      color: colors.textMuted,
+      textAlign: "center",
+      lineHeight: 22,
+      marginBottom: 8,
+    },
+    adjustBtn: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 28,
+      paddingVertical: 14,
+      borderRadius: 14,
+    },
+    adjustTxt: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
-  seeMoreBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: PURPLE,
-    borderRadius: 30,
-    paddingVertical: 14,
-    marginTop: 20,
-  },
-  seeMoreTxt: { fontSize: 14, fontWeight: "700", color: PURPLE },
-  showingTxt: {
-    textAlign: "center",
-    fontSize: 12,
-    color: "#B0B0B0",
-    marginTop: 10,
-  },
+    seeMoreBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      borderRadius: 30,
+      paddingVertical: 14,
+      marginTop: 20,
+    },
+    seeMoreTxt: { fontSize: 14, fontWeight: "700", color: colors.primary },
+    showingTxt: {
+      textAlign: "center",
+      fontSize: 12,
+      color: colors.textLight,
+      marginTop: 10,
+    },
 
-  altSection: {
-    marginTop: 28,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-  },
-  altHeader: { marginBottom: 12 },
-  altTitle: { fontSize: 16, fontWeight: "800", color: "#111", marginBottom: 4 },
-  altSub: { fontSize: 12, color: "#9CA3AF", lineHeight: 17 },
-  altRow: { gap: 12, paddingRight: 20 },
-  compactCard: {
-    width: 240,
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#EFEFEF",
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-  },
-  compactImgWrap: { height: 150, position: "relative" },
-  compactImg: { width: "100%", height: "100%" },
-  compactPricePill: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    backgroundColor: PURPLE,
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  compactBody: { padding: 12, gap: 4 },
-  compactLocation: { fontSize: 11.5, color: "#8B8B8B" },
-  compactFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 2,
-  },
-  compactType: { fontSize: 10.5, color: "#6B7280", fontWeight: "600" },
-});
+    altSection: {
+      marginTop: 28,
+      paddingTop: 20,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+    },
+    altHeader: { marginBottom: 12 },
+    altTitle: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: 4 },
+    altSub: { fontSize: 12, color: colors.textLight, lineHeight: 17 },
+    altRow: { gap: 12, paddingRight: 20 },
+    compactCard: {
+      width: 240,
+      backgroundColor: colors.card,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      overflow: "hidden",
+      shadowColor: "#000",
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 2,
+    },
+    compactImgWrap: { height: 150, position: "relative" },
+    compactImg: { width: "100%", height: "100%" },
+    compactPricePill: {
+      position: "absolute",
+      top: 10,
+      left: 10,
+      backgroundColor: colors.primary,
+      borderRadius: 20,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    compactBody: { padding: 12, gap: 4 },
+    compactLocation: { fontSize: 11.5, color: colors.textMuted },
+    compactFooter: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 2,
+    },
+    compactType: { fontSize: 10.5, color: colors.textMuted, fontWeight: "600" },
+  });
+}

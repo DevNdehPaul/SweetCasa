@@ -19,7 +19,7 @@ import { Audio, AVPlaybackStatus } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, {
-  useCallback, useEffect, useRef, useState,
+  useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -39,23 +39,14 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { ThemeColors } from '../constants/theme';
+import { useAppTheme } from '../hooks/use-app-theme';
 
-// ─── Theme (reused from existing app) ─────────────────────────────────────────
-const C = {
-  purple:      '#6D28D9',
-  purpleLight: '#F5F3FF',
-  purpleMid:   '#7C3AED',
-  purpleBorder:'#EDE9FE',
-  purpleText:  '#5B21B6',
-  bg:          '#fff',
-  card:        '#FAFAFA',
-  border:      '#EFEFEF',
-  textDark:    '#111827',
-  textMid:     '#374151',
-  textGray:    '#9CA3AF',
-  userBubble:  '#6D28D9',
-  aiBubble:    '#F5F3FF',
-};
+// White text/icons sitting directly on a solid-color bubble/button (e.g. the
+// user's purple chat bubble, the score chip, the send button) stay hardcoded —
+// that swatch doesn't change between light/dark, so the text on it shouldn't
+// either.
+const WHITE = '#FFFFFF';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface MatchResult {
@@ -93,6 +84,7 @@ interface AiChatMessage {
 }
 
 type Screen = 'history' | 'chat';
+type Styles = ReturnType<typeof getStyles>;
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -118,7 +110,7 @@ async function apiFetch(path: string, opts: RequestInit = {}) {
 }
 
 // ─── Typing indicator ─────────────────────────────────────────────────────────
-function TypingIndicator() {
+function TypingIndicator({ s }: { s: Styles }) {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
@@ -139,16 +131,16 @@ function TypingIndicator() {
   }, []);
 
   return (
-    <View style={styles.typingWrap}>
+    <View style={s.typingWrap}>
       {[dot1, dot2, dot3].map((d, i) => (
-        <Animated.View key={i} style={[styles.typingDot, { transform: [{ translateY: d }] }]} />
+        <Animated.View key={i} style={[s.typingDot, { transform: [{ translateY: d }] }]} />
       ))}
     </View>
   );
 }
 
 // ─── Audio Player (for voice messages) ───────────────────────────────────────
-function AudioPlayer({ uri }: { uri: string }) {
+function AudioPlayer({ uri, colors, s }: { uri: string; colors: ThemeColors; s: Styles }) {
   const [sound,     setSound]     = useState<Audio.Sound | null>(null);
   const [playing,   setPlaying]   = useState(false);
   const [duration,  setDuration]  = useState(0);
@@ -158,7 +150,7 @@ function AudioPlayer({ uri }: { uri: string }) {
 
   const toggle = async () => {
     if (!sound) {
-      const { sound: s } = await Audio.Sound.createAsync(
+      const { sound: snd } = await Audio.Sound.createAsync(
         { uri },
         { shouldPlay: true },
         (status: AVPlaybackStatus) => {
@@ -169,7 +161,7 @@ function AudioPlayer({ uri }: { uri: string }) {
           }
         }
       );
-      setSound(s);
+      setSound(snd);
       setPlaying(true);
     } else if (playing) {
       await sound.pauseAsync();
@@ -183,25 +175,25 @@ function AudioPlayer({ uri }: { uri: string }) {
   const progress = duration > 0 ? position / duration : 0;
   const elapsed  = Math.floor(position / 1000);
   const total    = Math.floor(duration / 1000);
-  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const fmt = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
   return (
-    <View style={styles.audioPlayer}>
-      <TouchableOpacity onPress={toggle} style={styles.audioPlayBtn}>
-        <Feather name={playing ? 'pause' : 'play'} size={16} color={C.purpleMid} />
+    <View style={s.audioPlayer}>
+      <TouchableOpacity onPress={toggle} style={s.audioPlayBtn}>
+        <Feather name={playing ? 'pause' : 'play'} size={16} color={colors.primary} />
       </TouchableOpacity>
-      <View style={styles.audioTrack}>
-        <View style={styles.audioTrackBg}>
-          <View style={[styles.audioTrackFill, { width: `${progress * 100}%` as any }]} />
+      <View style={s.audioTrack}>
+        <View style={s.audioTrackBg}>
+          <View style={[s.audioTrackFill, { width: `${progress * 100}%` as any }]} />
         </View>
       </View>
-      <Text style={styles.audioTime}>{fmt(elapsed)}/{fmt(total || 0)}</Text>
+      <Text style={s.audioTime}>{fmt(elapsed)}/{fmt(total || 0)}</Text>
     </View>
   );
 }
 
 // ─── Listing Card (inline, compact) ──────────────────────────────────────────
-function ListingCard({ item }: { item: MatchResult }) {
+function ListingCard({ item, colors, s }: { item: MatchResult; colors: ThemeColors; s: Styles }) {
   const [loading, setLoading] = useState(false);
 
   const handlePress = async () => {
@@ -223,42 +215,42 @@ function ListingCard({ item }: { item: MatchResult }) {
   };
 
   return (
-    <TouchableOpacity style={styles.listingCard} onPress={handlePress} activeOpacity={0.85}>
-      <View style={styles.listingImgWrap}>
+    <TouchableOpacity style={s.listingCard} onPress={handlePress} activeOpacity={0.85}>
+      <View style={s.listingImgWrap}>
         {item.images?.[0]
-          ? <Image source={{ uri: item.images[0] }} style={styles.listingImg} resizeMode="cover" />
-          : <View style={[styles.listingImg, styles.listingImgPlaceholder]}><Ionicons name="home-outline" size={24} color="#C4B5FD" /></View>
+          ? <Image source={{ uri: item.images[0] }} style={s.listingImg} resizeMode="cover" />
+          : <View style={[s.listingImg, s.listingImgPlaceholder]}><Ionicons name="home-outline" size={24} color={colors.primarySoft} /></View>
         }
-        <View style={styles.scoreChip}>
-          <Text style={styles.scoreChipTxt}>{item.score}%</Text>
+        <View style={s.scoreChip}>
+          <Text style={s.scoreChipTxt}>{item.score}%</Text>
         </View>
         {item.badge && (
-          <View style={styles.listingBadge}>
-            <Text style={styles.listingBadgeTxt}>{item.badge}</Text>
+          <View style={s.listingBadge}>
+            <Text style={s.listingBadgeTxt}>{item.badge}</Text>
           </View>
         )}
       </View>
-      <View style={styles.listingBody}>
-        <Text style={styles.listingName} numberOfLines={1}>{item.name}</Text>
-        <View style={styles.listingLocRow}>
-          <Ionicons name="location-outline" size={11} color={C.textGray} />
-          <Text style={styles.listingLoc} numberOfLines={1}>{item.location}</Text>
+      <View style={s.listingBody}>
+        <Text style={s.listingName} numberOfLines={1}>{item.name}</Text>
+        <View style={s.listingLocRow}>
+          <Ionicons name="location-outline" size={11} color={colors.textLight} />
+          <Text style={s.listingLoc} numberOfLines={1}>{item.location}</Text>
         </View>
-        <Text style={styles.listingPrice}>{item.price}</Text>
-        <View style={styles.listingTagRow}>
+        <Text style={s.listingPrice}>{item.price}</Text>
+        <View style={s.listingTagRow}>
           {item.tags.slice(0, 3).map(tag => (
-            <View key={tag} style={styles.listingTag}>
-              <Text style={styles.listingTagTxt}>{tag}</Text>
+            <View key={tag} style={s.listingTag}>
+              <Text style={s.listingTagTxt}>{tag}</Text>
             </View>
           ))}
         </View>
-        <View style={styles.matchReasonRow}>
-          <Ionicons name="sparkles" size={11} color={C.purpleMid} style={{ marginRight: 4 }} />
-          <Text style={styles.matchReasonTxt} numberOfLines={2}>"{item.matchReason}"</Text>
+        <View style={s.matchReasonRow}>
+          <Ionicons name="sparkles" size={11} color={colors.primary} style={{ marginRight: 4 }} />
+          <Text style={s.matchReasonTxt} numberOfLines={2}>"{item.matchReason}"</Text>
         </View>
         {loading
-          ? <ActivityIndicator size="small" color={C.purple} style={{ marginTop: 8 }} />
-          : <View style={styles.viewBtn}><Text style={styles.viewBtnTxt}>View Property</Text><Feather name="arrow-right" size={12} color={C.purpleMid} /></View>
+          ? <ActivityIndicator size="small" color={colors.primaryDark} style={{ marginTop: 8 }} />
+          : <View style={s.viewBtn}><Text style={s.viewBtnTxt}>View Property</Text><Feather name="arrow-right" size={12} color={colors.primary} /></View>
         }
       </View>
     </TouchableOpacity>
@@ -266,22 +258,22 @@ function ListingCard({ item }: { item: MatchResult }) {
 }
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────
-function MessageBubble({ msg }: { msg: AiChatMessage }) {
+function MessageBubble({ msg, colors, s }: { msg: AiChatMessage; colors: ThemeColors; s: Styles }) {
   const isUser   = msg.role === 'user';
   const listings = msg.listingResults ?? [];
 
   return (
-    <View style={[styles.bubbleRow, isUser && styles.bubbleRowUser]}>
+    <View style={[s.bubbleRow, isUser && s.bubbleRowUser]}>
       {!isUser && (
-        <View style={styles.avatarWrap}>
-          <Ionicons name="sparkles" size={14} color={C.purpleMid} />
+        <View style={s.avatarWrap}>
+          <Ionicons name="sparkles" size={14} color={colors.primary} />
         </View>
       )}
-      <View style={[styles.bubbleOuter, isUser && styles.bubbleOuterUser]}>
+      <View style={[s.bubbleOuter, isUser && s.bubbleOuterUser]}>
         {/* Text content */}
         {!!msg.content && (
-          <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI]}>
-            <Text style={[styles.bubbleTxt, isUser && styles.bubbleTxtUser]}>
+          <View style={[s.bubble, isUser ? s.bubbleUser : s.bubbleAI]}>
+            <Text style={[s.bubbleTxt, isUser && s.bubbleTxtUser]}>
               {msg.content}
             </Text>
           </View>
@@ -289,17 +281,17 @@ function MessageBubble({ msg }: { msg: AiChatMessage }) {
 
         {/* Image attachment */}
         {!!msg.imageUrl && (
-          <View style={styles.attachImgWrap}>
-            <Image source={{ uri: msg.imageUrl }} style={styles.attachImg} resizeMode="cover" />
+          <View style={s.attachImgWrap}>
+            <Image source={{ uri: msg.imageUrl }} style={s.attachImg} resizeMode="cover" />
           </View>
         )}
 
         {/* Audio attachment */}
         {!!msg.audioUrl && (
-          <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleAI, { paddingVertical: 10 }]}>
-            <AudioPlayer uri={msg.audioUrl} />
+          <View style={[s.bubble, isUser ? s.bubbleUser : s.bubbleAI, { paddingVertical: 10 }]}>
+            <AudioPlayer uri={msg.audioUrl} colors={colors} s={s} />
             {!!msg.audioTranscript && (
-              <Text style={[styles.transcriptTxt, isUser && { color: '#E9D5FF' }]}>
+              <Text style={[s.transcriptTxt, isUser && { color: '#E9D5FF' }]}>
                 "{msg.audioTranscript}"
               </Text>
             )}
@@ -308,17 +300,17 @@ function MessageBubble({ msg }: { msg: AiChatMessage }) {
 
         {/* Inline listing cards */}
         {listings.length > 0 && (
-          <View style={styles.listingsBlock}>
-            <Text style={styles.listingsHeading}>
+          <View style={s.listingsBlock}>
+            <Text style={s.listingsHeading}>
               {listings.length} {listings.length === 1 ? 'match' : 'matches'} found
             </Text>
             {listings.map(item => (
-              <ListingCard key={item.id} item={item} />
+              <ListingCard key={item.id} item={item} colors={colors} s={s} />
             ))}
           </View>
         )}
 
-        <Text style={[styles.timeStamp, isUser && styles.timeStampUser]}>
+        <Text style={[s.timeStamp, isUser && s.timeStampUser]}>
           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Text>
       </View>
@@ -330,9 +322,15 @@ function MessageBubble({ msg }: { msg: AiChatMessage }) {
 function ChatScreen({
   convId,
   onBack,
+  colors,
+  isDark,
+  s,
 }: {
   convId: number;
   onBack: () => void;
+  colors: ThemeColors;
+  isDark: boolean;
+  s: Styles;
 }) {
   const { t } = useTranslation();
 
@@ -405,7 +403,7 @@ function ChatScreen({
       setRecording(rec);
       setIsRecording(true);
       setRecordingSec(0);
-      recordTimer.current = setInterval(() => setRecordingSec(s => s + 1), 1000);
+      recordTimer.current = setInterval(() => setRecordingSec(sec => sec + 1), 1000);
     } catch (err: any) {
       Alert.alert('Recording failed', err.message);
     }
@@ -519,25 +517,25 @@ function ChatScreen({
     }
   };
 
-  const fmtSec = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const fmtSec = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.card} />
 
       {/* Header */}
-      <View style={styles.chatHeader}>
-        <TouchableOpacity style={styles.chatBackBtn} onPress={onBack}>
-          <Feather name="arrow-left" size={20} color={C.textDark} />
+      <View style={s.chatHeader}>
+        <TouchableOpacity style={s.chatBackBtn} onPress={onBack}>
+          <Feather name="arrow-left" size={20} color={colors.text} />
         </TouchableOpacity>
-        <View style={styles.chatHeaderCenter}>
-          <View style={styles.agentAvatar}>
-            <Ionicons name="sparkles" size={18} color={C.purpleMid} />
+        <View style={s.chatHeaderCenter}>
+          <View style={s.agentAvatar}>
+            <Ionicons name="sparkles" size={18} color={colors.primary} />
           </View>
           <View>
-            <Text style={styles.chatHeaderTitle} numberOfLines={1}>{title}</Text>
-            <Text style={styles.chatHeaderSub}>CasaMatch AI • SweetCasa</Text>
+            <Text style={s.chatHeaderTitle} numberOfLines={1}>{title}</Text>
+            <Text style={s.chatHeaderSub}>CasaMatch AI • SweetCasa</Text>
           </View>
         </View>
         <View style={{ width: 40 }} />
@@ -550,33 +548,33 @@ function ChatScreen({
       >
         {/* Messages */}
         {loading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={C.purple} />
+          <View style={s.centered}>
+            <ActivityIndicator size="large" color={colors.primaryDark} />
           </View>
         ) : (
           <FlatList
             ref={flatListRef}
             data={messages}
             keyExtractor={m => String(m.id)}
-            renderItem={({ item }) => <MessageBubble msg={item} />}
-            contentContainerStyle={styles.messagesList}
+            renderItem={({ item }) => <MessageBubble msg={item} colors={colors} s={s} />}
+            contentContainerStyle={s.messagesList}
             ListEmptyComponent={
-              <View style={styles.emptyChat}>
-                <View style={styles.emptyChatIcon}>
-                  <Ionicons name="sparkles" size={32} color={C.purpleMid} />
+              <View style={s.emptyChat}>
+                <View style={s.emptyChatIcon}>
+                  <Ionicons name="sparkles" size={32} color={colors.primary} />
                 </View>
-                <Text style={styles.emptyChatTitle}>Hi! I'm CasaMatch</Text>
-                <Text style={styles.emptyChatSub}>
+                <Text style={s.emptyChatTitle}>Hi! I'm CasaMatch</Text>
+                <Text style={s.emptyChatSub}>
                   Tell me what kind of home you're looking for in Cameroon — budget, city, type — and I'll find your perfect match.
                 </Text>
-                <View style={styles.suggestionRow}>
+                <View style={s.suggestionRow}>
                   {[
                     "I'm looking for a 2-bedroom apartment in Douala",
                     "Je cherche une villa à Yaoundé à louer",
                     "Show me studios under 100k XAF",
-                  ].map(s => (
-                    <TouchableOpacity key={s} style={styles.suggestionChip} onPress={() => sendMessage(s)}>
-                      <Text style={styles.suggestionTxt}>{s}</Text>
+                  ].map(sugg => (
+                    <TouchableOpacity key={sugg} style={s.suggestionChip} onPress={() => sendMessage(sugg)}>
+                      <Text style={s.suggestionTxt}>{sugg}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -584,12 +582,12 @@ function ChatScreen({
             }
             ListFooterComponent={
               sending ? (
-                <View style={[styles.bubbleRow, { marginBottom: 8 }]}>
-                  <View style={styles.avatarWrap}>
-                    <Ionicons name="sparkles" size={14} color={C.purpleMid} />
+                <View style={[s.bubbleRow, { marginBottom: 8 }]}>
+                  <View style={s.avatarWrap}>
+                    <Ionicons name="sparkles" size={14} color={colors.primary} />
                   </View>
-                  <View style={[styles.bubble, styles.bubbleAI]}>
-                    <TypingIndicator />
+                  <View style={[s.bubble, s.bubbleAI]}>
+                    <TypingIndicator s={s} />
                   </View>
                 </View>
               ) : null
@@ -599,40 +597,40 @@ function ChatScreen({
 
         {/* Pending image preview */}
         {pendingImg && (
-          <View style={styles.pendingImgBar}>
-            <Image source={{ uri: pendingImg.uri }} style={styles.pendingImgThumb} />
-            <Text style={styles.pendingImgTxt}>Image attached</Text>
+          <View style={s.pendingImgBar}>
+            <Image source={{ uri: pendingImg.uri }} style={s.pendingImgThumb} />
+            <Text style={s.pendingImgTxt}>Image attached</Text>
             <TouchableOpacity onPress={() => setPendingImg(null)}>
-              <Feather name="x" size={16} color="#888" />
+              <Feather name="x" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
         )}
 
         {/* Recording bar */}
         {isRecording && (
-          <View style={styles.recordingBar}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.recordingTxt}>Recording… {fmtSec(recordingSec)}</Text>
-            <TouchableOpacity style={styles.cancelRecordBtn} onPress={cancelRecording}>
-              <Feather name="x" size={16} color="#EF4444" />
+          <View style={s.recordingBar}>
+            <View style={s.recordingDot} />
+            <Text style={s.recordingTxt}>Recording… {fmtSec(recordingSec)}</Text>
+            <TouchableOpacity style={s.cancelRecordBtn} onPress={cancelRecording}>
+              <Feather name="x" size={16} color={colors.danger} />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.sendRecordBtn} onPress={stopAndSendRecording}>
-              <Feather name="send" size={16} color="#fff" />
+            <TouchableOpacity style={s.sendRecordBtn} onPress={stopAndSendRecording}>
+              <Feather name="send" size={16} color={WHITE} />
             </TouchableOpacity>
           </View>
         )}
 
         {/* Input bar */}
         {!isRecording && (
-          <View style={styles.inputBar}>
-            <TouchableOpacity style={styles.inputIcon} onPress={pickImage}>
-              <Feather name="image" size={20} color={C.textGray} />
+          <View style={s.inputBar}>
+            <TouchableOpacity style={s.inputIcon} onPress={pickImage}>
+              <Feather name="image" size={20} color={colors.textLight} />
             </TouchableOpacity>
 
             <TextInput
-              style={styles.textInput}
+              style={s.textInput}
               placeholder="Message CasaMatch…"
-              placeholderTextColor={C.textGray}
+              placeholderTextColor={colors.textLight}
               value={text}
               onChangeText={setText}
               multiline
@@ -642,18 +640,18 @@ function ChatScreen({
 
             {text.trim() || pendingImg ? (
               <TouchableOpacity
-                style={[styles.sendBtn, sending && { opacity: 0.6 }]}
+                style={[s.sendBtn, sending && { opacity: 0.6 }]}
                 onPress={() => sendMessage()}
                 disabled={sending}
               >
                 {sending
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Feather name="send" size={18} color="#fff" />
+                  ? <ActivityIndicator size="small" color={WHITE} />
+                  : <Feather name="send" size={18} color={WHITE} />
                 }
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity style={styles.recordBtn} onPress={startRecording}>
-                <Feather name="mic" size={20} color={C.purpleMid} />
+              <TouchableOpacity style={s.recordBtn} onPress={startRecording}>
+                <Feather name="mic" size={20} color={colors.primary} />
               </TouchableOpacity>
             )}
           </View>
@@ -664,9 +662,14 @@ function ChatScreen({
 }
 
 // ─── History Screen ───────────────────────────────────────────────────────────
-function HistoryScreen({ onSelectConv, onNewChat }: {
+function HistoryScreen({
+  onSelectConv, onNewChat, colors, isDark, s,
+}: {
   onSelectConv: (id: number) => void;
   onNewChat:    (id: number) => void;
+  colors: ThemeColors;
+  isDark: boolean;
+  s: Styles;
 }) {
   const { t } = useTranslation();
   const [conversations, setConversations] = useState<AiConversation[]>([]);
@@ -738,80 +741,80 @@ function HistoryScreen({ onSelectConv, onNewChat }: {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor={C.bg} />
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.card} />
 
       {/* Header */}
-      <View style={styles.historyHeader}>
-        <TouchableOpacity style={styles.chatBackBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={20} color={C.textDark} />
+      <View style={s.historyHeader}>
+        <TouchableOpacity style={s.chatBackBtn} onPress={() => router.back()}>
+          <Feather name="arrow-left" size={20} color={colors.text} />
         </TouchableOpacity>
         <View>
-          <Text style={styles.historyTitle}>CasaMatch AI</Text>
-          <Text style={styles.historySubtitle}>Your property search assistant</Text>
+          <Text style={s.historyTitle}>CasaMatch AI</Text>
+          <Text style={s.historySubtitle}>Your property search assistant</Text>
         </View>
-        <TouchableOpacity style={styles.newChatBtn} onPress={handleNew}>
-          <Feather name="plus" size={18} color={C.purpleMid} />
+        <TouchableOpacity style={s.newChatBtn} onPress={handleNew}>
+          <Feather name="plus" size={18} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
       {/* New Chat CTA */}
-      <TouchableOpacity style={styles.newChatCard} onPress={handleNew} activeOpacity={0.85}>
-        <View style={styles.newChatIconWrap}>
-          <Ionicons name="sparkles" size={22} color={C.purpleMid} />
+      <TouchableOpacity style={s.newChatCard} onPress={handleNew} activeOpacity={0.85}>
+        <View style={s.newChatIconWrap}>
+          <Ionicons name="sparkles" size={22} color={colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.newChatCardTitle}>Start new conversation</Text>
-          <Text style={styles.newChatCardSub}>Find your perfect home in Cameroon</Text>
+          <Text style={s.newChatCardTitle}>Start new conversation</Text>
+          <Text style={s.newChatCardSub}>Find your perfect home in Cameroon</Text>
         </View>
-        <Feather name="arrow-right" size={18} color={C.purpleMid} />
+        <Feather name="arrow-right" size={18} color={colors.primary} />
       </TouchableOpacity>
 
       {/* Past conversations */}
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={C.purple} />
+        <View style={s.centered}>
+          <ActivityIndicator size="large" color={colors.primaryDark} />
         </View>
       ) : conversations.length === 0 ? (
-        <View style={styles.centered}>
-          <Ionicons name="chatbubbles-outline" size={48} color={C.textGray} style={{ marginBottom: 12 }} />
-          <Text style={styles.emptyChatTitle}>No conversations yet</Text>
-          <Text style={[styles.emptyChatSub, { textAlign: 'center' }]}>
+        <View style={s.centered}>
+          <Ionicons name="chatbubbles-outline" size={48} color={colors.textLight} style={{ marginBottom: 12 }} />
+          <Text style={s.emptyChatTitle}>No conversations yet</Text>
+          <Text style={[s.emptyChatSub, { textAlign: 'center' }]}>
             Start a new chat to find your dream home.
           </Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 }}>
-          <Text style={styles.sectionLabel}>Recent chats</Text>
+          <Text style={s.sectionLabel}>Recent chats</Text>
           {conversations.map(conv => {
             const lastMsg = (conv as any).messages?.[0];
             return (
               <TouchableOpacity
                 key={conv.id}
-                style={styles.convRow}
+                style={s.convRow}
                 onPress={() => onSelectConv(conv.id)}
                 activeOpacity={0.8}
               >
-                <View style={styles.convIcon}>
-                  <Ionicons name="sparkles" size={16} color={C.purpleMid} />
+                <View style={s.convIcon}>
+                  <Ionicons name="sparkles" size={16} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.convTitle} numberOfLines={1}>{conv.title}</Text>
+                  <Text style={s.convTitle} numberOfLines={1}>{conv.title}</Text>
                   {lastMsg && (
-                    <Text style={styles.convPreview} numberOfLines={1}>
+                    <Text style={s.convPreview} numberOfLines={1}>
                       {lastMsg.role === 'user' ? 'You: ' : ''}{lastMsg.content}
                     </Text>
                   )}
                 </View>
                 <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                  <Text style={styles.convTime}>{relativeTime(conv.updatedAt)}</Text>
+                  <Text style={s.convTime}>{relativeTime(conv.updatedAt)}</Text>
                   <TouchableOpacity
                     onPress={() => handleDelete(conv.id)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     {deleting === conv.id
-                      ? <ActivityIndicator size="small" color={C.textGray} />
-                      : <Feather name="trash-2" size={14} color="#D1D5DB" />
+                      ? <ActivityIndicator size="small" color={colors.textLight} />
+                      : <Feather name="trash-2" size={14} color={colors.border} />
                     }
                   </TouchableOpacity>
                 </View>
@@ -826,6 +829,9 @@ function HistoryScreen({ onSelectConv, onNewChat }: {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export default function CasaMatchAIScreen() {
+  const { colors, isDark } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+
   const [screen,     setScreen]     = useState<Screen>('history');
   const [activeConv, setActiveConv] = useState<number | null>(null);
 
@@ -833,182 +839,187 @@ export default function CasaMatchAIScreen() {
   const goBack   = ()           => { setScreen('history'); setActiveConv(null); };
 
   if (screen === 'chat' && activeConv !== null) {
-    return <ChatScreen convId={activeConv} onBack={goBack} />;
+    return <ChatScreen convId={activeConv} onBack={goBack} colors={colors} isDark={isDark} s={s} />;
   }
 
   return (
     <HistoryScreen
       onSelectConv={openConv}
       onNewChat={openConv}
+      colors={colors}
+      isDark={isDark}
+      s={s}
     />
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: C.bg },
-  centered:{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe:    { flex: 1, backgroundColor: colors.background },
+    centered:{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
 
-  // ── History ──
-  historyHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: C.border,
-  },
-  historyTitle:    { fontSize: 18, fontWeight: '800', color: C.textDark, letterSpacing: -0.4 },
-  historySubtitle: { fontSize: 12, color: C.textGray, marginTop: 1 },
-  newChatBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
-    marginLeft: 'auto',
-  },
-  newChatCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    margin: 16, padding: 18, borderRadius: 18,
-    backgroundColor: C.purpleLight, borderWidth: 1.5, borderColor: C.purpleBorder,
-  },
-  newChatIconWrap: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
-    shadowColor: C.purple, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3,
-  },
-  newChatCardTitle: { fontSize: 15, fontWeight: '700', color: C.purpleText },
-  newChatCardSub:   { fontSize: 12, color: C.textGray, marginTop: 2 },
-  sectionLabel: { fontSize: 12, fontWeight: '700', color: C.textGray, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 },
-  convRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border,
-  },
-  convIcon:    { width: 40, height: 40, borderRadius: 20, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
-  convTitle:   { fontSize: 14, fontWeight: '700', color: C.textDark, marginBottom: 2 },
-  convPreview: { fontSize: 12, color: C.textGray },
-  convTime:    { fontSize: 11, color: C.textGray },
+    // ── History ──
+    historyHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      paddingHorizontal: 16, paddingVertical: 14,
+      borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+    },
+    historyTitle:    { fontSize: 18, fontWeight: '800', color: colors.text, letterSpacing: -0.4 },
+    historySubtitle: { fontSize: 12, color: colors.textLight, marginTop: 1 },
+    newChatBtn: {
+      width: 38, height: 38, borderRadius: 19,
+      backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center',
+      marginLeft: 'auto',
+    },
+    newChatCard: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      margin: 16, padding: 18, borderRadius: 18,
+      backgroundColor: colors.primaryTintAlt, borderWidth: 1.5, borderColor: colors.primaryBorder,
+    },
+    newChatIconWrap: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center',
+      shadowColor: colors.primaryDark, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3,
+    },
+    newChatCardTitle: { fontSize: 15, fontWeight: '700', color: colors.primaryDarker },
+    newChatCardSub:   { fontSize: 12, color: colors.textLight, marginTop: 2 },
+    sectionLabel: { fontSize: 12, fontWeight: '700', color: colors.textLight, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 },
+    convRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+    },
+    convIcon:    { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center' },
+    convTitle:   { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 2 },
+    convPreview: { fontSize: 12, color: colors.textLight },
+    convTime:    { fontSize: 11, color: colors.textLight },
 
-  // ── Chat header ──
-  chatHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 12, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: C.border,
-    backgroundColor: C.bg,
-  },
-  chatBackBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
-  },
-  chatHeaderCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  agentAvatar:     { width: 38, height: 38, borderRadius: 19, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
-  chatHeaderTitle: { fontSize: 15, fontWeight: '700', color: C.textDark, maxWidth: 200 },
-  chatHeaderSub:   { fontSize: 11, color: C.textGray, marginTop: 1 },
+    // ── Chat header ──
+    chatHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingHorizontal: 12, paddingVertical: 12,
+      borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+      backgroundColor: colors.card,
+    },
+    chatBackBtn: {
+      width: 36, height: 36, borderRadius: 18,
+      backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center',
+    },
+    chatHeaderCenter: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    agentAvatar:     { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center' },
+    chatHeaderTitle: { fontSize: 15, fontWeight: '700', color: colors.text, maxWidth: 200 },
+    chatHeaderSub:   { fontSize: 11, color: colors.textLight, marginTop: 1 },
 
-  // ── Messages ──
-  messagesList: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8 },
-  bubbleRow:     { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 12, gap: 8 },
-  bubbleRowUser: { flexDirection: 'row-reverse' },
-  bubbleOuter:   { maxWidth: '80%' },
-  bubbleOuterUser: {},
-  avatarWrap: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
-    marginBottom: 4,
-  },
-  bubble:      { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 2 },
-  bubbleAI:    { backgroundColor: C.aiBubble, borderBottomLeftRadius: 4 },
-  bubbleUser:  { backgroundColor: C.userBubble, borderBottomRightRadius: 4 },
-  bubbleTxt:     { fontSize: 14.5, color: C.textDark, lineHeight: 21 },
-  bubbleTxtUser: { color: '#fff' },
-  timeStamp:     { fontSize: 10, color: C.textGray, marginTop: 2, textAlign: 'left' },
-  timeStampUser: { textAlign: 'right' },
+    // ── Messages ──
+    messagesList: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8 },
+    bubbleRow:     { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 12, gap: 8 },
+    bubbleRowUser: { flexDirection: 'row-reverse' },
+    bubbleOuter:   { maxWidth: '80%' },
+    bubbleOuterUser: {},
+    avatarWrap: {
+      width: 28, height: 28, borderRadius: 14,
+      backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center',
+      marginBottom: 4,
+    },
+    bubble:      { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 2 },
+    bubbleAI:    { backgroundColor: colors.primaryTintAlt, borderBottomLeftRadius: 4 },
+    bubbleUser:  { backgroundColor: colors.primaryDark, borderBottomRightRadius: 4 },
+    bubbleTxt:     { fontSize: 14.5, color: colors.text, lineHeight: 21 },
+    bubbleTxtUser: { color: WHITE },
+    timeStamp:     { fontSize: 10, color: colors.textLight, marginTop: 2, textAlign: 'left' },
+    timeStampUser: { textAlign: 'right' },
 
-  attachImgWrap: { borderRadius: 14, overflow: 'hidden', marginBottom: 4 },
-  attachImg:     { width: 220, height: 160, borderRadius: 14 },
+    attachImgWrap: { borderRadius: 14, overflow: 'hidden', marginBottom: 4 },
+    attachImg:     { width: 220, height: 160, borderRadius: 14 },
 
-  transcriptTxt: { fontSize: 12, color: C.textMid, fontStyle: 'italic', marginTop: 4, lineHeight: 17 },
+    transcriptTxt: { fontSize: 12, color: colors.textSecondary, fontStyle: 'italic', marginTop: 4, lineHeight: 17 },
 
-  // ── Typing indicator ──
-  typingWrap: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4, paddingVertical: 4 },
-  typingDot:  { width: 7, height: 7, borderRadius: 3.5, backgroundColor: C.purpleMid },
+    // ── Typing indicator ──
+    typingWrap: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4, paddingVertical: 4 },
+    typingDot:  { width: 7, height: 7, borderRadius: 3.5, backgroundColor: colors.primary },
 
-  // ── Audio player ──
-  audioPlayer:  { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 160 },
-  audioPlayBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
-  audioTrack:   { flex: 1, height: 20, justifyContent: 'center' },
-  audioTrackBg: { height: 3, backgroundColor: '#D1D5DB', borderRadius: 2, overflow: 'hidden' },
-  audioTrackFill:{ height: '100%', backgroundColor: C.purpleMid, borderRadius: 2 },
-  audioTime:    { fontSize: 11, color: C.textGray, width: 42, textAlign: 'right' },
+    // ── Audio player ──
+    audioPlayer:  { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 160 },
+    audioPlayBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center' },
+    audioTrack:   { flex: 1, height: 20, justifyContent: 'center' },
+    audioTrackBg: { height: 3, backgroundColor: colors.border, borderRadius: 2, overflow: 'hidden' },
+    audioTrackFill:{ height: '100%', backgroundColor: colors.primary, borderRadius: 2 },
+    audioTime:    { fontSize: 11, color: colors.textLight, width: 42, textAlign: 'right' },
 
-  // ── Listings inline ──
-  listingsBlock:   { marginTop: 8, gap: 10 },
-  listingsHeading: { fontSize: 13, fontWeight: '700', color: C.purpleText, marginBottom: 4 },
-  listingCard:     { backgroundColor: C.bg, borderRadius: 16, borderWidth: 1.5, borderColor: C.purpleBorder, overflow: 'hidden', width: 280 },
-  listingImgWrap:  { width: '100%', height: 140, position: 'relative' },
-  listingImg:      { width: '100%', height: '100%' },
-  listingImgPlaceholder: { backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center' },
-  scoreChip:  { position: 'absolute', top: 8, right: 8, backgroundColor: C.purple, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4 },
-  scoreChipTxt: { fontSize: 11, fontWeight: '700', color: '#fff' },
-  listingBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
-  listingBadgeTxt: { fontSize: 10, color: '#fff', fontWeight: '700' },
-  listingBody:  { padding: 12, gap: 4 },
-  listingName:  { fontSize: 13, fontWeight: '700', color: C.textDark },
-  listingLocRow:{ flexDirection: 'row', alignItems: 'center', gap: 3 },
-  listingLoc:   { fontSize: 11, color: C.textGray, flex: 1 },
-  listingPrice: { fontSize: 13, fontWeight: '800', color: C.purpleText, marginTop: 2 },
-  listingTagRow:{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
-  listingTag:   { backgroundColor: '#F3F4F6', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  listingTagTxt:{ fontSize: 10.5, color: '#6B7280', fontWeight: '600' },
-  matchReasonRow:{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 6, backgroundColor: C.purpleLight, borderRadius: 10, padding: 8 },
-  matchReasonTxt:{ fontSize: 11.5, color: C.purpleText, flex: 1, fontStyle: 'italic', lineHeight: 16 },
-  viewBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8, paddingVertical: 8, borderRadius: 10, backgroundColor: C.purpleLight },
-  viewBtnTxt:   { fontSize: 12, fontWeight: '700', color: C.purpleText },
+    // ── Listings inline ──
+    listingsBlock:   { marginTop: 8, gap: 10 },
+    listingsHeading: { fontSize: 13, fontWeight: '700', color: colors.primaryDarker, marginBottom: 4 },
+    listingCard:     { backgroundColor: colors.card, borderRadius: 16, borderWidth: 1.5, borderColor: colors.primaryBorder, overflow: 'hidden', width: 280 },
+    listingImgWrap:  { width: '100%', height: 140, position: 'relative' },
+    listingImg:      { width: '100%', height: '100%' },
+    listingImgPlaceholder: { backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center' },
+    scoreChip:  { position: 'absolute', top: 8, right: 8, backgroundColor: colors.primaryDark, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4 },
+    scoreChipTxt: { fontSize: 11, fontWeight: '700', color: WHITE },
+    listingBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: colors.overlay, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+    listingBadgeTxt: { fontSize: 10, color: WHITE, fontWeight: '700' },
+    listingBody:  { padding: 12, gap: 4 },
+    listingName:  { fontSize: 13, fontWeight: '700', color: colors.text },
+    listingLocRow:{ flexDirection: 'row', alignItems: 'center', gap: 3 },
+    listingLoc:   { fontSize: 11, color: colors.textLight, flex: 1 },
+    listingPrice: { fontSize: 13, fontWeight: '800', color: colors.primaryDarker, marginTop: 2 },
+    listingTagRow:{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+    listingTag:   { backgroundColor: colors.divider, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+    listingTagTxt:{ fontSize: 10.5, color: colors.textMuted, fontWeight: '600' },
+    matchReasonRow:{ flexDirection: 'row', alignItems: 'flex-start', marginTop: 6, backgroundColor: colors.primaryTintAlt, borderRadius: 10, padding: 8 },
+    matchReasonTxt:{ fontSize: 11.5, color: colors.primaryDarker, flex: 1, fontStyle: 'italic', lineHeight: 16 },
+    viewBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8, paddingVertical: 8, borderRadius: 10, backgroundColor: colors.primaryTintAlt },
+    viewBtnTxt:   { fontSize: 12, fontWeight: '700', color: colors.primaryDarker },
 
-  // ── Empty chat ──
-  emptyChat:        { flex: 1, alignItems: 'center', paddingTop: 40, paddingHorizontal: 24 },
-  emptyChatIcon:    { width: 64, height: 64, borderRadius: 32, backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  emptyChatTitle:   { fontSize: 18, fontWeight: '800', color: C.textDark, letterSpacing: -0.3, marginBottom: 8 },
-  emptyChatSub:     { fontSize: 14, color: C.textGray, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
-  suggestionRow:    { width: '100%', gap: 8 },
-  suggestionChip:   { backgroundColor: C.purpleLight, borderRadius: 12, padding: 12, borderWidth: 1.5, borderColor: C.purpleBorder },
-  suggestionTxt:    { fontSize: 13, color: C.purpleText, fontWeight: '500' },
+    // ── Empty chat ──
+    emptyChat:        { flex: 1, alignItems: 'center', paddingTop: 40, paddingHorizontal: 24 },
+    emptyChatIcon:    { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+    emptyChatTitle:   { fontSize: 18, fontWeight: '800', color: colors.text, letterSpacing: -0.3, marginBottom: 8 },
+    emptyChatSub:     { fontSize: 14, color: colors.textLight, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
+    suggestionRow:    { width: '100%', gap: 8 },
+    suggestionChip:   { backgroundColor: colors.primaryTintAlt, borderRadius: 12, padding: 12, borderWidth: 1.5, borderColor: colors.primaryBorder },
+    suggestionTxt:    { fontSize: 13, color: colors.primaryDarker, fontWeight: '500' },
 
-  // ── Input bar ──
-  inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: C.border,
-    backgroundColor: C.bg,
-  },
-  inputIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  textInput: {
-    flex: 1, maxHeight: 100, fontSize: 14.5, color: C.textDark,
-    backgroundColor: C.purpleLight, borderRadius: 22,
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderWidth: 1.5, borderColor: C.purpleBorder,
-  },
-  sendBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center',
-    shadowColor: C.purple, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-  },
-  recordBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: C.purpleLight, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1.5, borderColor: C.purpleBorder,
-  },
+    // ── Input bar ──
+    inputBar: {
+      flexDirection: 'row', alignItems: 'flex-end', gap: 8,
+      paddingHorizontal: 12, paddingVertical: 10,
+      borderTopWidth: 1, borderTopColor: colors.borderLight,
+      backgroundColor: colors.card,
+    },
+    inputIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    textInput: {
+      flex: 1, maxHeight: 100, fontSize: 14.5, color: colors.text,
+      backgroundColor: colors.primaryTintAlt, borderRadius: 22,
+      paddingHorizontal: 16, paddingVertical: 10,
+      borderWidth: 1.5, borderColor: colors.primaryBorder,
+    },
+    sendBtn: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: colors.primaryDark, alignItems: 'center', justifyContent: 'center',
+      shadowColor: colors.primaryDark, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+    },
+    recordBtn: {
+      width: 40, height: 40, borderRadius: 20,
+      backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center',
+      borderWidth: 1.5, borderColor: colors.primaryBorder,
+    },
 
-  pendingImgBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 8,
-    backgroundColor: C.purpleLight, borderTopWidth: 1, borderTopColor: C.purpleBorder,
-  },
-  pendingImgThumb: { width: 40, height: 40, borderRadius: 8 },
-  pendingImgTxt:   { flex: 1, fontSize: 13, color: C.purpleText, fontWeight: '600' },
+    pendingImgBar: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingHorizontal: 14, paddingVertical: 8,
+      backgroundColor: colors.primaryTintAlt, borderTopWidth: 1, borderTopColor: colors.primaryBorder,
+    },
+    pendingImgThumb: { width: 40, height: 40, borderRadius: 8 },
+    pendingImgTxt:   { flex: 1, fontSize: 13, color: colors.primaryDarker, fontWeight: '600' },
 
-  recordingBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 14, paddingVertical: 12,
-    backgroundColor: '#FFF5F5', borderTopWidth: 1, borderTopColor: '#FECACA',
-  },
-  recordingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#EF4444' },
-  recordingTxt: { flex: 1, fontSize: 14, color: '#DC2626', fontWeight: '600' },
-  cancelRecordBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
-  sendRecordBtn:   { width: 36, height: 36, borderRadius: 18, backgroundColor: C.purple, alignItems: 'center', justifyContent: 'center' },
-});
+    recordingBar: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      paddingHorizontal: 14, paddingVertical: 12,
+      backgroundColor: colors.dangerBg, borderTopWidth: 1, borderTopColor: colors.danger + '55',
+    },
+    recordingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger },
+    recordingTxt: { flex: 1, fontSize: 14, color: colors.danger, fontWeight: '600' },
+    cancelRecordBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.dangerBg, alignItems: 'center', justifyContent: 'center' },
+    sendRecordBtn:   { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primaryDark, alignItems: 'center', justifyContent: 'center' },
+  });
+}

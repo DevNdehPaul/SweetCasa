@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,10 +17,18 @@ import {
   View,
 } from "react-native";
 import api from "../constants/api";
+import { ThemeColors } from "../constants/theme";
+import { useAppTheme } from "../hooks/use-app-theme";
 
 const H_PAD = 20;
-const PURPLE = "#7C3AED";
-const PURPLE_LIGHT = "#F0EBFF";
+
+// White text sitting directly on a solid-color button (primary CTA, alert
+// buttons) stays hardcoded — the swatch itself doesn't change between
+// light/dark, so the text on it shouldn't either.
+const WHITE = "#FFFFFF";
+
+type Styles = ReturnType<typeof getStyles>;
+type WebAlertStyles = ReturnType<typeof getWebAlertStyles>;
 
 // ─── Cross-platform Alert ─────────────────────────────────────────────────────
 // Alert.alert is a no-op on React Native Web — it just logs to console and
@@ -64,7 +72,12 @@ function crossAlert(
 }
 
 // Mount once near the root of the screen. Renders nothing on native.
+// Calls useAppTheme() itself (rather than taking colors/s as props) since it's
+// a self-contained singleton host mounted independently of the form below.
 function WebAlertHost() {
+  const { colors } = useAppTheme();
+  const ws = useMemo(() => getWebAlertStyles(colors), [colors]);
+
   const [state, setState] = useState<WebAlertState>({
     visible: false,
     title: "",
@@ -93,30 +106,30 @@ function WebAlertHost() {
       animationType="fade"
       onRequestClose={() => handlePress()}
     >
-      <View style={webAlertStyles.backdrop}>
-        <View style={webAlertStyles.card}>
-          <Text style={webAlertStyles.title}>{state.title}</Text>
+      <View style={ws.backdrop}>
+        <View style={ws.card}>
+          <Text style={ws.title}>{state.title}</Text>
           {!!state.message && (
-            <Text style={webAlertStyles.message}>{state.message}</Text>
+            <Text style={ws.message}>{state.message}</Text>
           )}
-          <View style={webAlertStyles.btnRow}>
+          <View style={ws.btnRow}>
             {state.buttons.map((b, i) => (
               <TouchableOpacity
                 key={`${b.text}-${i}`}
                 onPress={() => handlePress(b)}
                 style={[
-                  webAlertStyles.btn,
-                  b.style === "cancel" && webAlertStyles.btnCancel,
-                  b.style === "destructive" && webAlertStyles.btnDestructive,
+                  ws.btn,
+                  b.style === "cancel" && ws.btnCancel,
+                  b.style === "destructive" && ws.btnDestructive,
                 ]}
                 activeOpacity={0.7}
               >
                 <Text
                   style={[
-                    webAlertStyles.btnTxt,
-                    b.style === "cancel" && webAlertStyles.btnTxtCancel,
+                    ws.btnTxt,
+                    b.style === "cancel" && ws.btnTxtCancel,
                     b.style === "destructive" &&
-                      webAlertStyles.btnTxtDestructive,
+                      ws.btnTxtDestructive,
                   ]}
                 >
                   {b.text}
@@ -131,6 +144,9 @@ function WebAlertHost() {
 }
 
 export default function ForgotPasswordScreen() {
+  const { colors, isDark } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -162,8 +178,11 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F7FB" />
+    <SafeAreaView style={s.safe}>
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={colors.background}
+      />
       <WebAlertHost />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -171,71 +190,71 @@ export default function ForgotPasswordScreen() {
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
         >
           <TouchableOpacity
             onPress={() => router.back()}
-            style={styles.backBtn}
+            style={s.backBtn}
           >
-            <Feather name="arrow-left" size={22} color="#111827" />
+            <Feather name="arrow-left" size={22} color={colors.text} />
           </TouchableOpacity>
 
           {sent ? (
             // ── Success state ────────────────────────────────────────────────
-            <View style={styles.successWrap}>
-              <View style={styles.successIcon}>
-                <Ionicons name="mail-open-outline" size={40} color="#7C3AED" />
+            <View style={s.successWrap}>
+              <View style={s.successIcon}>
+                <Ionicons name="mail-open-outline" size={40} color={colors.primary} />
               </View>
-              <Text style={styles.successTitle}>Check your inbox</Text>
-              <Text style={styles.successDesc}>
+              <Text style={s.successTitle}>Check your inbox</Text>
+              <Text style={s.successDesc}>
                 If an account exists for{" "}
-                <Text style={styles.successEmail}>{email.trim()}</Text>, we've
+                <Text style={s.successEmail}>{email.trim()}</Text>, we've
                 sent you a link to reset your password. The link expires in 30
                 minutes.
               </Text>
-              <View style={styles.successTip}>
+              <View style={s.successTip}>
                 <Feather
                   name="info"
                   size={13}
-                  color="#9CA3AF"
+                  color={colors.textLight}
                   style={{ marginTop: 2 }}
                 />
-                <Text style={styles.successTipTxt}>
+                <Text style={s.successTipTxt}>
                   Don't see the email? Check your spam or junk folder.
                 </Text>
               </View>
               <TouchableOpacity
-                style={styles.primaryBtn}
+                style={s.primaryBtn}
                 onPress={() => router.back()}
                 activeOpacity={0.88}
               >
-                <Text style={styles.primaryBtnTxt}>Back to Login</Text>
-                <Feather name="arrow-right" size={16} color="#fff" />
+                <Text style={s.primaryBtnTxt}>Back to Login</Text>
+                <Feather name="arrow-right" size={16} color={WHITE} />
               </TouchableOpacity>
             </View>
           ) : (
             // ── Form state ───────────────────────────────────────────────────
             <>
-              <View style={styles.hero}>
-                <View style={styles.shieldWrap}>
-                  <Ionicons name="key-outline" size={30} color="#7C3AED" />
+              <View style={s.hero}>
+                <View style={s.shieldWrap}>
+                  <Ionicons name="key-outline" size={30} color={colors.primary} />
                 </View>
-                <Text style={styles.heroTitle}>Forgot Password?</Text>
-                <Text style={styles.heroDesc}>
+                <Text style={s.heroTitle}>Forgot Password?</Text>
+                <Text style={s.heroDesc}>
                   No worries. Enter the email address you registered with and
                   we'll send you a link to reset your password.
                 </Text>
               </View>
 
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Email Address</Text>
-                <View style={styles.inputWrap}>
-                  <Feather name="mail" size={15} color="#9CA3AF" />
+              <View style={s.fieldGroup}>
+                <Text style={s.fieldLabel}>Email Address</Text>
+                <View style={s.inputWrap}>
+                  <Feather name="mail" size={15} color={colors.textLight} />
                   <TextInput
-                    style={styles.fieldInput}
+                    style={s.fieldInput}
                     placeholder="e.g. john@example.com"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={colors.textLight}
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -249,32 +268,32 @@ export default function ForgotPasswordScreen() {
 
               <TouchableOpacity
                 style={[
-                  styles.primaryBtn,
-                  loading && styles.primaryBtnDisabled,
+                  s.primaryBtn,
+                  loading && s.primaryBtnDisabled,
                 ]}
                 disabled={loading}
                 onPress={handleSubmit}
                 activeOpacity={0.88}
               >
                 {loading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={WHITE} />
                 ) : (
                   <>
-                    <Text style={styles.primaryBtnTxt}>Send Reset Link</Text>
-                    <Feather name="arrow-right" size={17} color="#fff" />
+                    <Text style={s.primaryBtnTxt}>Send Reset Link</Text>
+                    <Feather name="arrow-right" size={17} color={WHITE} />
                   </>
                 )}
               </TouchableOpacity>
 
-              <View style={styles.helpCard}>
+              <View style={s.helpCard}>
                 <Feather
                   name="shield"
                   size={13}
-                  color="#7C3AED"
+                  color={colors.primary}
                   style={{ marginTop: 2 }}
                 />
-                <Text style={styles.helpText}>
-                  <Text style={{ fontWeight: "700", color: "#7C3AED" }}>
+                <Text style={s.helpText}>
+                  <Text style={{ fontWeight: "700", color: colors.primary }}>
                     Tip:{" "}
                   </Text>
                   The reset link is single-use and expires after 30 minutes for
@@ -289,188 +308,192 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F7F7FB" },
-  scroll: {
-    paddingHorizontal: H_PAD,
-    paddingTop: 20,
-    paddingBottom: 40,
-    flexGrow: 1,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: PURPLE_LIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
-  hero: { alignItems: "center", marginBottom: 28 },
-  shieldWrap: {
-    width: 64,
-    height: 64,
-    backgroundColor: "#F5F3FF",
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-    shadowColor: PURPLE,
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 8,
-    letterSpacing: -0.4,
-  },
-  heroDesc: {
-    fontSize: 13.5,
-    color: "#9CA3AF",
-    textAlign: "center",
-    lineHeight: 21,
-    maxWidth: 320,
-  },
-  fieldGroup: { marginBottom: 18 },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  inputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#fff",
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  fieldInput: { flex: 1, fontSize: 14, color: "#111827", padding: 0 },
-  primaryBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    backgroundColor: "#6D28D9",
-    borderRadius: 18,
-    paddingVertical: 17,
-    marginBottom: 20,
-    shadowColor: "#5B21B6",
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  primaryBtnDisabled: { opacity: 0.45, shadowOpacity: 0, elevation: 0 },
-  primaryBtnTxt: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: -0.2,
-  },
-  helpCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 12,
-  },
-  helpText: { flex: 1, fontSize: 12, color: "#6B7280", lineHeight: 18 },
-  successWrap: { alignItems: "center", paddingTop: 40 },
-  successIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: "#F5F3FF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-    shadowColor: PURPLE,
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
-  },
-  successTitle: {
-    fontSize: 21,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 8,
-    letterSpacing: -0.3,
-  },
-  successDesc: {
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 18,
-    maxWidth: 320,
-  },
-  successEmail: { fontWeight: "700", color: "#7C3AED" },
-  successTip: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 24,
-  },
-  successTipTxt: { flex: 1, fontSize: 12, color: "#6B7280", lineHeight: 18 },
-});
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    scroll: {
+      paddingHorizontal: H_PAD,
+      paddingTop: 20,
+      paddingBottom: 40,
+      flexGrow: 1,
+    },
+    backBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: colors.primaryTint,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 24,
+    },
+    hero: { alignItems: "center", marginBottom: 28 },
+    shieldWrap: {
+      width: 64,
+      height: 64,
+      backgroundColor: colors.primaryTintAlt,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 14,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+    },
+    heroTitle: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: colors.text,
+      marginBottom: 8,
+      letterSpacing: -0.4,
+    },
+    heroDesc: {
+      fontSize: 13.5,
+      color: colors.textLight,
+      textAlign: "center",
+      lineHeight: 21,
+      maxWidth: 320,
+    },
+    fieldGroup: { marginBottom: 18 },
+    fieldLabel: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.textSecondary,
+      marginBottom: 8,
+    },
+    inputWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: colors.card,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+    },
+    fieldInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
+    primaryBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      backgroundColor: colors.primaryDark,
+      borderRadius: 18,
+      paddingVertical: 17,
+      marginBottom: 20,
+      shadowColor: colors.primaryDarker,
+      shadowOpacity: 0.35,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 8,
+    },
+    primaryBtnDisabled: { opacity: 0.45, shadowOpacity: 0, elevation: 0 },
+    primaryBtnTxt: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: WHITE,
+      letterSpacing: -0.2,
+    },
+    helpCard: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+      backgroundColor: colors.cardMuted,
+      borderRadius: 12,
+      padding: 12,
+    },
+    helpText: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+    successWrap: { alignItems: "center", paddingTop: 40 },
+    successIcon: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      backgroundColor: colors.primaryTintAlt,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 20,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 4,
+    },
+    successTitle: {
+      fontSize: 21,
+      fontWeight: "800",
+      color: colors.text,
+      marginBottom: 8,
+      letterSpacing: -0.3,
+    },
+    successDesc: {
+      fontSize: 14,
+      color: colors.textMuted,
+      textAlign: "center",
+      lineHeight: 22,
+      marginBottom: 18,
+      maxWidth: 320,
+    },
+    successEmail: { fontWeight: "700", color: colors.primary },
+    successTip: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+      backgroundColor: colors.cardMuted,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 24,
+    },
+    successTipTxt: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+  });
+}
 
 // ─── Web Alert Modal Styles ───────────────────────────────────────────────────
-const webAlertStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(17, 24, 39, 0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 340,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-  },
-  title: { fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 8 },
-  message: {
-    fontSize: 13.5,
-    color: "#4B5563",
-    lineHeight: 20,
-    marginBottom: 18,
-  },
-  btnRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 10,
-    flexWrap: "wrap",
-  },
-  btn: {
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: "#6D28D9",
-  },
-  btnCancel: { backgroundColor: "#F3F4F6" },
-  btnDestructive: { backgroundColor: "#DC2626" },
-  btnTxt: { fontSize: 13.5, fontWeight: "700", color: "#fff" },
-  btnTxtCancel: { color: "#374151" },
-  btnTxtDestructive: { color: "#fff" },
-});
+function getWebAlertStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    card: {
+      width: "100%",
+      maxWidth: 340,
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 10,
+    },
+    title: { fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: 8 },
+    message: {
+      fontSize: 13.5,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      marginBottom: 18,
+    },
+    btnRow: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      gap: 10,
+      flexWrap: "wrap",
+    },
+    btn: {
+      paddingVertical: 9,
+      paddingHorizontal: 16,
+      borderRadius: 10,
+      backgroundColor: colors.primaryDark,
+    },
+    btnCancel: { backgroundColor: colors.divider },
+    btnDestructive: { backgroundColor: colors.danger },
+    btnTxt: { fontSize: 13.5, fontWeight: "700", color: WHITE },
+    btnTxtCancel: { color: colors.textSecondary },
+    btnTxtDestructive: { color: WHITE },
+  });
+}

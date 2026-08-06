@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -18,21 +18,13 @@ import {
   View,
 } from 'react-native';
 import api from '../constants/api';
+import { ThemeColors } from '../constants/theme';
+import { useAppTheme } from '../hooks/use-app-theme';
 
-// ─── Theme ────────────────────────────────────────────────────────────────────
-const PURPLE       = '#7C3AED';
-const PURPLE_LIGHT = '#F0EBFF';
-const PURPLE_MID   = '#EDE9FE';
-const PURPLE_DARK  = '#6D28D9';
-const GREEN        = '#16A34A';
-const GREEN_LIGHT  = '#F0FDF4';
-const GREEN_BORDER = '#BBF7D0';
-const GRAY_BG      = '#F7F7FB';
-const GRAY_BORDER  = '#E5E7EB';
-const TEXT_DARK    = '#111827';
-const TEXT_MID     = '#374151';
-const TEXT_LIGHT   = '#9CA3AF';
-const WHITE        = '#FFFFFF';
+// Text sitting directly on a solid-color button/icon (e.g. white on purple)
+// stays hardcoded — it's correct in both themes since the swatch itself
+// doesn't change between light/dark.
+const WHITE = '#FFFFFF';
 
 const H_PAD = 20;
 
@@ -59,17 +51,21 @@ type BuyerForm = {
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
+// These live outside the main component, so styles/colors are passed down as
+// props rather than each one calling useAppTheme() itself.
+
+type Styles = ReturnType<typeof getStyles>;
 
 function SectionCard({
-  icon, title, children,
+  icon, title, children, colors, s,
 }: {
-  icon: string; title: string; children: React.ReactNode;
+  icon: string; title: string; children: React.ReactNode; colors: ThemeColors; s: Styles;
 }) {
   return (
     <View style={s.sectionCard}>
       <View style={s.sectionHeader}>
         <View style={s.sectionIconBox}>
-          <Feather name={icon as any} size={14} color={PURPLE} />
+          <Feather name={icon as any} size={14} color={colors.primary} />
         </View>
         <Text style={s.sectionTitle}>{title}</Text>
       </View>
@@ -78,13 +74,13 @@ function SectionCard({
   );
 }
 
-function RegLabel({ children }: { children: string }) {
+function RegLabel({ children, s }: { children: string; s: Styles }) {
   return <Text style={s.regLabel}>{children}</Text>;
 }
 
 function EditField({
   label, value, onChangeText, icon, placeholder,
-  keyboardType, editable = true, hint,
+  keyboardType, editable = true, hint, colors, s,
 }: {
   label: string;
   value: string;
@@ -94,24 +90,26 @@ function EditField({
   keyboardType?: any;
   editable?: boolean;
   hint?: string;
+  colors: ThemeColors;
+  s: Styles;
 }) {
   return (
     <View style={s.fieldGroup}>
-      <RegLabel>{label}</RegLabel>
+      <RegLabel s={s}>{label}</RegLabel>
       <View style={[s.inputWrap, !editable && s.inputWrapDisabled]}>
-        <Feather name={icon as any} size={14} color={editable ? TEXT_LIGHT : '#D1D5DB'} />
+        <Feather name={icon as any} size={14} color={editable ? colors.textLight : colors.border} />
         <TextInput
           style={[s.fieldInput, !editable && s.fieldInputDisabled]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder || '—'}
-          placeholderTextColor={TEXT_LIGHT}
+          placeholderTextColor={colors.textLight}
           keyboardType={keyboardType}
           autoCapitalize="none"
           editable={editable}
         />
         {!editable && (
-          <Feather name="lock" size={12} color="#D1D5DB" />
+          <Feather name="lock" size={12} color={colors.border} />
         )}
       </View>
       {hint && <Text style={s.fieldHint}>{hint}</Text>}
@@ -119,13 +117,15 @@ function EditField({
   );
 }
 
-function TwoCol({ children }: { children: React.ReactNode }) {
+function TwoCol({ children, s }: { children: React.ReactNode; s: Styles }) {
   return <View style={s.twoCol}>{children}</View>;
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AccountInformation() {
   const { t } = useTranslation();
+  const { colors, isDark } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const [role, setRole]       = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -236,7 +236,7 @@ export default function AccountInformation() {
   if (loading) {
     return (
       <View style={s.loadingWrap}>
-        <ActivityIndicator size="large" color={PURPLE} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -245,12 +245,15 @@ export default function AccountInformation() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor={WHITE} />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.card}
+      />
 
       {/* ── Header ── */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={20} color={TEXT_DARK} />
+          <Feather name="arrow-left" size={20} color={colors.text} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>{t('account.title')}</Text>
         <View style={{ width: 38 }} />
@@ -286,13 +289,15 @@ export default function AccountInformation() {
           {/* ══════════════ SELLER FORM ══════════════ */}
           {isSeller && (
             <>
-              <SectionCard icon="briefcase" title={t('account.businessIdentity')}>
+              <SectionCard icon="briefcase" title={t('account.businessIdentity')} colors={colors} s={s}>
                 <EditField
                   label={t('account.fullName')}
                   value={sellerForm.name}
                   onChangeText={setSeller('name')}
                   icon="user"
                   placeholder="e.g. John Doe"
+                  colors={colors}
+                  s={s}
                 />
                 <EditField
                   label={t('account.companyName')}
@@ -301,6 +306,8 @@ export default function AccountInformation() {
                   icon="briefcase"
                   placeholder="e.g. BlueSky Estates Ltd"
                   hint={t('account.companyNameHint')}
+                  colors={colors}
+                  s={s}
                 />
                 <EditField
                   label={t('account.emailAddress')}
@@ -308,10 +315,12 @@ export default function AccountInformation() {
                   icon="mail"
                   editable={false}
                   hint={t('account.emailHint')}
+                  colors={colors}
+                  s={s}
                 />
                 <View style={s.phoneRow}>
                   <View style={s.phonePrefix}>
-                    <Feather name="globe" size={13} color={TEXT_MID} />
+                    <Feather name="globe" size={13} color={colors.textSecondary} />
                     <Text style={s.phonePrefixTxt}>+237</Text>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -322,13 +331,15 @@ export default function AccountInformation() {
                       icon="phone"
                       placeholder="6XX XXX XXX"
                       keyboardType="phone-pad"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                 </View>
               </SectionCard>
 
-              <SectionCard icon="map-pin" title={t('account.officeLocation')}>
-                <TwoCol>
+              <SectionCard icon="map-pin" title={t('account.officeLocation')} colors={colors} s={s}>
+                <TwoCol s={s}>
                   <View style={{ flex: 1 }}>
                     <EditField
                       label={t('account.country')}
@@ -336,6 +347,8 @@ export default function AccountInformation() {
                       onChangeText={setSeller('country')}
                       icon="globe"
                       placeholder="Cameroon"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -345,10 +358,12 @@ export default function AccountInformation() {
                       onChangeText={setSeller('region')}
                       icon="map"
                       placeholder="Centre"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                 </TwoCol>
-                <TwoCol>
+                <TwoCol s={s}>
                   <View style={{ flex: 1 }}>
                     <EditField
                       label={t('account.city')}
@@ -356,6 +371,8 @@ export default function AccountInformation() {
                       onChangeText={setSeller('city')}
                       icon="grid"
                       placeholder="Yaoundé"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -365,6 +382,8 @@ export default function AccountInformation() {
                       onChangeText={setSeller('street')}
                       icon="navigation"
                       placeholder="Bastos 102"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                 </TwoCol>
@@ -375,13 +394,15 @@ export default function AccountInformation() {
           {/* ══════════════ BUYER FORM ══════════════ */}
           {!isSeller && (
             <>
-              <SectionCard icon="user" title={t('account.personalDetails')}>
+              <SectionCard icon="user" title={t('account.personalDetails')} colors={colors} s={s}>
                 <EditField
                   label={t('account.fullName')}
                   value={buyerForm.name}
                   onChangeText={setBuyer('name')}
                   icon="user"
                   placeholder="e.g. Jane Doe"
+                  colors={colors}
+                  s={s}
                 />
                 <EditField
                   label={t('account.emailAddress')}
@@ -389,10 +410,12 @@ export default function AccountInformation() {
                   icon="mail"
                   editable={false}
                   hint={t('account.emailHint')}
+                  colors={colors}
+                  s={s}
                 />
                 <View style={s.phoneRow}>
                   <View style={s.phonePrefix}>
-                    <Feather name="globe" size={13} color={TEXT_MID} />
+                    <Feather name="globe" size={13} color={colors.textSecondary} />
                     <Text style={s.phonePrefixTxt}>+237</Text>
                   </View>
                   <View style={{ flex: 1 }}>
@@ -403,13 +426,15 @@ export default function AccountInformation() {
                       icon="phone"
                       placeholder="6XX XXX XXX"
                       keyboardType="phone-pad"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                 </View>
               </SectionCard>
 
-              <SectionCard icon="map-pin" title={t('account.locationDetails')}>
-                <TwoCol>
+              <SectionCard icon="map-pin" title={t('account.locationDetails')} colors={colors} s={s}>
+                <TwoCol s={s}>
                   <View style={{ flex: 1 }}>
                     <EditField
                       label={t('account.country')}
@@ -417,6 +442,8 @@ export default function AccountInformation() {
                       onChangeText={setBuyer('country')}
                       icon="globe"
                       placeholder="Cameroon"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -426,10 +453,12 @@ export default function AccountInformation() {
                       onChangeText={setBuyer('region')}
                       icon="map"
                       placeholder="Littoral"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                 </TwoCol>
-                <TwoCol>
+                <TwoCol s={s}>
                   <View style={{ flex: 1 }}>
                     <EditField
                       label={t('account.city')}
@@ -437,6 +466,8 @@ export default function AccountInformation() {
                       onChangeText={setBuyer('city')}
                       icon="grid"
                       placeholder="Douala"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -446,6 +477,8 @@ export default function AccountInformation() {
                       onChangeText={setBuyer('street')}
                       icon="navigation"
                       placeholder="Street 1024"
+                      colors={colors}
+                      s={s}
                     />
                   </View>
                 </TwoCol>
@@ -455,7 +488,7 @@ export default function AccountInformation() {
 
           {/* ── Password Change Note ── */}
           <View style={s.passwordNote}>
-            <Feather name="lock" size={14} color={PURPLE} />
+            <Feather name="lock" size={14} color={colors.primary} />
             <View style={{ flex: 1 }}>
               <Text style={s.passwordNoteTitle}>{t('account.passwordTitle')}</Text>
               <Text style={s.passwordNoteSub}>
@@ -468,7 +501,7 @@ export default function AccountInformation() {
           {/* ── Success Banner ── */}
           {saved && (
             <View style={s.successBanner}>
-              <Feather name="check-circle" size={16} color={GREEN} />
+              <Feather name="check-circle" size={16} color={colors.success} />
               <Text style={s.successTxt}>{t('account.saveSuccess')}</Text>
             </View>
           )}
@@ -497,115 +530,117 @@ export default function AccountInformation() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  safe:        { flex: 1, backgroundColor: GRAY_BG },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: GRAY_BG },
-  scroll:      { paddingHorizontal: H_PAD, paddingTop: 16, paddingBottom: 20 },
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe:        { flex: 1, backgroundColor: colors.background },
+    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+    scroll:      { paddingHorizontal: H_PAD, paddingTop: 16, paddingBottom: 20 },
 
-  // Header
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: H_PAD, paddingVertical: 12,
-    backgroundColor: WHITE, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
-  },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: TEXT_DARK, letterSpacing: -0.2 },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
-  },
+    // Header
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: H_PAD, paddingVertical: 12,
+      backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+    },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
+    backBtn: {
+      width: 38, height: 38, borderRadius: 19,
+      backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center',
+    },
 
-  // Role Banner
-  roleBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    borderRadius: 16, padding: 16, marginBottom: 16,
-    borderWidth: 1,
-  },
-  roleBannerSeller: { backgroundColor: '#FFF8F0', borderColor: '#FDE68A' },
-  roleBannerBuyer:  { backgroundColor: PURPLE_MID, borderColor: '#DDD6FE' },
-  roleIconWrap: {
-    width: 44, height: 44, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  roleIconSeller: { backgroundColor: '#D97706' },
-  roleIconBuyer:  { backgroundColor: PURPLE },
-  roleTitle: { fontSize: 14, fontWeight: '700', color: TEXT_DARK, marginBottom: 2 },
-  roleSub:   { fontSize: 12, color: TEXT_MID, lineHeight: 17 },
+    // Role Banner
+    roleBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      borderRadius: 16, padding: 16, marginBottom: 16,
+      borderWidth: 1,
+    },
+    roleBannerSeller: { backgroundColor: colors.warningBg, borderColor: colors.warning + '55' },
+    roleBannerBuyer:  { backgroundColor: colors.primaryBorder, borderColor: colors.primarySoft },
+    roleIconWrap: {
+      width: 44, height: 44, borderRadius: 14,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    roleIconSeller: { backgroundColor: colors.warning },
+    roleIconBuyer:  { backgroundColor: colors.primary },
+    roleTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 2 },
+    roleSub:   { fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
 
-  // Section Card
-  sectionCard: {
-    backgroundColor: WHITE, borderRadius: 18, padding: 16, marginBottom: 14,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 }, elevation: 2,
-  },
-  sectionHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16,
-    paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  sectionIconBox: {
-    width: 30, height: 30, borderRadius: 9,
-    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
-  },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: TEXT_DARK },
+    // Section Card
+    sectionCard: {
+      backgroundColor: colors.card, borderRadius: 18, padding: 16, marginBottom: 14,
+      shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 }, elevation: 2,
+    },
+    sectionHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16,
+      paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.divider,
+    },
+    sectionIconBox: {
+      width: 30, height: 30, borderRadius: 9,
+      backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center',
+    },
+    sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
 
-  // Fields
-  fieldGroup: { marginBottom: 12 },
-  regLabel: {
-    fontSize: 10.5, fontWeight: '700', color: TEXT_LIGHT,
-    letterSpacing: 0.8, marginBottom: 6,
-  },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: WHITE, borderWidth: 1.5, borderColor: GRAY_BORDER,
-    borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12,
-  },
-  inputWrapDisabled: {
-    backgroundColor: '#F9FAFB', borderColor: '#E5E7EB',
-  },
-  fieldInput: {
-    flex: 1, fontSize: 14, color: TEXT_DARK, padding: 0,
-  },
-  fieldInputDisabled: { color: '#9CA3AF' },
-  fieldHint: {
-    fontSize: 11, color: TEXT_LIGHT, marginTop: 4,
-    fontStyle: 'italic', paddingLeft: 2,
-  },
-  twoCol: { flexDirection: 'row', gap: 10 },
+    // Fields
+    fieldGroup: { marginBottom: 12 },
+    regLabel: {
+      fontSize: 10.5, fontWeight: '700', color: colors.textLight,
+      letterSpacing: 0.8, marginBottom: 6,
+    },
+    inputWrap: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border,
+      borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12,
+    },
+    inputWrapDisabled: {
+      backgroundColor: colors.cardMuted, borderColor: colors.border,
+    },
+    fieldInput: {
+      flex: 1, fontSize: 14, color: colors.text, padding: 0,
+    },
+    fieldInputDisabled: { color: colors.textLight },
+    fieldHint: {
+      fontSize: 11, color: colors.textLight, marginTop: 4,
+      fontStyle: 'italic', paddingLeft: 2,
+    },
+    twoCol: { flexDirection: 'row', gap: 10 },
 
-  // Phone
-  phoneRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-  phonePrefix: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#F3F4F6', borderWidth: 1.5, borderColor: GRAY_BORDER,
-    borderRadius: 13, paddingHorizontal: 12, paddingVertical: 12,
-    marginBottom: 12,
-  },
-  phonePrefixTxt: { fontSize: 13, fontWeight: '600', color: TEXT_MID },
+    // Phone
+    phoneRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+    phonePrefix: {
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      backgroundColor: colors.divider, borderWidth: 1.5, borderColor: colors.border,
+      borderRadius: 13, paddingHorizontal: 12, paddingVertical: 12,
+      marginBottom: 12,
+    },
+    phonePrefixTxt: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
 
-  // Password note
-  passwordNote: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: PURPLE_LIGHT, borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: PURPLE_MID, marginBottom: 14,
-  },
-  passwordNoteTitle: { fontSize: 13, fontWeight: '700', color: PURPLE, marginBottom: 3 },
-  passwordNoteSub:   { fontSize: 12, color: TEXT_MID, lineHeight: 18 },
-  passwordNoteLink:  { color: PURPLE, fontWeight: '600' },
+    // Password note
+    passwordNote: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+      backgroundColor: colors.primaryTint, borderRadius: 14, padding: 14,
+      borderWidth: 1, borderColor: colors.primaryBorder, marginBottom: 14,
+    },
+    passwordNoteTitle: { fontSize: 13, fontWeight: '700', color: colors.primary, marginBottom: 3 },
+    passwordNoteSub:   { fontSize: 12, color: colors.textSecondary, lineHeight: 18 },
+    passwordNoteLink:  { color: colors.primary, fontWeight: '600' },
 
-  // Success
-  successBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: GREEN_LIGHT, borderWidth: 1, borderColor: GREEN_BORDER,
-    borderRadius: 12, padding: 13, marginBottom: 14,
-  },
-  successTxt: { fontSize: 13, fontWeight: '600', color: GREEN },
+    // Success
+    successBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: colors.successBg, borderWidth: 1, borderColor: colors.success + '55',
+      borderRadius: 12, padding: 13, marginBottom: 14,
+    },
+    successTxt: { fontSize: 13, fontWeight: '600', color: colors.success },
 
-  // Save button
-  saveBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: PURPLE_DARK, borderRadius: 16, paddingVertical: 16,
-    shadowColor: '#5B21B6', shadowOpacity: 0.35, shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 }, elevation: 6,
-  },
-  saveBtnDisabled: { opacity: 0.5, shadowOpacity: 0, elevation: 0 },
-  saveBtnTxt: { fontSize: 15, fontWeight: '700', color: WHITE, letterSpacing: -0.2 },
-});
+    // Save button
+    saveBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+      backgroundColor: colors.primaryDark, borderRadius: 16, paddingVertical: 16,
+      shadowColor: colors.primaryDarker, shadowOpacity: 0.35, shadowRadius: 16,
+      shadowOffset: { width: 0, height: 6 }, elevation: 6,
+    },
+    saveBtnDisabled: { opacity: 0.5, shadowOpacity: 0, elevation: 0 },
+    saveBtnTxt: { fontSize: 15, fontWeight: '700', color: WHITE, letterSpacing: -0.2 },
+  });
+}

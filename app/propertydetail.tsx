@@ -2,7 +2,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ResizeMode, Video } from "expo-av";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next"; // adjust path as needed
 import {
   ActivityIndicator,
@@ -19,14 +19,13 @@ import {
   View,
 } from "react-native";
 import { BASE_URL } from "../constants/api";
+import { ThemeColors } from "../constants/theme"; // adjust relative path to match this screen's location
+import { useAppTheme } from "../hooks/use-app-theme"; // adjust relative path to match this screen's location
 import useFavourite from "../hooks/useFavourite";
 
 const { width } = Dimensions.get("window");
 const H_PAD = 20;
 const IMG_H = 310;
-const PURPLE = "#7C3AED";
-const PURPLE_LIGHT = "#F3F0FF";
-const PURPLE_BORDER = "#EDE9FE";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ListingImage {
@@ -208,10 +207,14 @@ function PhotoCarousel({
   images,
   onFullscreen,
   t,
+  colors,
+  styles,
 }: {
   images: ListingImage[];
   onFullscreen: (index: number) => void;
   t: (key: string) => string;
+  colors: ThemeColors;
+  styles: ReturnType<typeof getStyles>;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const sorted = getSortedImages(images);
@@ -220,7 +223,7 @@ function PhotoCarousel({
     return (
       <View style={[styles.heroWrap, styles.heroPlaceholder]}>
         <Text style={{ fontSize: 48 }}>🏠</Text>
-        <Text style={{ color: "#9CA3AF", marginTop: 8, fontSize: 13 }}>
+        <Text style={{ color: colors.textLight, marginTop: 8, fontSize: 13 }}>
           {t("propertyDetail.noPhotos")}
         </Text>
       </View>
@@ -253,6 +256,8 @@ function PhotoCarousel({
         ))}
       </ScrollView>
 
+      {/* Dots and counter overlay the photo itself, so they stay fixed
+         white/black regardless of app theme — same as the fullscreen viewer. */}
       <View style={styles.dotRow}>
         {sorted.map((_, i) => (
           <View
@@ -278,11 +283,15 @@ function FullscreenGallery({
   startIndex,
   visible,
   onClose,
+  colors,
+  styles,
 }: {
   images: ListingImage[];
   startIndex: number;
   visible: boolean;
   onClose: () => void;
+  colors: ThemeColors;
+  styles: ReturnType<typeof getStyles>;
 }) {
   const [activeIndex, setActiveIndex] = useState(startIndex);
   const sorted = getSortedImages(images);
@@ -298,6 +307,7 @@ function FullscreenGallery({
       animationType="fade"
       statusBarTranslucent
     >
+      {/* Fullscreen photo viewer is intentionally always dark, in both themes. */}
       <View style={styles.fsContainer}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         <TouchableOpacity style={styles.fsClose} onPress={onClose}>
@@ -356,11 +366,15 @@ function VideoWalkthrough({
   thumbnailUrl,
   fallbackImage,
   t,
+  colors,
+  styles,
 }: {
   videoUrl: string | null;
   thumbnailUrl: string | null;
   fallbackImage: string | null;
   t: (key: string) => string;
+  colors: ThemeColors;
+  styles: ReturnType<typeof getStyles>;
 }) {
   const thumb = thumbnailUrl || fallbackImage;
   const [playing, setPlaying] = useState(false);
@@ -469,7 +483,7 @@ function VideoWalkthrough({
           style={styles.videoStopBtn}
           onPress={() => setPlaying(false)}
         >
-          <Ionicons name="stop-circle-outline" size={15} color={PURPLE} />
+          <Ionicons name="stop-circle-outline" size={15} color={colors.primary} />
           <Text style={styles.videoStopBtnTxt}>
             {t("propertyDetail.stopVideo")}
           </Text>
@@ -483,9 +497,13 @@ function VideoWalkthrough({
 function FloorPlan({
   floorPlanUrl,
   t,
+  colors,
+  styles,
 }: {
   floorPlanUrl: string;
   t: (key: string) => string;
+  colors: ThemeColors;
+  styles: ReturnType<typeof getStyles>;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -514,7 +532,7 @@ function FloorPlan({
           resizeMode="contain"
         />
         <View style={styles.floorPlanBadge}>
-          <Feather name="maximize-2" size={12} color={PURPLE} />
+          <Feather name="maximize-2" size={12} color={colors.primary} />
           <Text style={styles.floorPlanBadgeTxt}>
             {t("propertyDetail.tapToExpand")}
           </Text>
@@ -552,6 +570,8 @@ function FloorPlan({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function PropertyDetailScreen() {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const { id, listingData } = useLocalSearchParams<{
     id: string;
     listingData?: string;
@@ -726,7 +746,7 @@ export default function PropertyDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color={PURPLE} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingTxt}>{t("propertyDetail.loading")}</Text>
       </SafeAreaView>
     );
@@ -744,7 +764,7 @@ export default function PropertyDetailScreen() {
           <Text style={styles.retryTxt}>{t("propertyDetail.tryAgain")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={14} color={PURPLE} />
+          <Feather name="arrow-left" size={14} color={colors.primary} />
           <Text style={styles.backLinkTxt}>{t("propertyDetail.goBack")}</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -795,6 +815,8 @@ export default function PropertyDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Transparent/translucent bar over the hero photo — stays light-content
+         regardless of app theme, since it overlays the image, not app chrome. */}
       <StatusBar
         barStyle="light-content"
         backgroundColor="transparent"
@@ -807,6 +829,8 @@ export default function PropertyDetailScreen() {
           startIndex={fsIndex}
           visible={fsVisible}
           onClose={() => setFsVisible(false)}
+          colors={colors}
+          styles={styles}
         />
       )}
 
@@ -822,6 +846,8 @@ export default function PropertyDetailScreen() {
             setFsVisible(true);
           }}
           t={t}
+          colors={colors}
+          styles={styles}
         />
 
         {/* ── Floating header overlay ── */}
@@ -830,7 +856,7 @@ export default function PropertyDetailScreen() {
             style={styles.heroBtn}
             onPress={() => router.back()}
           >
-            <Feather name="chevron-left" size={20} color="#111" />
+            <Feather name="chevron-left" size={20} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.heroRightBtns}>
             <TouchableOpacity
@@ -856,11 +882,11 @@ export default function PropertyDetailScreen() {
               <Ionicons
                 name={saved ? "heart" : "heart-outline"}
                 size={20}
-                color={saved ? "#EF4444" : "#111"}
+                color={saved ? colors.danger : colors.text}
               />
             </TouchableOpacity>
             <TouchableOpacity style={styles.heroBtn}>
-              <Feather name="share-2" size={18} color="#111" />
+              <Feather name="share-2" size={18} color={colors.text} />
             </TouchableOpacity>
           </View>
         </View>
@@ -868,7 +894,7 @@ export default function PropertyDetailScreen() {
         {/* ── Verified badge ── */}
         {listing.status === "Approved" && (
           <View style={styles.verifiedBadge}>
-            <Ionicons name="shield-checkmark" size={11} color="#fff" />
+            <Ionicons name="shield-checkmark" size={11} color={colors.textInverse} />
             <Text style={styles.verifiedTxt}>
               {t("propertyDetail.verifiedProperty")}
             </Text>
@@ -881,7 +907,7 @@ export default function PropertyDetailScreen() {
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={styles.propTitle}>{listing.title}</Text>
               <View style={styles.locationRow}>
-                <Ionicons name="location-outline" size={13} color="#9CA3AF" />
+                <Ionicons name="location-outline" size={13} color={colors.textLight} />
                 <Text style={styles.locationTxt} numberOfLines={1}>
                   {location}
                 </Text>
@@ -896,9 +922,12 @@ export default function PropertyDetailScreen() {
           {/* ── Property Type chip ── */}
           <View style={styles.typeRow}>
             <View style={styles.typeChip}>
-              <Feather name="tag" size={11} color={PURPLE} />
+              <Feather name="tag" size={11} color={colors.primary} />
               <Text style={styles.typeChipTxt}>{listing.type}</Text>
             </View>
+            {/* "For Sale"/"For Rent" tags are fixed status colors (green/blue),
+               not app theme surfaces — no blue token exists in the palette,
+               so both stay hardcoded in both themes. */}
             {listing.paymentFrequency === "For Sale" ? (
               <View
                 style={[
@@ -928,7 +957,7 @@ export default function PropertyDetailScreen() {
           <View style={styles.statsRow}>
             {stats.map((s) => (
               <View key={s.label} style={styles.statItem}>
-                <Feather name={s.icon as any} size={20} color={PURPLE} />
+                <Feather name={s.icon as any} size={20} color={colors.primary} />
                 <Text style={styles.statVal}>{s.val}</Text>
                 <Text style={styles.statLabel}>{s.label}</Text>
               </View>
@@ -939,7 +968,7 @@ export default function PropertyDetailScreen() {
           {listing.paymentFrequency !== "For Sale" && (
             <View style={styles.rentalCard}>
               <View style={styles.rentalLeft}>
-                <Ionicons name="time-outline" size={16} color={PURPLE} />
+                <Ionicons name="time-outline" size={16} color={colors.primary} />
                 <View>
                   <Text style={styles.rentalLabel}>
                     {t("propertyDetail.minRentalPeriod")}
@@ -986,7 +1015,7 @@ export default function PropertyDetailScreen() {
                     <Ionicons
                       name="checkmark-circle"
                       size={15}
-                      color={PURPLE}
+                      color={colors.primary}
                     />
                     <Text style={styles.facilityTxt}>{f}</Text>
                   </View>
@@ -1054,11 +1083,18 @@ export default function PropertyDetailScreen() {
             thumbnailUrl={listing.videoThumbnailUrl}
             fallbackImage={primaryImageUrl}
             t={t}
+            colors={colors}
+            styles={styles}
           />
 
           {/* ── Floor Plan ── */}
           {!!listing.floorPlanUrl && (
-            <FloorPlan floorPlanUrl={listing.floorPlanUrl} t={t} />
+            <FloorPlan
+              floorPlanUrl={listing.floorPlanUrl}
+              t={t}
+              colors={colors}
+              styles={styles}
+            />
           )}
 
           {/* ── Escrow Protection ── */}
@@ -1067,7 +1103,7 @@ export default function PropertyDetailScreen() {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={22}
-                color={PURPLE}
+                color={colors.primary}
               />
             </View>
             <View style={{ flex: 1 }}>
@@ -1078,7 +1114,7 @@ export default function PropertyDetailScreen() {
                 {t("propertyDetail.escrowDesc")}
               </Text>
             </View>
-            <Feather name="chevron-right" size={16} color="#C0C0C0" />
+            <Feather name="chevron-right" size={16} color={colors.textLight} />
           </TouchableOpacity>
 
           {/* ── Neighborhood ── */}
@@ -1107,7 +1143,7 @@ export default function PropertyDetailScreen() {
 
               <View style={styles.mapPlaceholder}>
                 <View style={styles.mapPill}>
-                  <Ionicons name="location-outline" size={14} color={PURPLE} />
+                  <Ionicons name="location-outline" size={14} color={colors.primary} />
                   <Text style={styles.mapPillTxt}>
                     {t("propertyDetail.interactiveMap")}
                   </Text>
@@ -1117,7 +1153,7 @@ export default function PropertyDetailScreen() {
               {nearbyPlaces.map((n, i) => (
                 <View key={i} style={styles.nearbyRow}>
                   <View style={styles.nearbyIcon}>
-                    <Feather name={n.icon as any} size={15} color={PURPLE} />
+                    <Feather name={n.icon as any} size={15} color={colors.primary} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nearbyLabel}>{n.label}</Text>
@@ -1149,12 +1185,12 @@ export default function PropertyDetailScreen() {
                   <View
                     style={[styles.agentAvatar, styles.agentAvatarPlaceholder]}
                   >
-                    <Feather name="user" size={24} color={PURPLE} />
+                    <Feather name="user" size={24} color={colors.primary} />
                   </View>
                 )}
                 {listing.status === "Approved" && (
                   <View style={styles.agentVerifiedDot}>
-                    <Ionicons name="checkmark" size={8} color="#fff" />
+                    <Ionicons name="checkmark" size={8} color={colors.textInverse} />
                   </View>
                 )}
               </View>
@@ -1164,7 +1200,7 @@ export default function PropertyDetailScreen() {
                   {listing.agent?.name ?? t("propertyDetail.propertyAgent")}
                 </Text>
                 <View style={styles.agentLocationRow}>
-                  <Ionicons name="location-outline" size={13} color="#9CA3AF" />
+                  <Ionicons name="location-outline" size={13} color={colors.textLight} />
                   <Text style={styles.agentLocationTxt} numberOfLines={1}>
                     {[
                       listing.agent?.street,
@@ -1189,13 +1225,13 @@ export default function PropertyDetailScreen() {
           onPress={handleContact}
           disabled={contacting}
         >
-          <Feather name="message-square" size={16} color={PURPLE} />
+          <Feather name="message-square" size={16} color={colors.primary} />
           <Text style={styles.contactBtnTxt}>
             {t("propertyDetail.message")}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.bookBtn} activeOpacity={0.88}>
-          <Ionicons name="call-outline" size={16} color="#fff" />
+          <Ionicons name="call-outline" size={16} color={colors.textInverse} />
           <Text style={styles.bookBtnTxt}>
             {t("propertyDetail.applyAndBook")}
           </Text>
@@ -1206,530 +1242,535 @@ export default function PropertyDetailScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
-  centered: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    padding: 28,
-    backgroundColor: "#fff",
-  },
-  loadingTxt: { fontSize: 14, color: "#9CA3AF", marginTop: 4 },
-  errorTxt: {
-    fontSize: 14,
-    color: "#DC2626",
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  retryBtn: {
-    marginTop: 8,
-    backgroundColor: PURPLE,
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
-  retryTxt: { color: "#fff", fontWeight: "700", fontSize: 14 },
-  backLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 10,
-  },
-  backLinkTxt: { fontSize: 13, color: PURPLE, fontWeight: "600" },
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.card },
+    centered: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      padding: 28,
+      backgroundColor: colors.card,
+    },
+    loadingTxt: { fontSize: 14, color: colors.textLight, marginTop: 4 },
+    errorTxt: {
+      fontSize: 14,
+      color: colors.danger,
+      textAlign: "center",
+      lineHeight: 22,
+    },
+    retryBtn: {
+      marginTop: 8,
+      backgroundColor: colors.primary,
+      paddingHorizontal: 28,
+      paddingVertical: 12,
+      borderRadius: 14,
+    },
+    retryTxt: { color: colors.textInverse, fontWeight: "700", fontSize: 14 },
+    backLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      marginTop: 10,
+    },
+    backLinkTxt: { fontSize: 13, color: colors.primary, fontWeight: "600" },
 
-  heroWrap: {
-    width,
-    height: IMG_H,
-    position: "relative",
-    backgroundColor: "#F3F4F6",
-  },
-  heroPlaceholder: { alignItems: "center", justifyContent: "center" },
-  heroImg: { width, height: IMG_H },
-  heroOverlay: {
-    position: "absolute",
-    top: 52,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-  },
-  heroRightBtns: { flexDirection: "row", gap: 8 },
-  heroBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
-  },
-  verifiedBadge: {
-    position: "absolute",
-    top: 108,
-    left: 16,
-    zIndex: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: PURPLE,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  verifiedTxt: { fontSize: 11, fontWeight: "700", color: "#fff" },
-  dotRow: {
-    position: "absolute",
-    bottom: 12,
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 5,
-    zIndex: 5,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.45)",
-  },
-  dotActive: { backgroundColor: "#fff", width: 18 },
-  photoBadge: {
-    position: "absolute",
-    bottom: 12,
-    right: 14,
-    zIndex: 5,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 20,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  photoBadgeTxt: { fontSize: 10.5, fontWeight: "600", color: "#fff" },
+    heroWrap: {
+      width,
+      height: IMG_H,
+      position: "relative",
+      backgroundColor: colors.divider,
+    },
+    heroPlaceholder: { alignItems: "center", justifyContent: "center" },
+    heroImg: { width, height: IMG_H },
+    heroOverlay: {
+      position: "absolute",
+      top: 52,
+      left: 0,
+      right: 0,
+      zIndex: 10,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+    },
+    heroRightBtns: { flexDirection: "row", gap: 8 },
+    heroBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: colors.card,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.12,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 4,
+    },
+    verifiedBadge: {
+      position: "absolute",
+      top: 108,
+      left: 16,
+      zIndex: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      backgroundColor: colors.primary,
+      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 5,
+    },
+    verifiedTxt: { fontSize: 11, fontWeight: "700", color: colors.textInverse },
+    // Dots/counter overlay the photo directly — kept fixed white/black in both themes.
+    dotRow: {
+      position: "absolute",
+      bottom: 12,
+      width: "100%",
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 5,
+      zIndex: 5,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: "rgba(255,255,255,0.45)",
+    },
+    dotActive: { backgroundColor: "#fff", width: 18 },
+    photoBadge: {
+      position: "absolute",
+      bottom: 12,
+      right: 14,
+      zIndex: 5,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      backgroundColor: "rgba(0,0,0,0.5)",
+      borderRadius: 20,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+    },
+    photoBadgeTxt: { fontSize: 10.5, fontWeight: "600", color: "#fff" },
 
-  fsContainer: { flex: 1, backgroundColor: "#000", paddingTop: 48 },
-  fsClose: {
-    position: "absolute",
-    top: 52,
-    right: 16,
-    zIndex: 20,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  fsCounter: {
-    position: "absolute",
-    top: 60,
-    alignSelf: "center",
-    zIndex: 15,
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-    opacity: 0.8,
-  },
-  fsThumbs: { paddingHorizontal: 12, paddingVertical: 14, gap: 8 },
-  fsThumb: { width: 64, height: 64, borderRadius: 10, opacity: 0.6 },
-  fsThumbActive: { opacity: 1, borderWidth: 2.5, borderColor: PURPLE },
+    // Fullscreen photo/floor-plan viewer — always dark, both themes.
+    fsContainer: { flex: 1, backgroundColor: "#000", paddingTop: 48 },
+    fsClose: {
+      position: "absolute",
+      top: 52,
+      right: 16,
+      zIndex: 20,
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: "rgba(255,255,255,0.15)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    fsCounter: {
+      position: "absolute",
+      top: 60,
+      alignSelf: "center",
+      zIndex: 15,
+      color: "#fff",
+      fontSize: 13,
+      fontWeight: "600",
+      opacity: 0.8,
+    },
+    fsThumbs: { paddingHorizontal: 12, paddingVertical: 14, gap: 8 },
+    fsThumb: { width: 64, height: 64, borderRadius: 10, opacity: 0.6 },
+    fsThumbActive: { opacity: 1, borderWidth: 2.5, borderColor: colors.primary },
 
-  body: { paddingHorizontal: H_PAD, paddingTop: 20 },
+    body: { paddingHorizontal: H_PAD, paddingTop: 20 },
 
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 10,
-  },
-  propTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#111",
-    letterSpacing: -0.4,
-    marginBottom: 6,
-    lineHeight: 26,
-  },
-  locationRow: { flexDirection: "row", alignItems: "center", gap: 3 },
-  locationTxt: { fontSize: 12.5, color: "#9CA3AF", flex: 1 },
-  price: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: PURPLE,
-    letterSpacing: -0.5,
-  },
-  priceSub: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    textAlign: "right",
-    marginTop: 2,
-  },
+    titleRow: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      marginBottom: 10,
+    },
+    propTitle: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: colors.text,
+      letterSpacing: -0.4,
+      marginBottom: 6,
+      lineHeight: 26,
+    },
+    locationRow: { flexDirection: "row", alignItems: "center", gap: 3 },
+    locationTxt: { fontSize: 12.5, color: colors.textLight, flex: 1 },
+    price: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: colors.primary,
+      letterSpacing: -0.5,
+    },
+    priceSub: {
+      fontSize: 11,
+      color: colors.textLight,
+      textAlign: "right",
+      marginTop: 2,
+    },
 
-  typeRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  typeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: PURPLE_LIGHT,
-    borderWidth: 1,
-    borderColor: PURPLE_BORDER,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  typeChipTxt: { fontSize: 11.5, fontWeight: "700", color: PURPLE },
+    typeRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
+    typeChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      backgroundColor: colors.primaryTint,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    typeChipTxt: { fontSize: 11.5, fontWeight: "700", color: colors.primary },
 
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#FAFAFA",
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: "#EFEFEF",
-    marginBottom: 16,
-  },
-  statItem: { alignItems: "center", gap: 3, flex: 1 },
-  statVal: { fontSize: 15, fontWeight: "800", color: "#111" },
-  statLabel: {
-    fontSize: 8,
-    color: "#B0B0B0",
-    fontWeight: "700",
-    letterSpacing: 0.2,
-    textAlign: "center",
-  },
+    statsRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      backgroundColor: colors.background,
+      borderRadius: 18,
+      paddingVertical: 14,
+      paddingHorizontal: 8,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      marginBottom: 16,
+    },
+    statItem: { alignItems: "center", gap: 3, flex: 1 },
+    statVal: { fontSize: 15, fontWeight: "800", color: colors.text },
+    statLabel: {
+      fontSize: 8,
+      color: colors.textLight,
+      fontWeight: "700",
+      letterSpacing: 0.2,
+      textAlign: "center",
+    },
 
-  rentalCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: PURPLE_LIGHT,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: PURPLE_BORDER,
-    marginBottom: 22,
-  },
-  rentalLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  rentalLabel: { fontSize: 11, color: "#9CA3AF", marginBottom: 2 },
-  rentalVal: { fontSize: 13, fontWeight: "700", color: "#111" },
-  applyBtn: {
-    backgroundColor: PURPLE,
-    borderRadius: 30,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-  },
-  applyBtnTxt: { fontSize: 12.5, fontWeight: "700", color: "#fff" },
+    rentalCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.primaryTint,
+      borderRadius: 16,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: colors.primaryBorder,
+      marginBottom: 22,
+    },
+    rentalLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+    rentalLabel: { fontSize: 11, color: colors.textLight, marginBottom: 2 },
+    rentalVal: { fontSize: 13, fontWeight: "700", color: colors.text },
+    applyBtn: {
+      backgroundColor: colors.primary,
+      borderRadius: 30,
+      paddingHorizontal: 16,
+      paddingVertical: 9,
+    },
+    applyBtnTxt: { fontSize: 12.5, fontWeight: "700", color: colors.textInverse },
 
-  sectionBlock: { marginBottom: 22 },
-  sectionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 12,
-  },
-  sectionDot: {
-    width: 4,
-    height: 18,
-    borderRadius: 2,
-    backgroundColor: PURPLE,
-  },
-  sectionTitle: {
-    fontSize: 15.5,
-    fontWeight: "700",
-    color: "#111",
-    letterSpacing: -0.2,
-  },
-  sectionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  linkTxt: { fontSize: 12.5, color: PURPLE, fontWeight: "600" },
-  description: { fontSize: 13.5, color: "#6B7280", lineHeight: 22 },
+    sectionBlock: { marginBottom: 22 },
+    sectionTitleRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 12,
+    },
+    sectionDot: {
+      width: 4,
+      height: 18,
+      borderRadius: 2,
+      backgroundColor: colors.primary,
+    },
+    sectionTitle: {
+      fontSize: 15.5,
+      fontWeight: "700",
+      color: colors.text,
+      letterSpacing: -0.2,
+    },
+    sectionRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    linkTxt: { fontSize: 12.5, color: colors.primary, fontWeight: "600" },
+    description: { fontSize: 13.5, color: colors.textMuted, lineHeight: 22 },
 
-  facilitiesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  facilityItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: PURPLE_LIGHT,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  facilityTxt: { fontSize: 12, fontWeight: "600", color: "#374151" },
+    facilitiesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    facilityItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.primaryTint,
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+    },
+    facilityTxt: { fontSize: 12, fontWeight: "600", color: colors.textSecondary },
 
-  galleryThumb: {
-    width: 110,
-    height: 78,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#F0F0F0",
-  },
-  primaryBadge: {
-    position: "absolute",
-    bottom: 5,
-    left: 5,
-    backgroundColor: PURPLE,
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  primaryBadgeTxt: { fontSize: 9, fontWeight: "700", color: "#fff" },
+    galleryThumb: {
+      width: 110,
+      height: 78,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.borderLight,
+    },
+    primaryBadge: {
+      position: "absolute",
+      bottom: 5,
+      left: 5,
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+    },
+    primaryBadgeTxt: { fontSize: 9, fontWeight: "700", color: colors.textInverse },
 
-  videoWrap: {
-    width: "100%",
-    height: 190,
-    borderRadius: 18,
-    overflow: "hidden",
-    backgroundColor: "#111",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  videoThumb: { position: "absolute", width: "100%", height: "100%" },
-  videoThumbPlaceholder: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    backgroundColor: "#1F2937",
-  },
-  videoOverlay: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    backgroundColor: "rgba(0,0,0,0.38)",
-  },
-  playBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: PURPLE,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: PURPLE,
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  playBtnDisabled: { backgroundColor: "rgba(124,58,237,0.45)" },
-  videoPill: {
-    position: "absolute",
-    bottom: 12,
-    left: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(0,0,0,0.55)",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  videoPillTxt: { fontSize: 11, color: "#fff", fontWeight: "600" },
+    // Video placeholder/overlay is intentionally always dark, both themes.
+    videoWrap: {
+      width: "100%",
+      height: 190,
+      borderRadius: 18,
+      overflow: "hidden",
+      backgroundColor: "#111",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    videoThumb: { position: "absolute", width: "100%", height: "100%" },
+    videoThumbPlaceholder: {
+      position: "absolute",
+      width: "100%",
+      height: "100%",
+      backgroundColor: "#1F2937",
+    },
+    videoOverlay: {
+      position: "absolute",
+      width: "100%",
+      height: "100%",
+      backgroundColor: "rgba(0,0,0,0.38)",
+    },
+    playBtn: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#7C3AED",
+      shadowOpacity: 0.5,
+      shadowRadius: 20,
+      elevation: 10,
+    },
+    playBtnDisabled: { backgroundColor: "rgba(124,58,237,0.45)" },
+    videoPill: {
+      position: "absolute",
+      bottom: 12,
+      left: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    videoPillTxt: { fontSize: 11, color: "#fff", fontWeight: "600" },
 
-  floorPlanWrap: {
-    width: "100%",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
-  },
-  floorPlanImg: { width: "100%", height: 220 },
-  floorPlanBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  floorPlanBadgeTxt: { fontSize: 11.5, color: PURPLE, fontWeight: "600" },
+    floorPlanWrap: {
+      width: "100%",
+      backgroundColor: colors.cardMuted,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: colors.border,
+      overflow: "hidden",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 10,
+    },
+    floorPlanImg: { width: "100%", height: 220 },
+    floorPlanBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      marginTop: 8,
+      marginBottom: 4,
+    },
+    floorPlanBadgeTxt: { fontSize: 11.5, color: colors.primary, fontWeight: "600" },
 
-  escrowCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#EFEFEF",
-    marginBottom: 22,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  escrowIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: PURPLE_LIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  escrowTitle: {
-    fontSize: 13.5,
-    fontWeight: "700",
-    color: "#111",
-    marginBottom: 4,
-  },
-  escrowDesc: { fontSize: 12, color: "#9CA3AF", lineHeight: 18 },
+    escrowCard: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      marginBottom: 22,
+      shadowColor: "#000",
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 1,
+    },
+    escrowIconWrap: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      backgroundColor: colors.primaryTint,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    escrowTitle: {
+      fontSize: 13.5,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 4,
+    },
+    escrowDesc: { fontSize: 12, color: colors.textLight, lineHeight: 18 },
 
-  mapPlaceholder: {
-    width: "100%",
-    height: 130,
-    backgroundColor: "#F3F4F6",
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-  },
-  mapPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#fff",
-    borderRadius: 30,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  mapPillTxt: { fontSize: 13, fontWeight: "600", color: PURPLE },
+    mapPlaceholder: {
+      width: "100%",
+      height: 130,
+      backgroundColor: colors.divider,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 14,
+    },
+    mapPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.card,
+      borderRadius: 30,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      shadowColor: "#000",
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 3,
+    },
+    mapPillTxt: { fontSize: 13, fontWeight: "600", color: colors.primary },
 
-  nearbyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5",
-  },
-  nearbyIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: PURPLE_LIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  nearbyLabel: { fontSize: 13.5, fontWeight: "600", color: "#111" },
-  nearbyExample: { fontSize: 12, color: "#9CA3AF", marginTop: 1 },
+    nearbyRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingVertical: 11,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+    },
+    nearbyIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: colors.primaryTint,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    nearbyLabel: { fontSize: 13.5, fontWeight: "600", color: colors.text },
+    nearbyExample: { fontSize: 12, color: colors.textLight, marginTop: 1 },
 
-  agentCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 14,
-    backgroundColor: "#FAFAFA",
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#F0F0F0",
-  },
-  agentAvatarWrap: { position: "relative" },
-  agentAvatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 2.5,
-    borderColor: PURPLE_BORDER,
-  },
-  agentAvatarPlaceholder: {
-    backgroundColor: PURPLE_LIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  agentVerifiedDot: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#10B981",
-    borderWidth: 2,
-    borderColor: "#FAFAFA",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  agentInfo: { flex: 1, gap: 6 },
-  agentName: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#111",
-    letterSpacing: -0.2,
-  },
-  agentLocationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  agentLocationTxt: { fontSize: 12.5, color: "#9CA3AF", flex: 1 },
+    agentCard: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 14,
+      backgroundColor: colors.background,
+      borderRadius: 18,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+    },
+    agentAvatarWrap: { position: "relative" },
+    agentAvatar: {
+      width: 58,
+      height: 58,
+      borderRadius: 29,
+      borderWidth: 2.5,
+      borderColor: colors.primaryBorder,
+    },
+    agentAvatarPlaceholder: {
+      backgroundColor: colors.primaryTint,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    agentVerifiedDot: {
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: colors.success,
+      borderWidth: 2,
+      borderColor: colors.background,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    agentInfo: { flex: 1, gap: 6 },
+    agentName: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: colors.text,
+      letterSpacing: -0.2,
+    },
+    agentLocationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+    agentLocationTxt: { fontSize: 12.5, color: colors.textLight, flex: 1 },
 
-  bottomBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: H_PAD,
-    paddingBottom: 34,
-    paddingTop: 14,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#F5F5F5",
-  },
-  contactBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: PURPLE,
-    borderRadius: 14,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  contactBtnTxt: { fontSize: 13.5, fontWeight: "700", color: PURPLE },
-  bookBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#6D28D9",
-    borderRadius: 14,
-    paddingVertical: 14,
-    shadowColor: "#6D28D9",
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 6,
-  },
-  bookBtnTxt: { fontSize: 14, fontWeight: "700", color: "#fff" },
+    bottomBar: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      flexDirection: "row",
+      gap: 12,
+      paddingHorizontal: H_PAD,
+      paddingBottom: 34,
+      paddingTop: 14,
+      backgroundColor: colors.card,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    contactBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      borderRadius: 14,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+    },
+    contactBtnTxt: { fontSize: 13.5, fontWeight: "700", color: colors.primary },
+    bookBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: colors.primaryDark,
+      borderRadius: 14,
+      paddingVertical: 14,
+      shadowColor: "#6D28D9",
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 5 },
+      elevation: 6,
+    },
+    bookBtnTxt: { fontSize: 14, fontWeight: "700", color: colors.textInverse },
 
-  videoStopBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginTop: 10,
-    paddingVertical: 8,
-  },
-  videoStopBtnTxt: { fontSize: 12.5, color: PURPLE, fontWeight: "600" },
-});
+    videoStopBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      marginTop: 10,
+      paddingVertical: 8,
+    },
+    videoStopBtnTxt: { fontSize: 12.5, color: colors.primary, fontWeight: "600" },
+  });
+}

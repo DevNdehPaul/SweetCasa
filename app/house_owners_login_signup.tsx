@@ -4,7 +4,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -23,11 +23,20 @@ import {
 } from 'react-native';
 import api from '../constants/api';
 import { persistAuthSession, routeForRole } from '../constants/auth';
+import { ThemeColors } from '../constants/theme';
+import { useAppTheme } from '../hooks/use-app-theme';
 
 const H_PAD = 20;
-const PURPLE_LIGHT = '#F0EBFF';
 const GOOGLE_EMAIL_SIGNUP_URL =
   'https://accounts.google.com/signup/v2/webcreateaccount?flowName=GlifWebSignIn&flowEntry=SignUp';
+
+// White text sitting directly on a solid-color button (primary CTA, checkbox
+// check, alert buttons) stays hardcoded — that swatch doesn't change between
+// light/dark, so the text/icon on it shouldn't either.
+const WHITE = '#FFFFFF';
+
+type Styles = ReturnType<typeof getStyles>;
+type WebAlertStyles = ReturnType<typeof getWebAlertStyles>;
 
 // Opens Google's account creation page directly in the browser — no
 // intermediate provider-choice dialog.
@@ -94,7 +103,12 @@ function crossAlert(
 }
 
 // Mount once near the root of the screen. Renders nothing on native.
+// Calls useAppTheme() itself (rather than taking colors/s as props) since it's
+// a self-contained singleton host mounted independently of the tabs below.
 function WebAlertHost() {
+  const { colors } = useAppTheme();
+  const ws = useMemo(() => getWebAlertStyles(colors), [colors]);
+
   const [state, setState] = useState<WebAlertState>({
     visible: false,
     title: '',
@@ -123,27 +137,27 @@ function WebAlertHost() {
       animationType="fade"
       onRequestClose={() => handlePress()}
     >
-      <View style={webAlertStyles.backdrop}>
-        <View style={webAlertStyles.card}>
-          <Text style={webAlertStyles.title}>{state.title}</Text>
-          {!!state.message && <Text style={webAlertStyles.message}>{state.message}</Text>}
-          <View style={webAlertStyles.btnRow}>
+      <View style={ws.backdrop}>
+        <View style={ws.card}>
+          <Text style={ws.title}>{state.title}</Text>
+          {!!state.message && <Text style={ws.message}>{state.message}</Text>}
+          <View style={ws.btnRow}>
             {state.buttons.map((b, i) => (
               <TouchableOpacity
                 key={`${b.text}-${i}`}
                 onPress={() => handlePress(b)}
                 style={[
-                  webAlertStyles.btn,
-                  b.style === 'cancel' && webAlertStyles.btnCancel,
-                  b.style === 'destructive' && webAlertStyles.btnDestructive,
+                  ws.btn,
+                  b.style === 'cancel' && ws.btnCancel,
+                  b.style === 'destructive' && ws.btnDestructive,
                 ]}
                 activeOpacity={0.7}
               >
                 <Text
                   style={[
-                    webAlertStyles.btnTxt,
-                    b.style === 'cancel' && webAlertStyles.btnTxtCancel,
-                    b.style === 'destructive' && webAlertStyles.btnTxtDestructive,
+                    ws.btnTxt,
+                    b.style === 'cancel' && ws.btnTxtCancel,
+                    b.style === 'destructive' && ws.btnTxtDestructive,
                   ]}
                 >
                   {b.text}
@@ -176,7 +190,7 @@ type NationalIdFile = {
 function Field({
   label, placeholder, value, onChangeText,
   icon, secure, keyboardType, hint, rightEl, topRight,
-  scrollRef, scrollOffset,
+  scrollRef, scrollOffset, colors, s,
 }: {
   label?: string;
   placeholder: string;
@@ -190,6 +204,8 @@ function Field({
   topRight?: React.ReactNode;
   scrollRef?: React.RefObject<ScrollView | null>;
   scrollOffset?: number;
+  colors: ThemeColors;
+  s: Styles;
 }) {
   const fieldRef = useRef<View>(null);
 
@@ -198,19 +214,19 @@ function Field({
   };
 
   return (
-    <View style={styles.fieldGroup} ref={fieldRef}>
+    <View style={s.fieldGroup} ref={fieldRef}>
       {(label || topRight) && (
-        <View style={styles.fieldLabelRow}>
-          {label && <Text style={styles.fieldLabel}>{label}</Text>}
+        <View style={s.fieldLabelRow}>
+          {label && <Text style={s.fieldLabel}>{label}</Text>}
           {topRight}
         </View>
       )}
-      <View style={styles.inputWrap}>
-        {icon && <Feather name={icon as any} size={15} color="#9CA3AF" />}
+      <View style={s.inputWrap}>
+        {icon && <Feather name={icon as any} size={15} color={colors.textLight} />}
         <TextInput
-          style={styles.fieldInput}
+          style={s.fieldInput}
           placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={colors.textLight}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secure}
@@ -220,23 +236,23 @@ function Field({
         />
         {rightEl}
       </View>
-      {hint && <Text style={styles.fieldHint}>{hint}</Text>}
+      {hint && <Text style={s.fieldHint}>{hint}</Text>}
     </View>
   );
 }
 
-function RegLabel({ children }: { children: string }) {
-  return <Text style={styles.regLabel}>{children}</Text>;
+function RegLabel({ children, s }: { children: string; s: Styles }) {
+  return <Text style={s.regLabel}>{children}</Text>;
 }
 
-function SectionCard({ icon, title, children }: {
-  icon: string; title: string; children: React.ReactNode;
+function SectionCard({ icon, title, children, colors, s }: {
+  icon: string; title: string; children: React.ReactNode; colors: ThemeColors; s: Styles;
 }) {
   return (
-    <View style={styles.sectionCard}>
-      <View style={styles.sectionCardHeader}>
-        <Feather name={icon as any} size={15} color="#7C3AED" />
-        <Text style={styles.sectionCardTitle}>{title}</Text>
+    <View style={s.sectionCard}>
+      <View style={s.sectionCardHeader}>
+        <Feather name={icon as any} size={15} color={colors.primary} />
+        <Text style={s.sectionCardTitle}>{title}</Text>
       </View>
       {children}
     </View>
@@ -247,9 +263,13 @@ function SectionCard({ icon, title, children }: {
 function NationalIdUpload({
   file,
   onFileSelected,
+  colors,
+  s,
 }: {
   file: NationalIdFile;
   onFileSelected: (f: NationalIdFile) => void;
+  colors: ThemeColors;
+  s: Styles;
 }) {
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -327,42 +347,42 @@ function NationalIdUpload({
   const sizeKb = file?.size ? `${(file.size / 1024).toFixed(0)} KB` : null;
 
   return (
-    <View style={styles.fieldGroup}>
-      <View style={styles.fieldLabelRow}>
-        <RegLabel>NATIONAL ID</RegLabel>
-        <View style={styles.requiredBadge}>
-          <Text style={styles.requiredBadgeTxt}>REQUIRED</Text>
+    <View style={s.fieldGroup}>
+      <View style={s.fieldLabelRow}>
+        <RegLabel s={s}>NATIONAL ID</RegLabel>
+        <View style={s.requiredBadge}>
+          <Text style={s.requiredBadgeTxt}>REQUIRED</Text>
         </View>
       </View>
 
-      <View style={styles.idInfoCard}>
-        <Feather name="shield" size={13} color="#7C3AED" style={{ marginTop: 1 }} />
-        <Text style={styles.idInfoText}>
+      <View style={s.idInfoCard}>
+        <Feather name="shield" size={13} color={colors.primary} style={{ marginTop: 1 }} />
+        <Text style={s.idInfoText}>
           Your national ID is used solely for identity verification and is stored securely.
         </Text>
       </View>
 
       {file ? (
-        <View style={styles.idSelectedWrap}>
-          <View style={styles.idSelectedIcon}>
-            <Feather name={isPdf ? 'file-text' : 'image'} size={22} color="#7C3AED" />
+        <View style={s.idSelectedWrap}>
+          <View style={s.idSelectedIcon}>
+            <Feather name={isPdf ? 'file-text' : 'image'} size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.idSelectedName} numberOfLines={1}>{file.name}</Text>
-            {sizeKb && <Text style={styles.idSelectedSize}>{sizeKb}</Text>}
+            <Text style={s.idSelectedName} numberOfLines={1}>{file.name}</Text>
+            {sizeKb && <Text style={s.idSelectedSize}>{sizeKb}</Text>}
           </View>
-          <TouchableOpacity onPress={showPicker} style={styles.idChangeBtn}>
-            <Feather name="refresh-cw" size={14} color="#7C3AED" />
-            <Text style={styles.idChangeBtnTxt}>Change</Text>
+          <TouchableOpacity onPress={showPicker} style={s.idChangeBtn}>
+            <Feather name="refresh-cw" size={14} color={colors.primary} />
+            <Text style={s.idChangeBtnTxt}>Change</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <TouchableOpacity style={styles.idUploadBtn} onPress={showPicker} activeOpacity={0.7}>
-          <View style={styles.idUploadIconWrap}>
-            <Feather name="upload" size={20} color="#7C3AED" />
+        <TouchableOpacity style={s.idUploadBtn} onPress={showPicker} activeOpacity={0.7}>
+          <View style={s.idUploadIconWrap}>
+            <Feather name="upload" size={20} color={colors.primary} />
           </View>
-          <Text style={styles.idUploadTitle}>Upload National ID</Text>
-          <Text style={styles.idUploadSub}>JPG, PNG or PDF accepted</Text>
+          <Text style={s.idUploadTitle}>Upload National ID</Text>
+          <Text style={s.idUploadSub}>JPG, PNG or PDF accepted</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -370,11 +390,13 @@ function NationalIdUpload({
 }
 
 // ─── Login Tab ────────────────────────────────────────────────────────────────
-function LoginTab({ email, setEmail, password, setPassword }: {
+function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
   email: string;
   setEmail: (v: string) => void;
   password: string;
   setPassword: (v: string) => void;
+  colors: ThemeColors;
+  s: Styles;
 }) {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
@@ -408,16 +430,16 @@ function LoginTab({ email, setEmail, password, setPassword }: {
       ref={scrollRef}
       style={{ flex: 1 }}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.tabScroll}
+      contentContainerStyle={s.tabScroll}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
     >
-      <View style={styles.authHero}>
-        <View style={styles.shieldWrap}>
-          <Ionicons name="shield-checkmark-outline" size={30} color="#7C3AED" />
+      <View style={s.authHero}>
+        <View style={s.shieldWrap}>
+          <Ionicons name="shield-checkmark-outline" size={30} color={colors.primary} />
         </View>
-        <Text style={styles.authHeroTitle}>Owner Access</Text>
-        <Text style={styles.authHeroDesc}>
+        <Text style={s.authHeroTitle}>Owner Access</Text>
+        <Text style={s.authHeroDesc}>
           Sign in to manage your properties, track earnings, and connect with tenants.
         </Text>
       </View>
@@ -430,6 +452,8 @@ function LoginTab({ email, setEmail, password, setPassword }: {
         icon="mail"
         keyboardType="email-address"
         scrollRef={scrollRef}
+        colors={colors}
+        s={s}
       />
 
       <Field
@@ -441,51 +465,53 @@ function LoginTab({ email, setEmail, password, setPassword }: {
         secure={!showPass}
         scrollRef={scrollRef}
         scrollOffset={140}
+        colors={colors}
+        s={s}
         topRight={
           <TouchableOpacity onPress={() => router.push('/ForgotPassword')}>
-            <Text style={styles.forgotLink}>Forgot password?</Text>
+            <Text style={s.forgotLink}>Forgot password?</Text>
           </TouchableOpacity>
         }
         rightEl={
           <TouchableOpacity onPress={() => setShowPass(p => !p)}>
-            <Feather name={showPass ? 'eye' : 'eye-off'} size={15} color="#9CA3AF" />
+            <Feather name={showPass ? 'eye' : 'eye-off'} size={15} color={colors.textLight} />
           </TouchableOpacity>
         }
       />
 
       <TouchableOpacity
-        style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
+        style={[s.primaryBtn, loading && s.primaryBtnDisabled]}
         disabled={loading}
         onPress={handleLogin}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : (
+        {loading ? <ActivityIndicator color={WHITE} /> : (
           <>
-            <Text style={styles.primaryBtnTxt}>Secure Login</Text>
-            <Feather name="arrow-right" size={17} color="#fff" />
+            <Text style={s.primaryBtnTxt}>Secure Login</Text>
+            <Feather name="arrow-right" size={17} color={WHITE} />
           </>
         )}
       </TouchableOpacity>
 
-      <View style={styles.orDivider}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.orTxt}>OR CONTINUE WITH</Text>
-        <View style={styles.dividerLine} />
+      <View style={s.orDivider}>
+        <View style={s.dividerLine} />
+        <Text style={s.orTxt}>OR CONTINUE WITH</Text>
+        <View style={s.dividerLine} />
       </View>
 
-      <View style={styles.socialRow}>
-        <TouchableOpacity style={styles.socialBtn}>
-          <Feather name="globe" size={17} color="#374151" />
-          <Text style={styles.socialBtnTxt}>Google</Text>
+      <View style={s.socialRow}>
+        <TouchableOpacity style={s.socialBtn}>
+          <Feather name="globe" size={17} color={colors.textSecondary} />
+          <Text style={s.socialBtnTxt}>Google</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.socialBtn}>
-          <Feather name="smartphone" size={17} color="#374151" />
-          <Text style={styles.socialBtnTxt}>Apple</Text>
+        <TouchableOpacity style={s.socialBtn}>
+          <Feather name="smartphone" size={17} color={colors.textSecondary} />
+          <Text style={s.socialBtnTxt}>Apple</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tipCard}>
-        <Feather name="info" size={13} color="#9CA3AF" style={{ marginTop: 2 }} />
-        <Text style={styles.tipText}>
+      <View style={s.tipCard}>
+        <Feather name="info" size={13} color={colors.textLight} style={{ marginTop: 2 }} />
+        <Text style={s.tipText}>
           <Text style={{ fontWeight: '700' }}>Tip: </Text>
           Use the same email you registered your business with for faster verification.
         </Text>
@@ -499,10 +525,14 @@ function SignupTab({
   termsAccepted,
   form,
   setForm,
+  colors,
+  s,
 }: {
   termsAccepted: boolean;
   form: typeof EMPTY_OWNER_FORM;
   setForm: React.Dispatch<React.SetStateAction<typeof EMPTY_OWNER_FORM>>;
+  colors: ThemeColors;
+  s: Styles;
 }) {
   const [loading, setLoading] = useState(false);
   const [nationalIdFile, setNationalIdFile] = useState<NationalIdFile>(null);
@@ -601,97 +631,97 @@ function SignupTab({
       ref={scrollRef}
       style={{ flex: 1 }}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={styles.tabScroll}
+      contentContainerStyle={s.tabScroll}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
     >
-      <Text style={styles.stepTitle}>List Your Property</Text>
+      <Text style={s.stepTitle}>List Your Property</Text>
 
       {/* Partner benefits banner */}
-      <View style={styles.benefitsBanner}>
-        <Ionicons name="shield-checkmark" size={18} color="#7C3AED" />
-        <Text style={styles.benefitsTxt}>
+      <View style={s.benefitsBanner}>
+        <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+        <Text style={s.benefitsTxt}>
           Verified owners get{' '}
-          <Text style={{ fontWeight: '700', color: '#7C3AED' }}>priority listing placement</Text>{' '}
+          <Text style={{ fontWeight: '700', color: colors.primary }}>priority listing placement</Text>{' '}
           and access to our secure escrow payment system.
         </Text>
       </View>
 
       {/* ── Business Identity ── */}
-      <SectionCard icon="briefcase" title="Business Identity">
-        <View style={styles.fieldGroup}>
-          <RegLabel>FULL NAME</RegLabel>
-          <View style={styles.inputWrap}>
-            <Feather name="user" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder="John Doe"
-              placeholderTextColor="#9CA3AF" value={form.fullName} onChangeText={set('fullName')} />
+      <SectionCard icon="briefcase" title="Business Identity" colors={colors} s={s}>
+        <View style={s.fieldGroup}>
+          <RegLabel s={s}>FULL NAME</RegLabel>
+          <View style={s.inputWrap}>
+            <Feather name="user" size={14} color={colors.textLight} />
+            <TextInput style={s.fieldInput} placeholder="John Doe"
+              placeholderTextColor={colors.textLight} value={form.fullName} onChangeText={set('fullName')} />
           </View>
         </View>
 
-        <View style={styles.fieldGroup}>
-          <RegLabel>COMPANY NAME</RegLabel>
-          <View style={styles.inputWrap}>
-            <Feather name="briefcase" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder="e.g. BlueSky Estates Ltd"
-              placeholderTextColor="#9CA3AF" value={form.companyName} onChangeText={set('companyName')} />
+        <View style={s.fieldGroup}>
+          <RegLabel s={s}>COMPANY NAME</RegLabel>
+          <View style={s.inputWrap}>
+            <Feather name="briefcase" size={14} color={colors.textLight} />
+            <TextInput style={s.fieldInput} placeholder="e.g. BlueSky Estates Ltd"
+              placeholderTextColor={colors.textLight} value={form.companyName} onChangeText={set('companyName')} />
           </View>
-          <Text style={styles.fieldHint}>Use your registered business name or your own name if self-employed.</Text>
+          <Text style={s.fieldHint}>Use your registered business name or your own name if self-employed.</Text>
         </View>
 
-        <View style={styles.fieldGroup}>
-          <RegLabel>BUSINESS EMAIL</RegLabel>
-          <View style={styles.inputWrap}>
-            <Feather name="mail" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder="contact@company.cm"
-              placeholderTextColor="#9CA3AF" value={form.email} onChangeText={set('email')}
+        <View style={s.fieldGroup}>
+          <RegLabel s={s}>BUSINESS EMAIL</RegLabel>
+          <View style={s.inputWrap}>
+            <Feather name="mail" size={14} color={colors.textLight} />
+            <TextInput style={s.fieldInput} placeholder="contact@company.cm"
+              placeholderTextColor={colors.textLight} value={form.email} onChangeText={set('email')}
               keyboardType="email-address" autoCapitalize="none" />
           </View>
-          <TouchableOpacity style={styles.emailHelpLink} onPress={openEmailSignupOptions} activeOpacity={0.8}>
-            <Text style={styles.emailHelpText}>
-              Don&apos;t have an email? <Text style={styles.emailHelpTextBold}>Create one here.</Text>
+          <TouchableOpacity style={s.emailHelpLink} onPress={openEmailSignupOptions} activeOpacity={0.8}>
+            <Text style={s.emailHelpText}>
+              Don&apos;t have an email? <Text style={s.emailHelpTextBold}>Create one here.</Text>
             </Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.fieldGroup} ref={passwordFieldRef}>
-          <RegLabel>PASSWORD</RegLabel>
-          <View style={styles.inputWrap}>
-            <Feather name="lock" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder="Min. 8 characters"
-              placeholderTextColor="#9CA3AF" value={form.password} onChangeText={set('password')}
+        <View style={s.fieldGroup} ref={passwordFieldRef}>
+          <RegLabel s={s}>PASSWORD</RegLabel>
+          <View style={s.inputWrap}>
+            <Feather name="lock" size={14} color={colors.textLight} />
+            <TextInput style={s.fieldInput} placeholder="Min. 8 characters"
+              placeholderTextColor={colors.textLight} value={form.password} onChangeText={set('password')}
               secureTextEntry={!showPassword}
               onFocus={() => scrollFieldIntoView(scrollRef, passwordFieldRef, 140)} />
             <TouchableOpacity onPress={() => setShowPassword(v => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
-              <Feather name={showPassword ? 'eye-off' : 'eye'} size={15} color="#9CA3AF" />
+              <Feather name={showPassword ? 'eye-off' : 'eye'} size={15} color={colors.textLight} />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.fieldGroup} ref={confirmPasswordFieldRef}>
-          <RegLabel>CONFIRM PASSWORD</RegLabel>
-          <View style={styles.inputWrap}>
-            <Feather name="lock" size={14} color="#9CA3AF" />
-            <TextInput style={styles.fieldInput} placeholder="Repeat your password"
-              placeholderTextColor="#9CA3AF" value={form.confirmPassword}
+        <View style={s.fieldGroup} ref={confirmPasswordFieldRef}>
+          <RegLabel s={s}>CONFIRM PASSWORD</RegLabel>
+          <View style={s.inputWrap}>
+            <Feather name="lock" size={14} color={colors.textLight} />
+            <TextInput style={s.fieldInput} placeholder="Repeat your password"
+              placeholderTextColor={colors.textLight} value={form.confirmPassword}
               onChangeText={set('confirmPassword')} secureTextEntry={!showConfirmPassword}
               onFocus={() => scrollFieldIntoView(scrollRef, confirmPasswordFieldRef, 140)} />
             <TouchableOpacity onPress={() => setShowConfirmPassword(v => !v)} accessibilityRole="button" accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}>
-              <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={15} color="#9CA3AF" />
+              <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={15} color={colors.textLight} />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.fieldGroup}>
-          <RegLabel>PROFESSIONAL PHONE</RegLabel>
-          <View style={styles.phoneWrap}>
-            <View style={styles.phonePrefix}>
-              <Feather name="globe" size={13} color="#374151" />
-              <Text style={styles.phonePrefixTxt}>+237</Text>
+        <View style={s.fieldGroup}>
+          <RegLabel s={s}>PROFESSIONAL PHONE</RegLabel>
+          <View style={s.phoneWrap}>
+            <View style={s.phonePrefix}>
+              <Feather name="globe" size={13} color={colors.textSecondary} />
+              <Text style={s.phonePrefixTxt}>+237</Text>
             </View>
-            <View style={[styles.inputWrap, { flex: 1 }]}>
-              <Feather name="phone" size={14} color="#9CA3AF" />
-              <TextInput style={styles.fieldInput} placeholder="6XXXXXXXX"
-                placeholderTextColor="#9CA3AF" value={form.phone} onChangeText={set('phone')}
+            <View style={[s.inputWrap, { flex: 1 }]}>
+              <Feather name="phone" size={14} color={colors.textLight} />
+              <TextInput style={s.fieldInput} placeholder="6XXXXXXXX"
+                placeholderTextColor={colors.textLight} value={form.phone} onChangeText={set('phone')}
                 keyboardType="phone-pad" />
             </View>
           </View>
@@ -699,61 +729,61 @@ function SignupTab({
       </SectionCard>
 
       {/* ── Office Location ── */}
-      <SectionCard icon="map-pin" title="Office Location">
-        <View style={styles.twoCol}>
-          <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>COUNTRY</RegLabel>
-            <View style={styles.inputWrap}>
-              <Feather name="globe" size={13} color="#9CA3AF" />
-              <TextInput style={styles.fieldInput} placeholder="Cameroon"
-                placeholderTextColor="#9CA3AF" value={form.country} onChangeText={set('country')} />
+      <SectionCard icon="map-pin" title="Office Location" colors={colors} s={s}>
+        <View style={s.twoCol}>
+          <View style={[s.fieldGroup, { flex: 1 }]}>
+            <RegLabel s={s}>COUNTRY</RegLabel>
+            <View style={s.inputWrap}>
+              <Feather name="globe" size={13} color={colors.textLight} />
+              <TextInput style={s.fieldInput} placeholder="Cameroon"
+                placeholderTextColor={colors.textLight} value={form.country} onChangeText={set('country')} />
             </View>
           </View>
-          <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>REGION</RegLabel>
-            <View style={styles.inputWrap}>
-              <Feather name="map" size={13} color="#9CA3AF" />
-              <TextInput style={styles.fieldInput} placeholder="Centre"
-                placeholderTextColor="#9CA3AF" value={form.region} onChangeText={set('region')} />
+          <View style={[s.fieldGroup, { flex: 1 }]}>
+            <RegLabel s={s}>REGION</RegLabel>
+            <View style={s.inputWrap}>
+              <Feather name="map" size={13} color={colors.textLight} />
+              <TextInput style={s.fieldInput} placeholder="Centre"
+                placeholderTextColor={colors.textLight} value={form.region} onChangeText={set('region')} />
             </View>
           </View>
         </View>
 
-        <View style={styles.twoCol}>
-          <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>CITY</RegLabel>
-            <View style={styles.inputWrap}>
-              <Feather name="grid" size={13} color="#9CA3AF" />
-              <TextInput style={styles.fieldInput} placeholder="Yaoundé"
-                placeholderTextColor="#9CA3AF" value={form.city} onChangeText={set('city')} />
+        <View style={s.twoCol}>
+          <View style={[s.fieldGroup, { flex: 1 }]}>
+            <RegLabel s={s}>CITY</RegLabel>
+            <View style={s.inputWrap}>
+              <Feather name="grid" size={13} color={colors.textLight} />
+              <TextInput style={s.fieldInput} placeholder="Yaoundé"
+                placeholderTextColor={colors.textLight} value={form.city} onChangeText={set('city')} />
             </View>
           </View>
-          <View style={[styles.fieldGroup, { flex: 1 }]}>
-            <RegLabel>STREET</RegLabel>
-            <View style={styles.inputWrap}>
-              <Feather name="navigation" size={13} color="#9CA3AF" />
-              <TextInput style={styles.fieldInput} placeholder="Bastos 102"
-                placeholderTextColor="#9CA3AF" value={form.street} onChangeText={set('street')} />
+          <View style={[s.fieldGroup, { flex: 1 }]}>
+            <RegLabel s={s}>STREET</RegLabel>
+            <View style={s.inputWrap}>
+              <Feather name="navigation" size={13} color={colors.textLight} />
+              <TextInput style={s.fieldInput} placeholder="Bastos 102"
+                placeholderTextColor={colors.textLight} value={form.street} onChangeText={set('street')} />
             </View>
           </View>
         </View>
       </SectionCard>
 
       {/* ── National ID Upload ── */}
-      <SectionCard icon="credit-card" title="Identity Verification">
-        <NationalIdUpload file={nationalIdFile} onFileSelected={setNationalIdFile} />
+      <SectionCard icon="credit-card" title="Identity Verification" colors={colors} s={s}>
+        <NationalIdUpload file={nationalIdFile} onFileSelected={setNationalIdFile} colors={colors} s={s} />
       </SectionCard>
 
       {/* ── Terms Checkbox ── */}
       <TouchableOpacity
-        style={styles.termsRow}
+        style={s.termsRow}
         activeOpacity={0.7}
         onPress={() => { if (!termsAccepted) router.push('/TermsOwner'); }}
       >
-        <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-          {termsAccepted && <Feather name="check" size={12} color="#fff" />}
+        <View style={[s.checkbox, termsAccepted && s.checkboxChecked]}>
+          {termsAccepted && <Feather name="check" size={12} color={WHITE} />}
         </View>
-        <Text style={styles.termsText}>
+        <Text style={s.termsText}>
           {termsAccepted
             ? 'You have accepted the Terms & Privacy Policy.'
             : 'I have read and agree to the Terms & Privacy Policy.'}
@@ -761,30 +791,30 @@ function SignupTab({
       </TouchableOpacity>
 
       {!termsAccepted && (
-        <View style={styles.termsWarning}>
-          <Feather name="alert-circle" size={13} color="#D97706" />
-          <Text style={styles.termsWarningTxt}>
+        <View style={s.termsWarning}>
+          <Feather name="alert-circle" size={13} color={colors.warning} />
+          <Text style={s.termsWarningTxt}>
             You must accept the terms before creating your account.
           </Text>
         </View>
       )}
       {termsAccepted && (
-        <View style={styles.termsSuccess}>
-          <Feather name="check-circle" size={13} color="#16A34A" />
-          <Text style={styles.termsSuccessTxt}>Terms & Privacy Policy accepted.</Text>
+        <View style={s.termsSuccess}>
+          <Feather name="check-circle" size={13} color={colors.success} />
+          <Text style={s.termsSuccessTxt}>Terms & Privacy Policy accepted.</Text>
         </View>
       )}
 
-      <View style={styles.actionRow}>
+      <View style={s.actionRow}>
         <TouchableOpacity
-          style={[styles.nextBtn, loading && styles.primaryBtnDisabled]}
+          style={[s.nextBtn, loading && s.primaryBtnDisabled]}
           disabled={loading}
           onPress={handleSignup}
         >
-          {loading ? <ActivityIndicator color="#fff" /> : (
+          {loading ? <ActivityIndicator color={WHITE} /> : (
             <>
-              <Text style={styles.nextBtnTxt}>Create Owner Account</Text>
-              <Feather name="arrow-right" size={15} color="#fff" />
+              <Text style={s.nextBtnTxt}>Create Owner Account</Text>
+              <Feather name="arrow-right" size={15} color={WHITE} />
             </>
           )}
         </TouchableOpacity>
@@ -795,6 +825,9 @@ function SignupTab({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function HouseOwnersLoginSignup() {
+  const { colors, isDark } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+
   const params = useLocalSearchParams<{ tab?: string; termsAccepted?: string }>();
 
   const [activeTab, setActiveTab] = useState<Tab>(
@@ -834,8 +867,8 @@ export default function HouseOwnersLoginSignup() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F7FB" />
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <WebAlertHost />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -843,30 +876,30 @@ export default function HouseOwnersLoginSignup() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={{ height: 16 }} />
-        <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-          <Feather name="arrow-left" size={22} color="#111827" />
+        <TouchableOpacity onPress={handleBack} style={s.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.text} />
         </TouchableOpacity>
 
-        <View style={styles.tabRow}>
+        <View style={s.tabRow}>
           {(['login', 'signup'] as Tab[]).map(tab => (
             <TouchableOpacity
               key={tab}
-              style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
+              style={[s.tabBtn, activeTab === tab && s.tabBtnActive]}
               onPress={() => setActiveTab(tab)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.tabBtnTxt, activeTab === tab && styles.tabBtnTxtActive]}>
+              <Text style={[s.tabBtnTxt, activeTab === tab && s.tabBtnTxtActive]}>
                 {tab === 'login' ? 'Login' : 'Register'}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={styles.formHeader}>
-          <Text style={styles.formHeaderTitle}>
+        <View style={s.formHeader}>
+          <Text style={s.formHeaderTitle}>
             {activeTab === 'login' ? 'Welcome Back, Owner' : 'Create Owner Account'}
           </Text>
-          <Text style={styles.formHeaderSub}>House Owners Portal</Text>
+          <Text style={s.formHeaderSub}>House Owners Portal</Text>
         </View>
 
         {activeTab === 'login' && (
@@ -875,6 +908,8 @@ export default function HouseOwnersLoginSignup() {
             setEmail={setLoginEmail}
             password={loginPassword}
             setPassword={setLoginPassword}
+            colors={colors}
+            s={s}
           />
         )}
         {activeTab === 'signup' && (
@@ -882,6 +917,8 @@ export default function HouseOwnersLoginSignup() {
             termsAccepted={termsAccepted}
             form={form}
             setForm={setForm}
+            colors={colors}
+            s={s}
           />
         )}
       </KeyboardAvoidingView>
@@ -890,201 +927,205 @@ export default function HouseOwnersLoginSignup() {
 }
 
 // ─── Web Alert Modal Styles ───────────────────────────────────────────────────
-const webAlertStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-  },
-  title: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 8 },
-  message: { fontSize: 13.5, color: '#4B5563', lineHeight: 20, marginBottom: 18 },
-  btnRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' },
-  btn: { paddingVertical: 9, paddingHorizontal: 16, borderRadius: 10, backgroundColor: '#6D28D9' },
-  btnCancel: { backgroundColor: '#F3F4F6' },
-  btnDestructive: { backgroundColor: '#DC2626' },
-  btnTxt: { fontSize: 13.5, fontWeight: '700', color: '#fff' },
-  btnTxtCancel: { color: '#374151' },
-  btnTxtDestructive: { color: '#fff' },
-});
+function getWebAlertStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+    },
+    card: {
+      width: '100%',
+      maxWidth: 340,
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      shadowColor: '#000',
+      shadowOpacity: 0.2,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 10,
+    },
+    title: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 8 },
+    message: { fontSize: 13.5, color: colors.textSecondary, lineHeight: 20, marginBottom: 18 },
+    btnRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' },
+    btn: { paddingVertical: 9, paddingHorizontal: 16, borderRadius: 10, backgroundColor: colors.primaryDark },
+    btnCancel: { backgroundColor: colors.divider },
+    btnDestructive: { backgroundColor: colors.danger },
+    btnTxt: { fontSize: 13.5, fontWeight: '700', color: WHITE },
+    btnTxtCancel: { color: colors.textSecondary },
+    btnTxtDestructive: { color: WHITE },
+  });
+}
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F7F7FB' },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19, margin: 20,
-    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
-  },
-  tabRow: {
-    flexDirection: 'row', backgroundColor: '#EDE9FE', borderRadius: 14,
-    marginHorizontal: H_PAD, padding: 4, gap: 4, marginBottom: 4,
-  },
-  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  tabBtnActive: {
-    backgroundColor: '#fff', shadowColor: '#5B21B6', shadowOpacity: 0.15,
-    shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2,
-  },
-  tabBtnTxt: { fontSize: 13, fontWeight: '600', color: '#7C3AED' },
-  tabBtnTxtActive: { color: '#5B21B6', fontWeight: '700' },
-  formHeader: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 4 },
-  formHeaderTitle: { fontSize: 17, fontWeight: '700', color: '#111827', letterSpacing: -0.2 },
-  formHeaderSub: { fontSize: 12, color: '#7C3AED', fontWeight: '600', marginTop: 2 },
-  tabScroll: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 220 },
-  authHero: { alignItems: 'center', marginBottom: 22 },
-  shieldWrap: {
-    width: 60, height: 60, backgroundColor: '#F5F3FF', borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-    shadowColor: '#7C3AED', shadowOpacity: 0.15, shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 }, elevation: 3,
-  },
-  authHeroTitle: { fontSize: 20, fontWeight: '700', color: '#111827', marginBottom: 6, letterSpacing: -0.3 },
-  authHeroDesc: { fontSize: 13.5, color: '#9CA3AF', textAlign: 'center', lineHeight: 20, maxWidth: 280 },
-  fieldGroup: { marginBottom: 14 },
-  fieldLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  forgotLink: { fontSize: 12.5, fontWeight: '700', color: '#7C3AED' },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff',
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13,
-  },
-  fieldInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
-  fieldHint: { fontSize: 11.5, color: '#9CA3AF', marginTop: 5, fontStyle: 'italic', paddingLeft: 2 },
-  emailHelpLink: { marginTop: 8, alignSelf: 'flex-start' },
-  emailHelpText: { fontSize: 12, color: '#7C3AED', fontWeight: '500' },
-  emailHelpTextBold: { fontWeight: '700', textDecorationLine: 'underline' },
-  primaryBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#6D28D9', borderRadius: 18, paddingVertical: 17, marginBottom: 18,
-    shadowColor: '#5B21B6', shadowOpacity: 0.35, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 8,
-  },
-  primaryBtnDisabled: { opacity: 0.45, shadowOpacity: 0, elevation: 0 },
-  primaryBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: -0.2 },
-  orDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  orTxt: { fontSize: 11, fontWeight: '700', color: '#9CA3AF', letterSpacing: 0.8 },
-  socialRow: { flexDirection: 'row', gap: 12, marginBottom: 18 },
-  socialBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14, paddingVertical: 13,
-  },
-  socialBtnTxt: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  tipCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginBottom: 10,
-  },
-  tipText: { flex: 1, fontSize: 12, color: '#6B7280', lineHeight: 18 },
-  benefitsBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#F5F3FF', borderRadius: 12, padding: 12, marginBottom: 18,
-    borderWidth: 1, borderColor: '#EDE9FE',
-  },
-  benefitsTxt: { flex: 1, fontSize: 13, color: '#374151', lineHeight: 19 },
-  stepTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16, letterSpacing: -0.3 },
-  regLabel: { fontSize: 10.5, fontWeight: '700', color: '#9CA3AF', letterSpacing: 0.8, marginBottom: 7 },
-  sectionCard: {
-    backgroundColor: '#fff', borderRadius: 18, padding: 16, marginBottom: 14,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 1 }, elevation: 1,
-  },
-  sectionCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  sectionCardTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
-  phoneWrap: { flexDirection: 'row', gap: 8 },
-  phonePrefix: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F3F4F6',
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 13,
-  },
-  phonePrefixTxt: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  twoCol: { flexDirection: 'row', gap: 10 },
-  requiredBadge: {
-    backgroundColor: '#FEF3C7', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
-  },
-  requiredBadgeTxt: { fontSize: 9.5, fontWeight: '700', color: '#B45309', letterSpacing: 0.5 },
-  idInfoCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 7,
-    backgroundColor: '#F5F3FF', borderRadius: 10, padding: 10, marginBottom: 10,
-    borderWidth: 1, borderColor: '#EDE9FE',
-  },
-  idInfoText: { flex: 1, fontSize: 11.5, color: '#6B7280', lineHeight: 17 },
-  idUploadBtn: {
-    borderWidth: 2, borderColor: '#DDD6FE', borderStyle: 'dashed', borderRadius: 14,
-    paddingVertical: 24, alignItems: 'center', gap: 8, backgroundColor: '#FAFAFF',
-  },
-  idUploadIconWrap: {
-    width: 44, height: 44, borderRadius: 22, backgroundColor: '#EDE9FE',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  idUploadTitle: { fontSize: 13.5, fontWeight: '700', color: '#5B21B6' },
-  idUploadSub: { fontSize: 11.5, color: '#9CA3AF' },
-  idSelectedWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#F5F3FF', borderRadius: 14, padding: 12,
-    borderWidth: 1.5, borderColor: '#DDD6FE',
-  },
-  idSelectedIcon: {
-    width: 42, height: 42, borderRadius: 10, backgroundColor: '#EDE9FE',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  idSelectedName: { fontSize: 13, fontWeight: '600', color: '#111827', marginBottom: 2 },
-  idSelectedSize: { fontSize: 11, color: '#9CA3AF' },
-  idChangeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6 },
-  idChangeBtnTxt: { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
-  termsCard: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#EDE9FE',
-    borderRadius: 14, padding: 13, marginBottom: 12,
-  },
-  termsCardLabel: { fontSize: 10.5, fontWeight: '700', color: '#7C3AED', letterSpacing: 0.6, marginBottom: 4 },
-  termsCardBody: { fontSize: 12.5, color: '#374151', lineHeight: 19 },
-  termsLink: { color: '#6D28D9', fontWeight: '700', textDecorationLine: 'underline' },
-  termsRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginBottom: 10, paddingHorizontal: 2,
-  },
-  checkbox: {
-    width: 22, height: 22, borderWidth: 2, borderColor: '#D1D5DB',
-    borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
-  },
-  checkboxChecked: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
-  termsText: { flex: 1, fontSize: 12.5, color: '#6B7280', lineHeight: 19 },
-  termsWarning: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 7,
-    backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A',
-    borderRadius: 12, padding: 11, marginBottom: 16,
-  },
-  termsWarningTxt: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 18 },
-  termsSuccess: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0',
-    borderRadius: 12, padding: 11, marginBottom: 16,
-  },
-  termsSuccessTxt: { flex: 1, fontSize: 12, color: '#15803D', fontWeight: '600' },
-  securityNote: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
-    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 12, marginBottom: 16,
-  },
-  securityText: { flex: 1, fontSize: 12, color: '#6B7280', lineHeight: 18 },
-  actionRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  saveBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff',
-    borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 14, paddingHorizontal: 20, paddingVertical: 14,
-  },
-  saveBtnTxt: { fontSize: 13, fontWeight: '700', color: '#374151' },
-  nextBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: '#6D28D9', borderRadius: 14, paddingVertical: 14,
-    shadowColor: '#5B21B6', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 5,
-  },
-  nextBtnTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
-});
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    backBtn: {
+      width: 38, height: 38, borderRadius: 19, margin: 20,
+      backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center',
+    },
+    tabRow: {
+      flexDirection: 'row', backgroundColor: colors.primaryBorder, borderRadius: 14,
+      marginHorizontal: H_PAD, padding: 4, gap: 4, marginBottom: 4,
+    },
+    tabBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+    tabBtnActive: {
+      backgroundColor: colors.card, shadowColor: colors.primaryDarker, shadowOpacity: 0.15,
+      shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 2,
+    },
+    tabBtnTxt: { fontSize: 13, fontWeight: '600', color: colors.primary },
+    tabBtnTxtActive: { color: colors.primaryDarker, fontWeight: '700' },
+    formHeader: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 4 },
+    formHeaderTitle: { fontSize: 17, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
+    formHeaderSub: { fontSize: 12, color: colors.primary, fontWeight: '600', marginTop: 2 },
+    tabScroll: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 220 },
+    authHero: { alignItems: 'center', marginBottom: 22 },
+    shieldWrap: {
+      width: 60, height: 60, backgroundColor: colors.primaryTintAlt, borderRadius: 20,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+      shadowColor: colors.primary, shadowOpacity: 0.15, shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 }, elevation: 3,
+    },
+    authHeroTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 6, letterSpacing: -0.3 },
+    authHeroDesc: { fontSize: 13.5, color: colors.textLight, textAlign: 'center', lineHeight: 20, maxWidth: 280 },
+    fieldGroup: { marginBottom: 14 },
+    fieldLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    forgotLink: { fontSize: 12.5, fontWeight: '700', color: colors.primary },
+    inputWrap: {
+      flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.card,
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 13,
+    },
+    fieldInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
+    fieldHint: { fontSize: 11.5, color: colors.textLight, marginTop: 5, fontStyle: 'italic', paddingLeft: 2 },
+    emailHelpLink: { marginTop: 8, alignSelf: 'flex-start' },
+    emailHelpText: { fontSize: 12, color: colors.primary, fontWeight: '500' },
+    emailHelpTextBold: { fontWeight: '700', textDecorationLine: 'underline' },
+    primaryBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+      backgroundColor: colors.primaryDark, borderRadius: 18, paddingVertical: 17, marginBottom: 18,
+      shadowColor: colors.primaryDarker, shadowOpacity: 0.35, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 8,
+    },
+    primaryBtnDisabled: { opacity: 0.45, shadowOpacity: 0, elevation: 0 },
+    primaryBtnTxt: { fontSize: 15, fontWeight: '700', color: WHITE, letterSpacing: -0.2 },
+    orDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+    dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+    orTxt: { fontSize: 11, fontWeight: '700', color: colors.textLight, letterSpacing: 0.8 },
+    socialRow: { flexDirection: 'row', gap: 12, marginBottom: 18 },
+    socialBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingVertical: 13,
+    },
+    socialBtnTxt: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    tipCard: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+      backgroundColor: colors.cardMuted, borderRadius: 12, padding: 12, marginBottom: 10,
+    },
+    tipText: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+    benefitsBanner: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      backgroundColor: colors.primaryTintAlt, borderRadius: 12, padding: 12, marginBottom: 18,
+      borderWidth: 1, borderColor: colors.primaryBorder,
+    },
+    benefitsTxt: { flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
+    stepTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 16, letterSpacing: -0.3 },
+    regLabel: { fontSize: 10.5, fontWeight: '700', color: colors.textLight, letterSpacing: 0.8, marginBottom: 7 },
+    sectionCard: {
+      backgroundColor: colors.card, borderRadius: 18, padding: 16, marginBottom: 14,
+      shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 1 }, elevation: 1,
+    },
+    sectionCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+    sectionCardTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+    phoneWrap: { flexDirection: 'row', gap: 8 },
+    phonePrefix: {
+      flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.divider,
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 13,
+    },
+    phonePrefixTxt: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+    twoCol: { flexDirection: 'row', gap: 10 },
+    requiredBadge: {
+      backgroundColor: colors.warningBg, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2,
+    },
+    requiredBadgeTxt: { fontSize: 9.5, fontWeight: '700', color: colors.warning, letterSpacing: 0.5 },
+    idInfoCard: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 7,
+      backgroundColor: colors.primaryTintAlt, borderRadius: 10, padding: 10, marginBottom: 10,
+      borderWidth: 1, borderColor: colors.primaryBorder,
+    },
+    idInfoText: { flex: 1, fontSize: 11.5, color: colors.textMuted, lineHeight: 17 },
+    idUploadBtn: {
+      borderWidth: 2, borderColor: colors.primarySoft, borderStyle: 'dashed', borderRadius: 14,
+      paddingVertical: 24, alignItems: 'center', gap: 8, backgroundColor: colors.primaryTint,
+    },
+    idUploadIconWrap: {
+      width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primaryBorder,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    idUploadTitle: { fontSize: 13.5, fontWeight: '700', color: colors.primaryDarker },
+    idUploadSub: { fontSize: 11.5, color: colors.textLight },
+    idSelectedWrap: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      backgroundColor: colors.primaryTintAlt, borderRadius: 14, padding: 12,
+      borderWidth: 1.5, borderColor: colors.primarySoft,
+    },
+    idSelectedIcon: {
+      width: 42, height: 42, borderRadius: 10, backgroundColor: colors.primaryBorder,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    idSelectedName: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 2 },
+    idSelectedSize: { fontSize: 11, color: colors.textLight },
+    idChangeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 6 },
+    idChangeBtnTxt: { fontSize: 12, fontWeight: '700', color: colors.primary },
+    termsCard: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+      backgroundColor: colors.primaryTintAlt, borderWidth: 1, borderColor: colors.primaryBorder,
+      borderRadius: 14, padding: 13, marginBottom: 12,
+    },
+    termsCardLabel: { fontSize: 10.5, fontWeight: '700', color: colors.primary, letterSpacing: 0.6, marginBottom: 4 },
+    termsCardBody: { fontSize: 12.5, color: colors.textSecondary, lineHeight: 19 },
+    termsLink: { color: colors.primaryDark, fontWeight: '700', textDecorationLine: 'underline' },
+    termsRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 10,
+      marginBottom: 10, paddingHorizontal: 2,
+    },
+    checkbox: {
+      width: 22, height: 22, borderWidth: 2, borderColor: colors.border,
+      borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card,
+    },
+    checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+    termsText: { flex: 1, fontSize: 12.5, color: colors.textMuted, lineHeight: 19 },
+    termsWarning: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 7,
+      backgroundColor: colors.warningBg, borderWidth: 1, borderColor: colors.warning + '55',
+      borderRadius: 12, padding: 11, marginBottom: 16,
+    },
+    termsWarningTxt: { flex: 1, fontSize: 12, color: colors.warning, lineHeight: 18 },
+    termsSuccess: {
+      flexDirection: 'row', alignItems: 'center', gap: 7,
+      backgroundColor: colors.successBg, borderWidth: 1, borderColor: colors.success + '55',
+      borderRadius: 12, padding: 11, marginBottom: 16,
+    },
+    termsSuccessTxt: { flex: 1, fontSize: 12, color: colors.success, fontWeight: '600' },
+    securityNote: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+      backgroundColor: colors.cardMuted, borderRadius: 12, padding: 12, marginBottom: 16,
+    },
+    securityText: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+    actionRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
+    saveBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.card,
+      borderWidth: 2, borderColor: colors.border, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 14,
+    },
+    saveBtnTxt: { fontSize: 13, fontWeight: '700', color: colors.textSecondary },
+    nextBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, backgroundColor: colors.primaryDark, borderRadius: 14, paddingVertical: 14,
+      shadowColor: colors.primaryDarker, shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 5,
+    },
+    nextBtnTxt: { fontSize: 14, fontWeight: '700', color: WHITE },
+  });
+}

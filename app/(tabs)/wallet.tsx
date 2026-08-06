@@ -1,6 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import * as WebBrowser from 'expo-web-browser';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,10 +20,11 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
 
 import { useTranslation } from 'react-i18next';
 import { BASE_URL } from '../../constants/api';
+import { ThemeColors } from '../../constants/theme';
+import { useAppTheme } from '../../hooks/use-app-theme';
 
 const { width, height } = Dimensions.get('window');
 const H_PAD = 20;
@@ -91,11 +93,13 @@ async function authedFetch(path: string, options: RequestInit = {}) {
 
 function ProtectionCard({ item }: { item: Transaction }) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   return (
     <View style={styles.protectionCard}>
       <View style={styles.protectionTopRow}>
         <View style={styles.protectionIdRow}>
-          <Feather name="lock" size={12} color="#A0A0A0" />
+          <Feather name="lock" size={12} color={colors.textLight} />
           <View>
             <Text style={styles.protectionTitle} numberOfLines={1}>{item.listing?.title || '—'}</Text>
             <Text style={styles.protectionId}>ID: E{item.id}</Text>
@@ -115,6 +119,8 @@ function ProtectionCard({ item }: { item: Transaction }) {
 
 // ─── Activity Row ─────────────────────────────────────────────────────────────
 
+// Category accent colors — deliberately fixed across themes, same as the
+// deposit/withdrawal icon colors elsewhere in the app.
 const TYPE_META: Record<TxType, { labelKey: string; iconName: string; iconBg: string; iconColor: string; sign: '+' | '-' }> = {
   Deposit:    { labelKey: 'escrow.deposit',       iconName: 'smartphone',      iconBg: '#FFF7ED', iconColor: '#EA580C', sign: '-' },
   Hold:       { labelKey: 'escrow.locked',        iconName: 'lock',            iconBg: '#F3F0FF', iconColor: '#7C3AED', sign: '-' },
@@ -125,6 +131,8 @@ const TYPE_META: Record<TxType, { labelKey: string; iconName: string; iconBg: st
 
 function ActivityRow({ item }: { item: Transaction }) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const meta = TYPE_META[item.type];
   const label = item.listing?.title ? `${t(meta.labelKey)} — ${item.listing.title}` : t(meta.labelKey);
   const statusLabel = item.status === 'Completed'
@@ -141,13 +149,13 @@ function ActivityRow({ item }: { item: Transaction }) {
         <Text style={styles.activityDate}>{formatDate(item.createdAt)}</Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[styles.activityAmount, { color: '#111' }]}>
+        <Text style={[styles.activityAmount, { color: colors.text }]}>
           {meta.sign}{formatXAF(item.amount)}
         </Text>
         {statusLabel && (
           <Text style={[
             styles.activityStatus,
-            { color: item.status === 'Pending' ? '#F59E0B' : item.status === 'Failed' ? '#DC2626' : '#22C55E' },
+            { color: item.status === 'Pending' ? colors.warning : item.status === 'Failed' ? colors.danger : colors.success },
           ]}>
             {statusLabel}
           </Text>
@@ -163,6 +171,8 @@ function DepositModal({
   visible, onClose, onDeposited,
 }: { visible: boolean; onClose: () => void; onDeposited: () => void }) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const modalStyles = useMemo(() => getModalStyles(colors), [colors]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ListingOption[]>([]);
   const [selected, setSelected] = useState<ListingOption | null>(null);
@@ -242,7 +252,7 @@ function DepositModal({
               <TextInput
                 style={modalStyles.input}
                 placeholder={t('escrow.searchProperties')}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textLight}
                 value={query}
                 onChangeText={handleSearch}
               />
@@ -272,7 +282,7 @@ function DepositModal({
               <TextInput
                 style={modalStyles.input}
                 placeholder={t('escrow.amountPlaceholder')}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.textLight}
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="number-pad"
@@ -305,6 +315,8 @@ function WithdrawModal({
   visible, availableBalance, onClose, onWithdrawn,
 }: { visible: boolean; availableBalance: string; onClose: () => void; onWithdrawn: () => void }) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const modalStyles = useMemo(() => getModalStyles(colors), [colors]);
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
@@ -350,7 +362,7 @@ function WithdrawModal({
           <TextInput
             style={modalStyles.input}
             placeholder={t('escrow.amountPlaceholder')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textLight}
             value={amount}
             onChangeText={setAmount}
             keyboardType="number-pad"
@@ -361,7 +373,7 @@ function WithdrawModal({
           <TextInput
             style={modalStyles.input}
             placeholder={t('escrow.phonePlaceholder')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textLight}
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
@@ -383,8 +395,9 @@ function WithdrawModal({
   );
 }
 
-// ─── How It Works Modal (static content — unchanged) ─────────────────────────
+// ─── How It Works Modal ────────────────────────────────────────────────────────
 
+// Step accent colors — deliberately fixed across themes (matches TYPE_META above).
 const HOW_IT_WORKS_STEPS = [
   { step: '1', titleKey: 'escrow.step1Title', descKey: 'escrow.step1Desc', icon: 'arrow-up-circle', color: '#7C3AED', bg: '#F3F0FF' },
   { step: '2', titleKey: 'escrow.step2Title', descKey: 'escrow.step2Desc', icon: 'shield',          color: '#2563EB', bg: '#EFF6FF' },
@@ -393,6 +406,8 @@ const HOW_IT_WORKS_STEPS = [
 
 function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const slideAnim = useRef(new Animated.Value(height)).current;
 
   React.useEffect(() => {
@@ -414,14 +429,14 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
 
         <View style={styles.modalTitleRow}>
           <View style={styles.modalTitleIconWrap}>
-            <Ionicons name="information-circle" size={22} color="#7C3AED" />
+            <Ionicons name="information-circle" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.modalTitle}>{t('escrow.howItWorksTitle')}</Text>
             <Text style={styles.modalSubtitle}>{t('escrow.howItWorksSub')}</Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
-            <Feather name="x" size={18} color="#888" />
+            <Feather name="x" size={18} color={colors.textLight} />
           </TouchableOpacity>
         </View>
 
@@ -453,7 +468,7 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
           <View style={styles.priceCeilingCard}>
             <View style={styles.priceCeilingHeader}>
               <View style={styles.priceCeilingIconWrap}>
-                <Feather name="trending-up" size={16} color="#DC2626" />
+                <Feather name="trending-up" size={16} color={colors.danger} />
               </View>
               <Text style={styles.priceCeilingTitle}>{t('escrow.priceCeilingTitle')}</Text>
             </View>
@@ -468,10 +483,10 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
             </Text>
 
             <View style={styles.priceCeilingNote}>
-              <Feather name="message-circle" size={13} color="#7C3AED" style={{ marginTop: 1 }} />
+              <Feather name="message-circle" size={13} color={colors.primary} style={{ marginTop: 1 }} />
               <Text style={styles.priceCeilingNoteTxt}>
                 {t('escrow.priceCeilingNote1')}{' '}
-                <Text style={{ fontWeight: '700', color: '#7C3AED' }}>{t('escrow.chat')}</Text>
+                <Text style={{ fontWeight: '700', color: colors.primary }}>{t('escrow.chat')}</Text>
                 {' '}{t('escrow.priceCeilingNote2')}
               </Text>
             </View>
@@ -509,10 +524,118 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
   );
 }
 
+// ─── Owner Guide Modal (house owners only) ────────────────────────────────────
+
+// Small helper: renders a "Bold label: rest of sentence" bullet line.
+function GuideBullet({ bold, text, styles }: { bold?: string; text: string; styles: ReturnType<typeof getStyles> }) {
+  return (
+    <View style={styles.guideBulletRow}>
+      <View style={styles.guideBulletDot} />
+      <Text style={styles.guideBulletTxt}>
+        {bold ? <Text style={styles.guideBulletBold}>{bold} </Text> : null}
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function OwnerGuideModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+  const slideAnim = useRef(new Animated.Value(height)).current;
+  const g = (key: string) => t(`escrow.ownerGuide.${key}`);
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }).start();
+    } else {
+      Animated.timing(slideAnim, { toValue: height, duration: 260, useNativeDriver: true }).start();
+    }
+  }, [visible, slideAnim]);
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.modalOverlay} />
+      </TouchableWithoutFeedback>
+
+      <Animated.View style={[styles.modalSheet, { transform: [{ translateY: slideAnim }] }]}>
+        <View style={styles.modalHandle} />
+
+        <View style={styles.modalTitleRow}>
+          <View style={styles.modalTitleIconWrap}>
+            <Ionicons name="shield-checkmark" size={22} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.modalTitle}>{g('title')}</Text>
+            <Text style={styles.modalSubtitle}>{g('subtitle')}</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
+            <Feather name="x" size={18} color={colors.textLight} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Text style={styles.guideSectionTitle}>{g('overviewTitle')}</Text>
+          <Text style={styles.guideBody}>{g('overviewBody')}</Text>
+
+          <View style={styles.guideDivider} />
+          <Text style={styles.guideSectionTitle}>{g('section1Title')}</Text>
+          <GuideBullet styles={styles} bold={g('section1Bullet1Bold')} text={g('section1Bullet1')} />
+          <GuideBullet styles={styles} bold={g('section1Bullet2Bold')} text={g('section1Bullet2')} />
+          <GuideBullet styles={styles} bold={g('section1Bullet3Bold')} text={g('section1Bullet3')} />
+
+          <View style={styles.guideDivider} />
+          <Text style={styles.guideSectionTitle}>{g('section2Title')}</Text>
+          <Text style={styles.guideBody}>{g('section2Intro')}</Text>
+          <GuideBullet styles={styles} bold={g('section2Bullet1Bold')} text={g('section2Bullet1')} />
+          <GuideBullet styles={styles} bold={g('section2Bullet2Bold')} text={g('section2Bullet2')} />
+          <View style={styles.guideNoteBox}>
+            <Feather name="info" size={13} color={colors.primary} style={{ marginTop: 1 }} />
+            <Text style={styles.guideNoteTxt}>{g('section2Note')}</Text>
+          </View>
+
+          <View style={styles.guideDivider} />
+          <Text style={styles.guideSectionTitle}>{g('section3Title')}</Text>
+          <Text style={styles.guideBody}>{g('section3Intro')}</Text>
+
+          <View style={styles.guideScenarioCard}>
+            <Text style={styles.guideScenarioTitle}>{g('scenarioATitle')}</Text>
+            <GuideBullet styles={styles} text={g('scenarioABullet1')} />
+            <GuideBullet styles={styles} text={g('scenarioABullet2')} />
+            <GuideBullet styles={styles} text={g('scenarioABullet3')} />
+          </View>
+
+          <View style={[styles.guideScenarioCard, styles.guideScenarioCardAlt]}>
+            <Text style={styles.guideScenarioTitle}>{g('scenarioBTitle')}</Text>
+            <Text style={styles.guideBody}>{g('scenarioBIntro')}</Text>
+            <GuideBullet styles={styles} bold={g('scenarioBBullet1Bold')} text={g('scenarioBBullet1')} />
+            <GuideBullet styles={styles} bold={g('scenarioBBullet2Bold')} text={g('scenarioBBullet2')} />
+            <GuideBullet styles={styles} bold={g('scenarioBBullet3Bold')} text={g('scenarioBBullet3')} />
+          </View>
+
+          <View style={styles.guideDivider} />
+          <Text style={styles.guideSectionTitle}>{g('section4Title')}</Text>
+          <GuideBullet styles={styles} bold={g('section4Bullet1Bold')} text={g('section4Bullet1')} />
+          <GuideBullet styles={styles} bold={g('section4Bullet2Bold')} text={g('section4Bullet2')} />
+          <GuideBullet styles={styles} bold={g('section4Bullet3Bold')} text={g('section4Bullet3')} />
+
+          <View style={{ height: 32 }} />
+        </ScrollView>
+      </Animated.View>
+    </Modal>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function EscrowWalletScreen() {
+export default function EscrowWalletScreen({ role = 'seeker' }: { role?: 'owner' | 'seeker' }) {
   const { t } = useTranslation();
+  const { colors, isDark } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+  const isOwner = role === 'owner';
+
   const [infoVisible, setInfoVisible] = useState(false);
   const [depositVisible, setDepositVisible] = useState(false);
   const [withdrawVisible, setWithdrawVisible] = useState(false);
@@ -541,15 +664,15 @@ export default function EscrowWalletScreen() {
 
   const onRefresh = () => { setRefreshing(true); load(); };
 
-  const activeProtections = transactions.filter((t) => t.type === 'Hold' && t.status === 'Completed' && !t.resolvedAs);
+  const activeProtections = transactions.filter((tx) => tx.type === 'Hold' && tx.status === 'Completed' && !tx.resolvedAs);
   const totalBalance = wallet ? Number(wallet.heldBalance) + Number(wallet.availableBalance) : 0;
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <ActivityIndicator size="large" color="#7C3AED" />
-          <Text style={{ color: '#888', fontSize: 13 }}>{t('escrow.loadingWallet')}</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textLight, fontSize: 13 }}>{t('escrow.loadingWallet')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -557,14 +680,14 @@ export default function EscrowWalletScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.card} />
 
       <View style={styles.header}>
         <View style={{ width: 38 }} />
         <Text style={styles.headerTitle}>{t('escrow.title')}</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.infoBtn} onPress={() => setInfoVisible(true)} activeOpacity={0.75}>
-            <Ionicons name="information-circle-outline" size={20} color="#7C3AED" />
+            <Ionicons name="information-circle-outline" size={20} color={colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -572,14 +695,15 @@ export default function EscrowWalletScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7C3AED" />}>
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
 
         {error && (
           <TouchableOpacity style={{ margin: H_PAD, padding: 12, backgroundColor: '#FEF2F2', borderRadius: 12 }} onPress={load}>
-            <Text style={{ color: '#DC2626', fontSize: 13 }}>{error} — {t('common.retry')}</Text>
+            <Text style={{ color: colors.danger, fontSize: 13 }}>{error} — {t('common.retry')}</Text>
           </TouchableOpacity>
         )}
 
+        {/* Fixed brand card — stays purple in both themes, like a solid-color button */}
         <View style={styles.balanceCard}>
           <View style={styles.shieldWatermark}>
             <Ionicons name="shield-checkmark" size={90} color="rgba(255,255,255,0.1)" />
@@ -622,7 +746,7 @@ export default function EscrowWalletScreen() {
             style={[styles.primaryActionBtn, styles.depositBtn]}
             activeOpacity={0.85}
             onPress={() => setDepositVisible(true)}>
-            <Feather name="arrow-up-circle" size={18} color="#7C3AED" />
+            <Feather name="arrow-up-circle" size={18} color={colors.primary} />
             <Text style={[styles.primaryActionTxt, styles.primaryActionTxtDeposit]}>{t('escrow.deposit')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -639,7 +763,7 @@ export default function EscrowWalletScreen() {
         </View>
 
         {activeProtections.length === 0 ? (
-          <Text style={{ color: '#B0B0B0', fontSize: 13, marginHorizontal: H_PAD, marginBottom: 8 }}>
+          <Text style={{ color: colors.textLight, fontSize: 13, marginHorizontal: H_PAD, marginBottom: 8 }}>
             {t('escrow.noActiveProtections')}
           </Text>
         ) : (
@@ -657,7 +781,7 @@ export default function EscrowWalletScreen() {
 
         <View style={styles.escrowBanner}>
           <View style={styles.escrowBannerIcon}>
-            <Ionicons name="shield-checkmark-outline" size={18} color="#7C3AED" />
+            <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.escrowBannerTitle}>{t('escrow.protectionActive')}</Text>
@@ -665,7 +789,7 @@ export default function EscrowWalletScreen() {
           </View>
           <TouchableOpacity onPress={() => setInfoVisible(true)} style={styles.escrowBannerInfoBtn} activeOpacity={0.7}>
             <Text style={styles.escrowBannerInfoTxt}>{t('escrow.info')}</Text>
-            <Feather name="chevron-right" size={11} color="#7C3AED" />
+            <Feather name="chevron-right" size={11} color={colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -674,7 +798,7 @@ export default function EscrowWalletScreen() {
         </View>
 
         {transactions.length === 0 ? (
-          <Text style={{ color: '#B0B0B0', fontSize: 13, marginHorizontal: H_PAD }}>{t('escrow.noActivity')}</Text>
+          <Text style={{ color: colors.textLight, fontSize: 13, marginHorizontal: H_PAD }}>{t('escrow.noActivity')}</Text>
         ) : (
           <View style={styles.activityList}>
             {transactions.map((item, index) => (
@@ -689,7 +813,11 @@ export default function EscrowWalletScreen() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      <HowItWorksModal visible={infoVisible} onClose={() => setInfoVisible(false)} />
+      {isOwner ? (
+        <OwnerGuideModal visible={infoVisible} onClose={() => setInfoVisible(false)} />
+      ) : (
+        <HowItWorksModal visible={infoVisible} onClose={() => setInfoVisible(false)} />
+      )}
       <DepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} onDeposited={load} />
       <WithdrawModal
         visible={withdrawVisible}
@@ -702,118 +830,146 @@ export default function EscrowWalletScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAF8F6' },
-  scroll: { paddingBottom: 16 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: H_PAD, paddingVertical: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  infoBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F0FF', borderRadius: 19 },
-  balanceCard: { margin: H_PAD, borderRadius: 22, backgroundColor: '#6D28D9', padding: 22, overflow: 'hidden', position: 'relative' },
-  shieldWatermark: { position: 'absolute', right: 12, top: 10 },
-  balanceInfoHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
-  balanceInfoHintTxt: { fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
-  balanceLabel: { fontSize: 12.5, color: 'rgba(255,255,255,0.75)', fontWeight: '500', marginBottom: 6 },
-  balanceAmount: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: -0.8, marginBottom: 20 },
-  balanceSubRow: { flexDirection: 'row', gap: 12 },
-  balanceSubCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 12, gap: 6 },
-  balanceSubLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  balanceSubLabel: { fontSize: 10.5, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
-  balanceSubAmount: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: -0.3, lineHeight: 20 },
-  feeBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 14, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 12 },
-  feeBannerTxt: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 17, fontWeight: '500' },
-  primaryActions: { flexDirection: 'row', gap: 12, marginHorizontal: H_PAD, marginBottom: 24 },
-  primaryActionBtn: { flex: 1, minHeight: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 6, flexDirection: 'row', borderWidth: 1.5 },
-  depositBtn: { backgroundColor: '#F5F3FF', borderColor: '#DDD6FE' },
-  withdrawBtn: { backgroundColor: '#7C3AED', borderColor: '#6D28D9' },
-  primaryActionTxt: { fontSize: 13.5, fontWeight: '800', letterSpacing: -0.1 },
-  primaryActionTxtDeposit: { color: '#7C3AED' },
-  primaryActionTxtWithdraw: { color: '#fff' },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 14 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
-  protectionList: { paddingLeft: H_PAD, paddingRight: H_PAD / 2, gap: 14, paddingBottom: 4 },
-  protectionCard: { width: PROTECTION_CARD_W, backgroundColor: '#fff', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#EFEFEF', gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  protectionTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  protectionIdRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  protectionTitle: { fontSize: 13.5, fontWeight: '700', color: '#111', letterSpacing: -0.1, maxWidth: 140 },
-  protectionId: { fontSize: 10.5, color: '#B0B0B0' },
-  lockedChip: { backgroundColor: '#F3F0FF', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
-  lockedChipTxt: { fontSize: 10.5, color: '#7C3AED', fontWeight: '700' },
-  protectionAmount: { fontSize: 17, fontWeight: '800', color: '#111', letterSpacing: -0.3 },
-  progressRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  progressLabel: { fontSize: 11, color: '#B0B0B0' },
-  escrowBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: H_PAD, marginTop: 16, backgroundColor: '#F3F0FF', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#EDE9FE' },
-  escrowBannerIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
-  escrowBannerTitle: { fontSize: 13, fontWeight: '700', color: '#7C3AED', marginBottom: 2 },
-  escrowBannerSub: { fontSize: 11, color: '#A78BFA', lineHeight: 16 },
-  escrowBannerInfoBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#EDE9FE', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
-  escrowBannerInfoTxt: { fontSize: 11, color: '#7C3AED', fontWeight: '700' },
-  activityList: { marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18, borderWidth: 1, borderColor: '#EFEFEF', overflow: 'hidden' },
-  activityRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  activityIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  activityInfo: { flex: 1 },
-  activityLabel: { fontSize: 13, fontWeight: '600', color: '#111', marginBottom: 2 },
-  activityDate: { fontSize: 11, color: '#B0B0B0' },
-  activityAmount: { fontSize: 13.5, fontWeight: '700', color: '#111', textAlign: 'right', marginBottom: 2 },
-  activityStatus: { fontSize: 9.5, fontWeight: '700', letterSpacing: 0.5 },
-  activityDivider: { height: 1, backgroundColor: '#F5F5F5', marginLeft: 66 },
-  modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' },
-  modalSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 0, maxHeight: height * 0.88 },
-  modalHandle: { width: 40, height: 4, backgroundColor: '#E5E5E5', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  modalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
-  modalTitleIconWrap: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#F3F0FF', alignItems: 'center', justifyContent: 'center' },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: '#111', letterSpacing: -0.3 },
-  modalSubtitle: { fontSize: 11.5, color: '#888', marginTop: 1 },
-  modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' },
-  stepCard: { flexDirection: 'row', gap: 14, marginBottom: 18, position: 'relative' },
-  stepConnector: { position: 'absolute', left: 19, top: 42, width: 2, height: 36, backgroundColor: '#EDE9FE', zIndex: 0 },
-  stepIconWrap: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', zIndex: 1, flexShrink: 0 },
-  stepContent: { flex: 1 },
-  stepTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
-  stepBadge: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
-  stepBadgeTxt: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
-  stepTitle: { fontSize: 14, fontWeight: '700', color: '#111' },
-  stepDesc: { fontSize: 12.5, color: '#666', lineHeight: 18 },
-  modalDivider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 20 },
-  priceCeilingCard: { backgroundColor: '#FFFBEB', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#FDE68A', gap: 12, marginBottom: 4 },
-  priceCeilingHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  priceCeilingIconWrap: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
-  priceCeilingTitle: { fontSize: 14, fontWeight: '800', color: '#DC2626', letterSpacing: -0.2 },
-  priceCeilingBody: { fontSize: 13, color: '#444', lineHeight: 19 },
-  priceCeilingBold: { fontWeight: '800', color: '#DC2626' },
-  priceCeilingNote: { flexDirection: 'row', gap: 8, backgroundColor: '#F3F0FF', borderRadius: 12, padding: 12, alignItems: 'flex-start' },
-  priceCeilingNoteTxt: { flex: 1, fontSize: 12, color: '#555', lineHeight: 17 },
-  whyItWorksBox: { backgroundColor: '#fff', borderRadius: 12, padding: 12, gap: 8, borderWidth: 1, borderColor: '#E5E5E5' },
-  whyItWorksTitle: { fontSize: 11.5, fontWeight: '700', color: '#888', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 },
-  whyRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  whyDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#7C3AED', marginTop: 5, flexShrink: 0 },
-  whyTxt: { flex: 1, fontSize: 12, color: '#555', lineHeight: 17 },
-});
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    scroll: { paddingBottom: 16 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: H_PAD, paddingVertical: 10, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    infoBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryTint, borderRadius: 19 },
 
-const modalStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32 },
-  title: { fontSize: 17, fontWeight: '800', color: '#111' },
-  desc: { fontSize: 12.5, color: '#888', marginTop: 4, marginBottom: 16, lineHeight: 17 },
-  error: { fontSize: 12.5, color: '#DC2626', backgroundColor: '#FEF2F2', borderRadius: 10, padding: 10, marginBottom: 12 },
-  label: { fontSize: 12.5, fontWeight: '700', color: '#374151', marginBottom: 6, marginTop: 4 },
-  input: {
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    padding: 12, fontSize: 14, color: '#111', backgroundColor: '#fff',
-  },
-  hint: { fontSize: 11.5, color: '#9CA3AF', marginTop: 4 },
-  resultRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  resultTitle: { fontSize: 13.5, fontWeight: '600', color: '#111' },
-  resultMeta: { fontSize: 11.5, color: '#9CA3AF', marginTop: 1 },
-  selectedRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#F5F3FF', borderRadius: 12, padding: 12,
-  },
-  selectedTxt: { flex: 1, fontSize: 13.5, fontWeight: '600', color: '#111', marginRight: 8 },
-  changeTxt: { fontSize: 12.5, fontWeight: '700', color: '#7C3AED' },
-  actions: { flexDirection: 'row', gap: 12, marginTop: 20 },
-  cancelBtn: { flex: 1, padding: 14, borderWidth: 1.5, borderColor: '#7C3AED', borderRadius: 14, alignItems: 'center' },
-  cancelTxt: { color: '#7C3AED', fontWeight: '700', fontSize: 14 },
-  confirmBtn: { flex: 2, padding: 14, borderRadius: 14, backgroundColor: '#7C3AED', alignItems: 'center' },
-  confirmTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
-});
+    // ── Fixed brand card — unchanged across themes ──
+    balanceCard: { margin: H_PAD, borderRadius: 22, backgroundColor: '#6D28D9', padding: 22, overflow: 'hidden', position: 'relative' },
+    shieldWatermark: { position: 'absolute', right: 12, top: 10 },
+    balanceInfoHint: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+    balanceInfoHintTxt: { fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: '600' },
+    balanceLabel: { fontSize: 12.5, color: 'rgba(255,255,255,0.75)', fontWeight: '500', marginBottom: 6 },
+    balanceAmount: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: -0.8, marginBottom: 20 },
+    balanceSubRow: { flexDirection: 'row', gap: 12 },
+    balanceSubCard: { flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 12, gap: 6 },
+    balanceSubLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    balanceSubLabel: { fontSize: 10.5, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
+    balanceSubAmount: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: -0.3, lineHeight: 20 },
+    feeBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 14, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 12 },
+    feeBannerTxt: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 17, fontWeight: '500' },
+
+    primaryActions: { flexDirection: 'row', gap: 12, marginHorizontal: H_PAD, marginBottom: 24 },
+    primaryActionBtn: { flex: 1, minHeight: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 6, flexDirection: 'row', borderWidth: 1.5 },
+    depositBtn: { backgroundColor: colors.primaryTint, borderColor: '#DDD6FE' }, // light-purple border, no matching token
+    withdrawBtn: { backgroundColor: colors.primary, borderColor: colors.primaryDark },
+    primaryActionTxt: { fontSize: 13.5, fontWeight: '800', letterSpacing: -0.1 },
+    primaryActionTxtDeposit: { color: colors.primary },
+    primaryActionTxtWithdraw: { color: '#fff' },
+
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 14 },
+    sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
+
+    protectionList: { paddingLeft: H_PAD, paddingRight: H_PAD / 2, gap: 14, paddingBottom: 4 },
+    protectionCard: { width: PROTECTION_CARD_W, backgroundColor: colors.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: colors.borderLight, gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+    protectionTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    protectionIdRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+    protectionTitle: { fontSize: 13.5, fontWeight: '700', color: colors.text, letterSpacing: -0.1, maxWidth: 140 },
+    protectionId: { fontSize: 10.5, color: colors.textLight },
+    lockedChip: { backgroundColor: colors.primaryTint, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
+    lockedChipTxt: { fontSize: 10.5, color: colors.primary, fontWeight: '700' },
+    protectionAmount: { fontSize: 17, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
+    progressRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    progressLabel: { fontSize: 11, color: colors.textLight },
+
+    escrowBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: H_PAD, marginTop: 16, backgroundColor: colors.primaryTint, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.primaryBorder },
+    escrowBannerIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.primaryBorder, alignItems: 'center', justifyContent: 'center' },
+    escrowBannerTitle: { fontSize: 13, fontWeight: '700', color: colors.primary, marginBottom: 2 },
+    escrowBannerSub: { fontSize: 11, color: '#A78BFA', lineHeight: 16 }, // light-purple subtext, no matching token
+    escrowBannerInfoBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: colors.primaryBorder, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+    escrowBannerInfoTxt: { fontSize: 11, color: colors.primary, fontWeight: '700' },
+
+    activityList: { marginHorizontal: H_PAD, backgroundColor: colors.card, borderRadius: 18, borderWidth: 1, borderColor: colors.borderLight, overflow: 'hidden' },
+    activityRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+    activityIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    activityInfo: { flex: 1 },
+    activityLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 2 },
+    activityDate: { fontSize: 11, color: colors.textLight },
+    activityAmount: { fontSize: 13.5, fontWeight: '700', color: colors.text, textAlign: 'right', marginBottom: 2 },
+    activityStatus: { fontSize: 9.5, fontWeight: '700', letterSpacing: 0.5 },
+    activityDivider: { height: 1, backgroundColor: colors.borderLight, marginLeft: 66 },
+
+    modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' },
+    modalSheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 0, maxHeight: height * 0.88 },
+    modalHandle: { width: 40, height: 4, backgroundColor: colors.border, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
+    modalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+    modalTitleIconWrap: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center' },
+    modalTitle: { fontSize: 16, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
+    modalSubtitle: { fontSize: 11.5, color: colors.textLight, marginTop: 1 },
+    modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.borderLight, alignItems: 'center', justifyContent: 'center' },
+
+    stepCard: { flexDirection: 'row', gap: 14, marginBottom: 18, position: 'relative' },
+    stepConnector: { position: 'absolute', left: 19, top: 42, width: 2, height: 36, backgroundColor: colors.primaryBorder, zIndex: 0 },
+    stepIconWrap: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', zIndex: 1, flexShrink: 0 },
+    stepContent: { flex: 1 },
+    stepTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5 },
+    stepBadge: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
+    stepBadgeTxt: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
+    stepTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+    stepDesc: { fontSize: 12.5, color: colors.textSecondary, lineHeight: 18 },
+    modalDivider: { height: 1, backgroundColor: colors.borderLight, marginVertical: 20 },
+
+    priceCeilingCard: { backgroundColor: '#FFFBEB', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: '#FDE68A', gap: 12, marginBottom: 4 }, // amber warning card, no matching token
+    priceCeilingHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    priceCeilingIconWrap: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' }, // danger-tint, no matching token
+    priceCeilingTitle: { fontSize: 14, fontWeight: '800', color: colors.danger, letterSpacing: -0.2 },
+    priceCeilingBody: { fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
+    priceCeilingBold: { fontWeight: '800', color: colors.danger },
+    priceCeilingNote: { flexDirection: 'row', gap: 8, backgroundColor: colors.primaryTint, borderRadius: 12, padding: 12, alignItems: 'flex-start' },
+    priceCeilingNoteTxt: { flex: 1, fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
+    whyItWorksBox: { backgroundColor: colors.card, borderRadius: 12, padding: 12, gap: 8, borderWidth: 1, borderColor: colors.border },
+    whyItWorksTitle: { fontSize: 11.5, fontWeight: '700', color: colors.textLight, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 },
+    whyRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+    whyDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, marginTop: 5, flexShrink: 0 },
+    whyTxt: { flex: 1, fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
+
+    // ── Owner escrow guide (house-owner-only info modal) ──
+    guideSectionTitle: { fontSize: 14.5, fontWeight: '800', color: colors.text, marginBottom: 8, letterSpacing: -0.2 },
+    guideBody: { fontSize: 13, color: colors.textSecondary, lineHeight: 20, marginBottom: 10 },
+    guideDivider: { height: 1, backgroundColor: colors.borderLight, marginVertical: 18 },
+    guideBulletRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginBottom: 8 },
+    guideBulletDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, marginTop: 6, flexShrink: 0 },
+    guideBulletTxt: { flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
+    guideBulletBold: { fontWeight: '700', color: colors.text },
+    guideNoteBox: { flexDirection: 'row', gap: 8, backgroundColor: colors.primaryTint, borderRadius: 12, padding: 12, alignItems: 'flex-start', marginTop: 4 },
+    guideNoteTxt: { flex: 1, fontSize: 12, color: colors.textSecondary, lineHeight: 17 },
+    guideScenarioCard: { backgroundColor: colors.cardMuted, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.borderLight, marginTop: 12 },
+    guideScenarioCardAlt: { backgroundColor: colors.warningBg, borderColor: colors.warning }, // early-departure scenario, deliberately flagged
+    guideScenarioTitle: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 10, lineHeight: 18 },
+  });
+}
+
+function getModalStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+    sheet: { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32 },
+    title: { fontSize: 17, fontWeight: '800', color: colors.text },
+    desc: { fontSize: 12.5, color: colors.textLight, marginTop: 4, marginBottom: 16, lineHeight: 17 },
+    error: { fontSize: 12.5, color: colors.danger, backgroundColor: '#FEF2F2', borderRadius: 10, padding: 10, marginBottom: 12 }, // danger-tint, no matching token
+    label: { fontSize: 12.5, fontWeight: '700', color: colors.textSecondary, marginBottom: 6, marginTop: 4 },
+    input: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
+      padding: 12, fontSize: 14, color: colors.text, backgroundColor: colors.card,
+    },
+    hint: { fontSize: 11.5, color: colors.textLight, marginTop: 4 },
+    resultRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+    resultTitle: { fontSize: 13.5, fontWeight: '600', color: colors.text },
+    resultMeta: { fontSize: 11.5, color: colors.textLight, marginTop: 1 },
+    selectedRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: colors.primaryTint, borderRadius: 12, padding: 12,
+    },
+    selectedTxt: { flex: 1, fontSize: 13.5, fontWeight: '600', color: colors.text, marginRight: 8 },
+    changeTxt: { fontSize: 12.5, fontWeight: '700', color: colors.primary },
+    actions: { flexDirection: 'row', gap: 12, marginTop: 20 },
+    cancelBtn: { flex: 1, padding: 14, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 14, alignItems: 'center' },
+    cancelTxt: { color: colors.primary, fontWeight: '700', fontSize: 14 },
+    confirmBtn: { flex: 2, padding: 14, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center' },
+    confirmTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  });
+}

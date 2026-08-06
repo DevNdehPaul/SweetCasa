@@ -1,6 +1,6 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,10 +17,10 @@ import {
   View,
 } from "react-native";
 import api from "../constants/api";
+import { ThemeColors } from "../constants/theme";
+import { useAppTheme } from "../hooks/use-app-theme"; // adjust relative path if needed
 
 const H_PAD = 20;
-const PURPLE = "#7C3AED";
-const PURPLE_LIGHT = "#F0EBFF";
 
 // ─── Cross-platform Alert ─────────────────────────────────────────────────────
 // Alert.alert is a no-op on React Native Web — it just logs to console and
@@ -65,6 +65,9 @@ function crossAlert(
 
 // Mount once near the root of the screen. Renders nothing on native.
 function WebAlertHost() {
+  const { colors } = useAppTheme();
+  const webAlertStyles = useMemo(() => getWebAlertStyles(colors), [colors]);
+
   const [state, setState] = useState<WebAlertState>({
     visible: false,
     title: "",
@@ -131,6 +134,9 @@ function WebAlertHost() {
 }
 
 export default function ResetPasswordScreen() {
+  const { colors, isDark } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
   const params = useLocalSearchParams<{ token?: string; email?: string }>();
   const token = String(params.token || "");
   const email = String(params.email || "");
@@ -186,7 +192,10 @@ export default function ResetPasswordScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F7FB" />
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={colors.background}
+      />
       <WebAlertHost />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -201,17 +210,19 @@ export default function ResetPasswordScreen() {
             onPress={() => router.back()}
             style={styles.backBtn}
           >
-            <Feather name="arrow-left" size={22} color="#111827" />
+            <Feather name="arrow-left" size={22} color={colors.text} />
           </TouchableOpacity>
 
           {invalidToken ? (
             // ── Missing/invalid token ────────────────────────────────────────
             <View style={styles.centerWrap}>
-              <View style={[styles.iconWrap, { backgroundColor: "#FEF3C7" }]}>
+              <View
+                style={[styles.iconWrap, { backgroundColor: colors.warningBg }]}
+              >
                 <Ionicons
                   name="alert-circle-outline"
                   size={38}
-                  color="#D97706"
+                  color={colors.warning}
                 />
               </View>
               <Text style={styles.centerTitle}>Invalid Reset Link</Text>
@@ -230,11 +241,13 @@ export default function ResetPasswordScreen() {
           ) : done ? (
             // ── Success state ────────────────────────────────────────────────
             <View style={styles.centerWrap}>
-              <View style={[styles.iconWrap, { backgroundColor: "#DCFCE7" }]}>
+              <View
+                style={[styles.iconWrap, { backgroundColor: colors.successBg }]}
+              >
                 <Ionicons
                   name="checkmark-circle-outline"
                   size={38}
-                  color="#16A34A"
+                  color={colors.success}
                 />
               </View>
               <Text style={styles.centerTitle}>Password Updated</Text>
@@ -258,7 +271,7 @@ export default function ResetPasswordScreen() {
                   <Ionicons
                     name="lock-closed-outline"
                     size={30}
-                    color="#7C3AED"
+                    color={colors.primary}
                   />
                 </View>
                 <Text style={styles.heroTitle}>Set a New Password</Text>
@@ -266,7 +279,7 @@ export default function ResetPasswordScreen() {
                   {email ? (
                     <>
                       Creating a new password for{" "}
-                      <Text style={{ fontWeight: "700", color: "#7C3AED" }}>
+                      <Text style={{ fontWeight: "700", color: colors.primary }}>
                         {email}
                       </Text>
                       .
@@ -280,11 +293,11 @@ export default function ResetPasswordScreen() {
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>New Password</Text>
                 <View style={styles.inputWrap}>
-                  <Feather name="lock" size={15} color="#9CA3AF" />
+                  <Feather name="lock" size={15} color={colors.textLight} />
                   <TextInput
                     style={styles.fieldInput}
                     placeholder="Min. 8 characters"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={colors.textLight}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
@@ -295,7 +308,7 @@ export default function ResetPasswordScreen() {
                     <Feather
                       name={showPassword ? "eye-off" : "eye"}
                       size={15}
-                      color="#9CA3AF"
+                      color={colors.textLight}
                     />
                   </TouchableOpacity>
                 </View>
@@ -304,11 +317,11 @@ export default function ResetPasswordScreen() {
               <View style={styles.fieldGroup}>
                 <Text style={styles.fieldLabel}>Confirm New Password</Text>
                 <View style={styles.inputWrap}>
-                  <Feather name="lock" size={15} color="#9CA3AF" />
+                  <Feather name="lock" size={15} color={colors.textLight} />
                   <TextInput
                     style={styles.fieldInput}
                     placeholder="Repeat your new password"
-                    placeholderTextColor="#9CA3AF"
+                    placeholderTextColor={colors.textLight}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     secureTextEntry={!showConfirm}
@@ -320,7 +333,7 @@ export default function ResetPasswordScreen() {
                     <Feather
                       name={showConfirm ? "eye-off" : "eye"}
                       size={15}
-                      color="#9CA3AF"
+                      color={colors.textLight}
                     />
                   </TouchableOpacity>
                 </View>
@@ -330,7 +343,7 @@ export default function ResetPasswordScreen() {
                 <Feather
                   name="info"
                   size={13}
-                  color="#9CA3AF"
+                  color={colors.textLight}
                   style={{ marginTop: 2 }}
                 />
                 <Text style={styles.strengthTxt}>
@@ -365,162 +378,176 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F7F7FB" },
-  scroll: {
-    paddingHorizontal: H_PAD,
-    paddingTop: 20,
-    paddingBottom: 40,
-    flexGrow: 1,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: PURPLE_LIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
-  hero: { alignItems: "center", marginBottom: 28 },
-  shieldWrap: {
-    width: 64,
-    height: 64,
-    backgroundColor: "#F5F3FF",
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-    shadowColor: PURPLE,
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 8,
-    letterSpacing: -0.4,
-  },
-  heroDesc: {
-    fontSize: 13.5,
-    color: "#9CA3AF",
-    textAlign: "center",
-    lineHeight: 21,
-    maxWidth: 320,
-  },
-  fieldGroup: { marginBottom: 16 },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  inputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#fff",
-    borderWidth: 1.5,
-    borderColor: "#E5E7EB",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  fieldInput: { flex: 1, fontSize: 14, color: "#111827", padding: 0 },
-  strengthHint: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 20,
-  },
-  strengthTxt: { flex: 1, fontSize: 12, color: "#6B7280", lineHeight: 18 },
-  primaryBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    backgroundColor: "#6D28D9",
-    borderRadius: 18,
-    paddingVertical: 17,
-    marginBottom: 20,
-    shadowColor: "#5B21B6",
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  primaryBtnDisabled: { opacity: 0.45, shadowOpacity: 0, elevation: 0 },
-  primaryBtnTxt: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: -0.2,
-  },
-  centerWrap: { alignItems: "center", paddingTop: 40 },
-  iconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-  },
-  centerTitle: {
-    fontSize: 21,
-    fontWeight: "800",
-    color: "#111827",
-    marginBottom: 8,
-    letterSpacing: -0.3,
-  },
-  centerDesc: {
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 24,
-    maxWidth: 320,
-  },
-});
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    scroll: {
+      paddingHorizontal: H_PAD,
+      paddingTop: 20,
+      paddingBottom: 40,
+      flexGrow: 1,
+    },
+    backBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: colors.primaryTint,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 24,
+    },
+    hero: { alignItems: "center", marginBottom: 28 },
+    shieldWrap: {
+      width: 64,
+      height: 64,
+      backgroundColor: colors.primaryTintAlt,
+      borderRadius: 22,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 14,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+    },
+    heroTitle: {
+      fontSize: 22,
+      fontWeight: "800",
+      color: colors.text,
+      marginBottom: 8,
+      letterSpacing: -0.4,
+    },
+    heroDesc: {
+      fontSize: 13.5,
+      color: colors.textLight,
+      textAlign: "center",
+      lineHeight: 21,
+      maxWidth: 320,
+    },
+    fieldGroup: { marginBottom: 16 },
+    fieldLabel: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.textSecondary,
+      marginBottom: 8,
+    },
+    inputWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: colors.card,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+    },
+    fieldInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
+    strengthHint: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+      backgroundColor: colors.cardMuted,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 20,
+    },
+    strengthTxt: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+    primaryBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      backgroundColor: colors.primaryDark,
+      borderRadius: 18,
+      paddingVertical: 17,
+      marginBottom: 20,
+      shadowColor: colors.primaryDarker,
+      shadowOpacity: 0.35,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 8,
+    },
+    primaryBtnDisabled: { opacity: 0.45, shadowOpacity: 0, elevation: 0 },
+    primaryBtnTxt: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: "#fff", // white text on solid purple button — same in both themes
+      letterSpacing: -0.2,
+    },
+    centerWrap: { alignItems: "center", paddingTop: 40 },
+    iconWrap: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 20,
+      shadowColor: "#000",
+      shadowOpacity: 0.06,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 3,
+    },
+    centerTitle: {
+      fontSize: 21,
+      fontWeight: "800",
+      color: colors.text,
+      marginBottom: 8,
+      letterSpacing: -0.3,
+    },
+    centerDesc: {
+      fontSize: 14,
+      color: colors.textMuted,
+      textAlign: "center",
+      lineHeight: 22,
+      marginBottom: 24,
+      maxWidth: 320,
+    },
+  });
+}
 
 // ─── Web Alert Modal Styles ───────────────────────────────────────────────────
-const webAlertStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(17, 24, 39, 0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 340,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-  },
-  title: { fontSize: 16, fontWeight: "700", color: "#111827", marginBottom: 8 },
-  message: { fontSize: 13.5, color: "#4B5563", lineHeight: 20, marginBottom: 18 },
-  btnRow: { flexDirection: "row", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" },
-  btn: { paddingVertical: 9, paddingHorizontal: 16, borderRadius: 10, backgroundColor: "#6D28D9" },
-  btnCancel: { backgroundColor: "#F3F4F6" },
-  btnDestructive: { backgroundColor: "#DC2626" },
-  btnTxt: { fontSize: 13.5, fontWeight: "700", color: "#fff" },
-  btnTxtCancel: { color: "#374151" },
-  btnTxtDestructive: { color: "#fff" },
-});
+function getWebAlertStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    card: {
+      width: "100%",
+      maxWidth: 340,
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 10,
+    },
+    title: { fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: 8 },
+    message: {
+      fontSize: 13.5,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      marginBottom: 18,
+    },
+    btnRow: { flexDirection: "row", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" },
+    btn: {
+      paddingVertical: 9,
+      paddingHorizontal: 16,
+      borderRadius: 10,
+      backgroundColor: colors.primaryDark,
+    },
+    btnCancel: { backgroundColor: colors.divider },
+    btnDestructive: { backgroundColor: colors.danger },
+    btnTxt: { fontSize: 13.5, fontWeight: "700", color: "#fff" },
+    btnTxtCancel: { color: colors.textSecondary },
+    btnTxtDestructive: { color: "#fff" },
+  });
+}

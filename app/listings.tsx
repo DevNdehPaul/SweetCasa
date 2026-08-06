@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -13,6 +13,7 @@ import {
   RefreshControl,
   SafeAreaView,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -20,17 +21,8 @@ import {
   View,
 } from 'react-native';
 import { BASE_URL } from '../constants/api';
-
-// ─── Theme ────────────────────────────────────────────────────────────────────
-const PURPLE       = '#7C5CFC';
-const PURPLE_LIGHT = '#F0EBFF';
-const GREEN        = '#22C55E';
-const GREEN_LIGHT  = '#DCFCE7';
-const GRAY_BORDER  = '#E5E7EB';
-const TEXT_DARK    = '#111827';
-const TEXT_MID     = '#6B7280';
-const TEXT_LIGHT   = '#9CA3AF';
-const BG           = '#F5F6FA';
+import { ThemeColors } from '../constants/theme';
+import { useAppTheme } from '../hooks/use-app-theme';
 
 type Status = 'Approved' | 'Pending' | 'Rejected';
 type Filter = 'All' | Status;
@@ -89,6 +81,8 @@ function inferMimeType(uri: string, fallback: string) {
   return fallback;
 }
 
+// Status colors are semantic (approved/pending/rejected), deliberately fixed
+// across themes — same treatment as TYPE_META in the wallet screen.
 const STATUS_CONFIG: Record<Status, { bg: string; color: string; icon: string }> = {
   Approved: { bg: '#DCFCE7', color: '#16A34A', icon: '✓' },
   Pending:  { bg: '#FEF3C7', color: '#D97706', icon: '⏱' },
@@ -176,42 +170,55 @@ function getPrimaryImage(images: ListingImage[]) {
 
 // ─── Reusable sub-components ──────────────────────────────────────────────────
 
-const SectionLabel = ({ title }: { title: string }) => (
-  <Text style={s.sectionLabel}>{title}</Text>
-);
+const SectionLabel = ({ title }: { title: string }) => {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+  return <Text style={s.sectionLabel}>{title}</Text>;
+};
 
 const Chip = ({
-  label, selected, onPress, color = PURPLE,
+  label, selected, onPress, color,
 }: {
   label: string; selected: boolean; onPress: () => void; color?: string;
-}) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={[
-      s.chip,
-      { borderColor: selected ? color : GRAY_BORDER },
-      selected && { backgroundColor: color === GREEN ? GREEN_LIGHT : PURPLE_LIGHT },
-    ]}>
-    <Text style={[s.chipTxt, { color: selected ? color : TEXT_MID }]}>{label}</Text>
-  </TouchableOpacity>
-);
-
-const Stepper = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
-  <View style={s.stepperRow}>
-    <TouchableOpacity onPress={() => onChange(Math.max(0, value - 1))} style={s.stepBtn}>
-      <Text style={s.stepBtnText}>-</Text>
-    </TouchableOpacity>
-    <Text style={s.stepperValue}>{value}</Text>
+}) => {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+  const c = color ?? colors.primary;
+  return (
     <TouchableOpacity
-      onPress={() => onChange(value + 1)}
-      style={[s.stepBtn, { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT }]}>
-      <Text style={[s.stepBtnText, { color: PURPLE }]}>+</Text>
+      onPress={onPress}
+      style={[
+        s.chip,
+        { borderColor: selected ? c : colors.border },
+        selected && { backgroundColor: c === colors.success ? '#DCFCE7' : colors.primaryTint }, // success-tint has no token yet
+      ]}>
+      <Text style={[s.chipTxt, { color: selected ? c : colors.textMuted }]}>{label}</Text>
     </TouchableOpacity>
-  </View>
-);
+  );
+};
+
+const Stepper = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+  return (
+    <View style={s.stepperRow}>
+      <TouchableOpacity onPress={() => onChange(Math.max(0, value - 1))} style={s.stepBtn}>
+        <Text style={s.stepBtnText}>-</Text>
+      </TouchableOpacity>
+      <Text style={s.stepperValue}>{value}</Text>
+      <TouchableOpacity
+        onPress={() => onChange(value + 1)}
+        style={[s.stepBtn, { borderColor: colors.primary, backgroundColor: colors.primaryTint }]}>
+        <Text style={[s.stepBtnText, { color: colors.primary }]}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const StatusBadge = ({ status }: { status: Status }) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
   const cfg = STATUS_CONFIG[status];
   const labelKey =
     status === 'Approved' ? 'dashboard.approved' :
@@ -235,17 +242,19 @@ function DeleteModal({
   deleting: boolean;
 }) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={s.modalOverlay}>
         <View style={s.modalBox}>
           <View style={s.modalIconWrap}>
-            <Feather name="trash-2" size={28} color="#DC2626" />
+            <Feather name="trash-2" size={28} color={colors.danger} />
           </View>
           <Text style={s.modalTitle}>{t('myListings.deleteTitle')}</Text>
           <Text style={s.modalDesc}>
             {t('myListings.deleteDescPre')}{' '}
-            <Text style={{ fontWeight: '700', color: TEXT_DARK }}>"{listing?.title}"</Text>
+            <Text style={{ fontWeight: '700', color: colors.text }}>"{listing?.title}"</Text>
             ?{'\n'}{t('myListings.deleteDescPost')}
           </Text>
           <View style={s.modalBtns}>
@@ -275,6 +284,8 @@ const MediaUploadBox = ({
   max?: number;
 }) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const handleAdd = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -330,6 +341,8 @@ const DocumentUploadBox = ({
   max?: number;
 }) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const handleAdd = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -389,6 +402,8 @@ function EditModal({
   saving: boolean;
 }) {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const PROP_TYPES        = getPropTypes(t);
   const FACILITY_LIST     = getFacilityList(t);
@@ -520,7 +535,7 @@ function EditModal({
           <View style={s.editHeader}>
             <Text style={s.editTitle}>{t('myListings.editTitle')}</Text>
             <TouchableOpacity onPress={onCancel} disabled={saving}>
-              <Feather name="x" size={22} color={TEXT_DARK} />
+              <Feather name="x" size={22} color={colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -558,7 +573,7 @@ function EditModal({
             <TextInput
               style={s.input} value={title} onChangeText={setTitle}
               placeholder="e.g. Modern Studio in Bastos"
-              placeholderTextColor={TEXT_LIGHT}
+              placeholderTextColor={colors.textLight}
             />
             <Text style={s.fieldLabel}>{t('listing.propertyType')}</Text>
             <View style={s.chipRow}>
@@ -572,28 +587,28 @@ function EditModal({
             <Text style={s.fieldLabel}>{t('listing.country')}</Text>
             <TextInput
               style={s.input} value={country} onChangeText={setCountry}
-              placeholder="e.g. Cameroon" placeholderTextColor={TEXT_LIGHT}
+              placeholder="e.g. Cameroon" placeholderTextColor={colors.textLight}
             />
             <View style={s.rowFields}>
               <View style={{ flex: 1 }}>
                 <Text style={s.fieldLabel}>{t('listing.region')}</Text>
                 <TextInput
                   style={s.input} value={region} onChangeText={setRegion}
-                  placeholder="e.g. Littoral" placeholderTextColor={TEXT_LIGHT}
+                  placeholder="e.g. Littoral" placeholderTextColor={colors.textLight}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.fieldLabel}>{t('listing.city')}</Text>
                 <TextInput
                   style={s.input} value={city} onChangeText={setCity}
-                  placeholder="e.g. Douala" placeholderTextColor={TEXT_LIGHT}
+                  placeholder="e.g. Douala" placeholderTextColor={colors.textLight}
                 />
               </View>
             </View>
             <Text style={s.fieldLabel}>{t('listing.neighborhood')}</Text>
             <TextInput
               style={s.input} value={neighborhood} onChangeText={setNeighborhood}
-              placeholder="e.g. Bastos" placeholderTextColor={TEXT_LIGHT}
+              placeholder="e.g. Bastos" placeholderTextColor={colors.textLight}
             />
 
             {/* 3 · Pricing */}
@@ -606,7 +621,7 @@ function EditModal({
                 onChangeText={(v) => setPrice(fmtPriceInput(v))}
                 placeholder="0"
                 keyboardType="numeric"
-                placeholderTextColor={TEXT_LIGHT}
+                placeholderTextColor={colors.textLight}
               />
               <Text style={s.priceSuffix}>XAF</Text>
             </View>
@@ -627,12 +642,12 @@ function EditModal({
             ))}
             <Text style={s.fieldLabel}>
               {t('listing.totalArea')}{' '}
-              <Text style={{ fontWeight: '400', color: TEXT_LIGHT }}>— {t('common.optional')}</Text>
+              <Text style={{ fontWeight: '400', color: colors.textLight }}>— {t('common.optional')}</Text>
             </Text>
             <TextInput
               style={s.input} value={area} onChangeText={setArea}
               placeholder="e.g. 120" keyboardType="numeric"
-              placeholderTextColor={TEXT_LIGHT}
+              placeholderTextColor={colors.textLight}
             />
 
             {/* 5 · Facilities */}
@@ -642,7 +657,7 @@ function EditModal({
                 <Chip
                   key={value} label={label}
                   selected={amenities.includes(value)}
-                  color={GREEN}
+                  color={colors.success}
                   onPress={() => toggleAmenity(value)}
                 />
               ))}
@@ -652,7 +667,7 @@ function EditModal({
               <View style={s.nearbySection}>
                 <Text style={s.nearbyHeading}>
                   {t('listing.nearbyPlaces')}{' '}
-                  <Text style={{ fontWeight: '400', color: TEXT_LIGHT }}>— {t('common.optional')}</Text>
+                  <Text style={{ fontWeight: '400', color: colors.textLight }}>— {t('common.optional')}</Text>
                 </Text>
                 <Text style={s.nearbySubtext}>{t('listing.nearbyPlacesDesc')}</Text>
                 {NEARBY_FACILITY_FIELDS.map((nf) => {
@@ -660,12 +675,12 @@ function EditModal({
                   return (
                     <View key={nf.key} style={{ marginBottom: 10 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <Text style={{ fontSize: 10, color: GREEN }}>●</Text>
+                        <Text style={{ fontSize: 10, color: colors.success }}>●</Text>
                         <Text style={s.fieldLabel}>{t(nf.facilityLabelKey)}</Text>
                       </View>
                       <TextInput
                         style={s.nearbyInput}
-                        placeholderTextColor={TEXT_LIGHT}
+                        placeholderTextColor={colors.textLight}
                         placeholder={nf.placeholder}
                         value={nearbyValues[nf.key]}
                         onChangeText={nearbySetters[nf.key]}
@@ -716,7 +731,7 @@ function EditModal({
               value={description}
               onChangeText={setDescription}
               placeholder={t('listing.descriptionPlaceholder')}
-              placeholderTextColor={TEXT_LIGHT}
+              placeholderTextColor={colors.textLight}
               multiline
               numberOfLines={5}
             />
@@ -727,7 +742,7 @@ function EditModal({
             <TextInput
               style={s.input} value={visitHours} onChangeText={setVisitHours}
               placeholder={t('listing.visitingHoursPlaceholder')}
-              placeholderTextColor={TEXT_LIGHT}
+              placeholderTextColor={colors.textLight}
             />
 
             <View style={{ height: 20 }} />
@@ -758,6 +773,8 @@ const ListingCard = ({
   onEdit: (item: Listing) => void;
 }) => {
   const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
   const imageUrl = getPrimaryImage(item.images);
   const location = [item.neighborhood, item.city, item.region].filter(Boolean).join(', ');
 
@@ -777,11 +794,11 @@ const ListingCard = ({
         <StatusBadge status={item.status} />
         <View style={s.cardActions}>
           <TouchableOpacity style={s.editBtn} onPress={() => onEdit(item)}>
-            <Feather name="edit-2" size={13} color={PURPLE} />
+            <Feather name="edit-2" size={13} color={colors.primary} />
             <Text style={s.editBtnTxt}>{t('common.edit')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(item)}>
-            <Feather name="trash-2" size={13} color="#DC2626" />
+            <Feather name="trash-2" size={13} color={colors.danger} />
             <Text style={s.deleteBtnTxt}>{t('common.delete')}</Text>
           </TouchableOpacity>
         </View>
@@ -795,6 +812,8 @@ const FILTERS: Filter[] = ['All', 'Approved', 'Pending', 'Rejected'];
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function MyListings() {
   const { t } = useTranslation();
+  const { colors, isDark } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const [listings, setListings]         = useState<Listing[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -913,6 +932,7 @@ export default function MyListings() {
 
   return (
     <SafeAreaView style={s.safe}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <DeleteModal
         visible={!!deleteTarget} listing={deleteTarget}
         onCancel={() => setDeleteTarget(null)} onConfirm={handleDeleteConfirm} deleting={deleting}
@@ -925,7 +945,7 @@ export default function MyListings() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.push('/agent-dashboard')} style={s.backBtn}>
-          <Feather name="arrow-left" size={22} color="#111827" />
+          <Feather name="arrow-left" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>{t('myListings.title')}</Text>
         <View style={{ width: 38 }} />
@@ -933,7 +953,7 @@ export default function MyListings() {
 
       {loading ? (
         <View style={s.centered}>
-          <ActivityIndicator size="large" color={PURPLE} />
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={s.loadingTxt}>{t('myListings.loading')}</Text>
         </View>
       ) : error ? (
@@ -948,7 +968,7 @@ export default function MyListings() {
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => fetchListings(true)} tintColor={PURPLE} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => fetchListings(true)} tintColor={colors.primary} />
           }
         >
           {/* Summary */}
@@ -997,211 +1017,213 @@ export default function MyListings() {
 
       {/* FAB */}
       <TouchableOpacity style={s.fab} onPress={() => router.push('/upload')}>
-        
         <Text style={s.fabTxt}>{t('myListings.addNew')}</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
-// ─── Styles (unchanged) ───────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-  loadingTxt: { fontSize: 14, color: TEXT_MID },
-  errorTxt: { fontSize: 14, color: '#DC2626', textAlign: 'center' },
-  retryBtn: { paddingHorizontal: 24, paddingVertical: 10, backgroundColor: PURPLE, borderRadius: 12 },
-  retryTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8,
-    backgroundColor: BG, position: 'relative',
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
-  },
-  headerTitle: {
-    fontSize: 24, fontWeight: '800', color: TEXT_DARK,
-    position: 'absolute', left: 0, right: 0, textAlign: 'center',
-  },
-  summaryRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8, gap: 6 },
-  summaryTotal: { fontSize: 13, fontWeight: '700', color: TEXT_DARK },
-  dot: { fontSize: 13, color: TEXT_MID },
-  summaryCount: { fontSize: 13, fontWeight: '600' },
-  filterRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
-  filterTab: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 24, backgroundColor: PURPLE_LIGHT },
-  filterTabActive: { backgroundColor: PURPLE },
-  filterTxt: { fontSize: 14, fontWeight: '600', color: PURPLE },
-  filterTxtActive: { color: '#fff' },
-  listContainer: { paddingHorizontal: 16, paddingTop: 8, gap: 12 },
-  card: {
-    flexDirection: 'row', backgroundColor: '#fff',
-    borderRadius: 16, overflow: 'hidden',
-    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 2, marginBottom: 4,
-  },
-  cardImg: { width: 110, height: 140 },
-  cardImgPlaceholder: { backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center' },
-  cardImgPlaceholderTxt: { fontSize: 32 },
-  cardBody: { flex: 1, padding: 12, justifyContent: 'center', gap: 3 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: TEXT_DARK },
-  cardSub: { fontSize: 12, color: TEXT_MID },
-  cardLocation: { fontSize: 12, color: TEXT_MID },
-  badge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 20, marginTop: 4,
-  },
-  badgeIcon: { fontSize: 11, fontWeight: '700' },
-  badgeTxt: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  cardActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
-  editBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1.5, borderColor: PURPLE, borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 6,
-  },
-  editBtnTxt: { fontSize: 12, fontWeight: '700', color: PURPLE },
-  deleteBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    borderWidth: 1.5, borderColor: '#DC2626', borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 6,
-  },
-  deleteBtnTxt: { fontSize: 12, fontWeight: '700', color: '#DC2626' },
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center', justifyContent: 'center', padding: 24,
-  },
-  modalBox: {
-    backgroundColor: '#fff', borderRadius: 24,
-    padding: 28, width: '100%', alignItems: 'center', gap: 12,
-  },
-  modalIconWrap: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
-  },
-  modalTitle: { fontSize: 20, fontWeight: '800', color: TEXT_DARK },
-  modalDesc: { fontSize: 13.5, color: TEXT_MID, textAlign: 'center', lineHeight: 21 },
-  modalBtns: { flexDirection: 'row', gap: 12, marginTop: 8, width: '100%' },
-  modalCancelBtn: {
-    flex: 1, borderWidth: 1.5, borderColor: '#E5E7EB',
-    borderRadius: 14, paddingVertical: 14, alignItems: 'center',
-  },
-  modalCancelTxt: { fontSize: 14, fontWeight: '700', color: TEXT_MID },
-  modalDeleteBtn: { flex: 1, backgroundColor: '#DC2626', borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  modalDeleteTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  editOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  editBox: {
-    backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    padding: 24, maxHeight: '92%',
-  },
-  editHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  editTitle: { fontSize: 20, fontWeight: '800', color: TEXT_DARK },
-  editNote: {
-    fontSize: 12.5, color: TEXT_MID, backgroundColor: '#FEF3C7',
-    borderRadius: 10, padding: 10, marginBottom: 14, lineHeight: 18,
-  },
-  statusBanner: { borderRadius: 12, padding: 12, marginBottom: 14, borderWidth: 1 },
-  statusBannerPending:  { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
-  statusBannerApproved: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
-  statusBannerRejected: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
-  statusBannerTitle: { fontSize: 13.5, fontWeight: '800' },
-  statusBannerNote: { fontSize: 12.5, color: TEXT_DARK, marginTop: 6, lineHeight: 18 },
-  statusBannerFootnote: { fontSize: 11.5, color: TEXT_MID, marginTop: 6, lineHeight: 16 },
-  mediaSection: { marginBottom: 18, marginTop: 6 },
-  mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
-  previewWrap: { position: 'relative' },
-  previewImage: { width: 72, height: 72, borderRadius: 10 },
-  removePreviewBtn: {
-    position: 'absolute', top: -6, right: -6,
-    width: 20, height: 20, borderRadius: 10,
-    backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center',
-  },
-  removePreviewTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  uploadBtn: {
-    width: 72, height: 72, borderRadius: 10,
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: PURPLE,
-    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
-  },
-  uploadPlus: { fontSize: 24, color: PURPLE },
-  uploadLabel: { fontSize: 10, color: PURPLE, fontWeight: '600' },
-  docFileList: { gap: 8 },
-  docFileRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 10,
-    borderWidth: 1, borderColor: GRAY_BORDER,
-  },
-  docFileName: { flex: 1, fontSize: 13, color: TEXT_DARK, marginRight: 8 },
-  docRemove: { fontSize: 14, color: '#EF4444', fontWeight: '700' },
-  docUploadBtn: {
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: PURPLE,
-    borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: PURPLE_LIGHT,
-  },
-  docUploadTxt: { color: PURPLE, fontSize: 13, fontWeight: '600' },
-  mediaReplaceNote: { fontSize: 11.5, color: '#D97706', marginTop: -2, marginBottom: 10, lineHeight: 16 },
-  currentFileTxt: { fontSize: 13, color: TEXT_DARK, marginBottom: 8 },
-  currentFileTxtMuted: { fontSize: 13, color: TEXT_LIGHT, marginBottom: 8 },
-  sectionLabel: {
-    fontSize: 13, fontWeight: '800', color: PURPLE,
-    backgroundColor: PURPLE_LIGHT, borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 5,
-    marginTop: 18, marginBottom: 4, alignSelf: 'flex-start',
-  },
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: TEXT_MID, marginBottom: 4, marginTop: 10 },
-  input: {
-    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: GRAY_BORDER,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 14, color: TEXT_DARK,
-  },
-  inputMultiline: { height: 110, textAlignVertical: 'top' },
-  rowFields: { flexDirection: 'row', gap: 10 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
-  chip: {
-    paddingHorizontal: 13, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5, backgroundColor: '#fff',
-  },
-  chipTxt: { fontSize: 13, fontWeight: '500' },
-  detailRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 12, paddingBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: GRAY_BORDER,
-  },
-  detailLabel: { fontSize: 14, color: TEXT_DARK },
-  stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stepBtn: {
-    width: 32, height: 32, borderRadius: 16, borderWidth: 1.5,
-    borderColor: GRAY_BORDER, backgroundColor: '#fff',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  stepBtnText: { fontSize: 18, color: TEXT_MID },
-  stepperValue: { fontSize: 15, fontWeight: '700', width: 24, textAlign: 'center' },
-  priceWrap: { position: 'relative' },
-  priceInput: { paddingRight: 52 },
-  priceSuffix: { position: 'absolute', right: 14, top: 13, fontSize: 13, fontWeight: '700', color: PURPLE },
-  nearbySection: {
-    marginTop: 14, backgroundColor: '#F9FAFB', borderRadius: 12,
-    padding: 14, borderWidth: 1, borderColor: GRAY_BORDER,
-  },
-  nearbyHeading: { fontSize: 13, fontWeight: '700', color: TEXT_DARK, marginBottom: 4 },
-  nearbySubtext: { fontSize: 12, color: TEXT_MID, marginBottom: 10, lineHeight: 17 },
-  nearbyInput: {
-    borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 10,
-    padding: 10, fontSize: 13, color: TEXT_DARK, backgroundColor: '#fff',
-  },
-  saveBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, backgroundColor: PURPLE, borderRadius: 16, paddingVertical: 16, marginTop: 16,
-  },
-  saveBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  empty: { alignItems: 'center', paddingVertical: 40 },
-  emptyTxt: { color: TEXT_MID, fontSize: 14 },
-  fab: {
-    position: 'absolute', bottom: 28, right: 20,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: PURPLE, paddingVertical: 16,
-    paddingHorizontal: 24, borderRadius: 32,
-    shadowColor: PURPLE, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-  },
-  fabIcon: { fontSize: 20, color: '#fff', fontWeight: '700' },
-  fabTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
-});
+// ─── Styles ───────────────────────────────────────────────────────────────────
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
+    loadingTxt: { fontSize: 14, color: colors.textMuted },
+    errorTxt: { fontSize: 14, color: colors.danger, textAlign: 'center' },
+    retryBtn: { paddingHorizontal: 24, paddingVertical: 10, backgroundColor: colors.primary, borderRadius: 12 },
+    retryTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    header: {
+      flexDirection: 'row', justifyContent: 'space-between',
+      alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8,
+      backgroundColor: colors.background, position: 'relative',
+    },
+    backBtn: {
+      width: 38, height: 38, borderRadius: 19,
+      backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center',
+      shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+    },
+    headerTitle: {
+      fontSize: 24, fontWeight: '800', color: colors.text,
+      position: 'absolute', left: 0, right: 0, textAlign: 'center',
+    },
+    summaryRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8, gap: 6 },
+    summaryTotal: { fontSize: 13, fontWeight: '700', color: colors.text },
+    dot: { fontSize: 13, color: colors.textMuted },
+    summaryCount: { fontSize: 13, fontWeight: '600' },
+    filterRow: { paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+    filterTab: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 24, backgroundColor: colors.primaryTint },
+    filterTabActive: { backgroundColor: colors.primary },
+    filterTxt: { fontSize: 14, fontWeight: '600', color: colors.primary },
+    filterTxtActive: { color: '#fff' },
+    listContainer: { paddingHorizontal: 16, paddingTop: 8, gap: 12 },
+    card: {
+      flexDirection: 'row', backgroundColor: colors.card,
+      borderRadius: 16, overflow: 'hidden',
+      shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, elevation: 2, marginBottom: 4,
+    },
+    cardImg: { width: 110, height: 140 },
+    cardImgPlaceholder: { backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center' },
+    cardImgPlaceholderTxt: { fontSize: 32 },
+    cardBody: { flex: 1, padding: 12, justifyContent: 'center', gap: 3 },
+    cardTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
+    cardSub: { fontSize: 12, color: colors.textMuted },
+    cardLocation: { fontSize: 12, color: colors.textMuted },
+    badge: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4,
+      borderRadius: 20, marginTop: 4,
+    },
+    badgeIcon: { fontSize: 11, fontWeight: '700' },
+    badgeTxt: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+    cardActions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+    editBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      borderWidth: 1.5, borderColor: colors.primary, borderRadius: 20,
+      paddingHorizontal: 12, paddingVertical: 6,
+    },
+    editBtnTxt: { fontSize: 12, fontWeight: '700', color: colors.primary },
+    deleteBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      borderWidth: 1.5, borderColor: colors.danger, borderRadius: 20,
+      paddingHorizontal: 12, paddingVertical: 6,
+    },
+    deleteBtnTxt: { fontSize: 12, fontWeight: '700', color: colors.danger },
+    modalOverlay: {
+      flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+      alignItems: 'center', justifyContent: 'center', padding: 24,
+    },
+    modalBox: {
+      backgroundColor: colors.card, borderRadius: 24,
+      padding: 28, width: '100%', alignItems: 'center', gap: 12,
+    },
+    modalIconWrap: {
+      width: 60, height: 60, borderRadius: 30,
+      backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', // danger-tint, no matching token
+    },
+    modalTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
+    modalDesc: { fontSize: 13.5, color: colors.textMuted, textAlign: 'center', lineHeight: 21 },
+    modalBtns: { flexDirection: 'row', gap: 12, marginTop: 8, width: '100%' },
+    modalCancelBtn: {
+      flex: 1, borderWidth: 1.5, borderColor: colors.border,
+      borderRadius: 14, paddingVertical: 14, alignItems: 'center',
+    },
+    modalCancelTxt: { fontSize: 14, fontWeight: '700', color: colors.textMuted },
+    modalDeleteBtn: { flex: 1, backgroundColor: colors.danger, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+    modalDeleteTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
+    editOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    editBox: {
+      backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+      padding: 24, maxHeight: '92%',
+    },
+    editHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    editTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
+    editNote: {
+      fontSize: 12.5, color: colors.textMuted, backgroundColor: '#FEF3C7',
+      borderRadius: 10, padding: 10, marginBottom: 14, lineHeight: 18,
+    },
+    // Status banners — semantic (rejected/approved/pending), fixed across themes.
+    statusBanner: { borderRadius: 12, padding: 12, marginBottom: 14, borderWidth: 1 },
+    statusBannerPending:  { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
+    statusBannerApproved: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
+    statusBannerRejected: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+    statusBannerTitle: { fontSize: 13.5, fontWeight: '800' },
+    statusBannerNote: { fontSize: 12.5, color: colors.text, marginTop: 6, lineHeight: 18 },
+    statusBannerFootnote: { fontSize: 11.5, color: colors.textMuted, marginTop: 6, lineHeight: 16 },
+    mediaSection: { marginBottom: 18, marginTop: 6 },
+    mediaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+    previewWrap: { position: 'relative' },
+    previewImage: { width: 72, height: 72, borderRadius: 10 },
+    removePreviewBtn: {
+      position: 'absolute', top: -6, right: -6,
+      width: 20, height: 20, borderRadius: 10,
+      backgroundColor: '#111827', alignItems: 'center', justifyContent: 'center', // dark chrome badge, fixed in both themes
+    },
+    removePreviewTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
+    uploadBtn: {
+      width: 72, height: 72, borderRadius: 10,
+      borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary,
+      backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center',
+    },
+    uploadPlus: { fontSize: 24, color: colors.primary },
+    uploadLabel: { fontSize: 10, color: colors.primary, fontWeight: '600' },
+    docFileList: { gap: 8 },
+    docFileRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: colors.cardMuted, borderRadius: 10, padding: 10,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    docFileName: { flex: 1, fontSize: 13, color: colors.text, marginRight: 8 },
+    docRemove: { fontSize: 14, color: colors.danger, fontWeight: '700' },
+    docUploadBtn: {
+      borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary,
+      borderRadius: 10, padding: 12, alignItems: 'center', backgroundColor: colors.primaryTint,
+    },
+    docUploadTxt: { color: colors.primary, fontSize: 13, fontWeight: '600' },
+    mediaReplaceNote: { fontSize: 11.5, color: colors.warning, marginTop: -2, marginBottom: 10, lineHeight: 16 },
+    currentFileTxt: { fontSize: 13, color: colors.text, marginBottom: 8 },
+    currentFileTxtMuted: { fontSize: 13, color: colors.textLight, marginBottom: 8 },
+    sectionLabel: {
+      fontSize: 13, fontWeight: '800', color: colors.primary,
+      backgroundColor: colors.primaryTint, borderRadius: 8,
+      paddingHorizontal: 10, paddingVertical: 5,
+      marginTop: 18, marginBottom: 4, alignSelf: 'flex-start',
+    },
+    fieldLabel: { fontSize: 12, fontWeight: '700', color: colors.textMuted, marginBottom: 4, marginTop: 10 },
+    input: {
+      backgroundColor: colors.cardMuted, borderWidth: 1, borderColor: colors.border,
+      borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+      fontSize: 14, color: colors.text,
+    },
+    inputMultiline: { height: 110, textAlignVertical: 'top' },
+    rowFields: { flexDirection: 'row', gap: 10 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+    chip: {
+      paddingHorizontal: 13, paddingVertical: 7,
+      borderRadius: 20, borderWidth: 1.5, backgroundColor: colors.card,
+    },
+    chipTxt: { fontSize: 13, fontWeight: '500' },
+    detailRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      marginBottom: 12, paddingBottom: 12,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    detailLabel: { fontSize: 14, color: colors.text },
+    stepperRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    stepBtn: {
+      width: 32, height: 32, borderRadius: 16, borderWidth: 1.5,
+      borderColor: colors.border, backgroundColor: colors.card,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    stepBtnText: { fontSize: 18, color: colors.textMuted },
+    stepperValue: { fontSize: 15, fontWeight: '700', width: 24, textAlign: 'center', color: colors.text },
+    priceWrap: { position: 'relative' },
+    priceInput: { paddingRight: 52 },
+    priceSuffix: { position: 'absolute', right: 14, top: 13, fontSize: 13, fontWeight: '700', color: colors.primary },
+    nearbySection: {
+      marginTop: 14, backgroundColor: colors.cardMuted, borderRadius: 12,
+      padding: 14, borderWidth: 1, borderColor: colors.border,
+    },
+    nearbyHeading: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 4 },
+    nearbySubtext: { fontSize: 12, color: colors.textMuted, marginBottom: 10, lineHeight: 17 },
+    nearbyInput: {
+      borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+      padding: 10, fontSize: 13, color: colors.text, backgroundColor: colors.card,
+    },
+    saveBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, marginTop: 16,
+    },
+    saveBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+    empty: { alignItems: 'center', paddingVertical: 40 },
+    emptyTxt: { color: colors.textMuted, fontSize: 14 },
+    fab: {
+      position: 'absolute', bottom: 28, right: 20,
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: colors.primary, paddingVertical: 16,
+      paddingHorizontal: 24, borderRadius: 32,
+      shadowColor: colors.primary, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+    },
+    fabIcon: { fontSize: 20, color: '#fff', fontWeight: '700' },
+    fabTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  });
+}

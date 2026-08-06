@@ -1,17 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   SafeAreaView, ScrollView, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
-
-const PURPLE       = '#7C5CFC';
-const PURPLE_LIGHT = '#F0EBFF';
-const TEXT_DARK    = '#111827';
-const TEXT_MID     = '#6B7280';
-const BG           = '#F5F6FA';
-const GRAY_BORDER  = '#E5E7EB';
+import { ThemeColors } from '../constants/theme';
+import { useAppTheme } from '../hooks/use-app-theme'; // adjust relative path if needed
 
 // ─── Section data ─────────────────────────────────────────────────────────────
 const TOS_SECTIONS = [
@@ -97,6 +92,9 @@ const PRIVACY_SECTIONS = [
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function TermsOwner() {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+
   const [accepted, setAccepted] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -105,7 +103,7 @@ export default function TermsOwner() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Feather name="arrow-left" size={22} color="#111827" />
+          <Feather name="arrow-left" size={22} color={colors.text} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Terms & Privacy</Text>
         <View style={{ width: 38 }} />
@@ -156,7 +154,7 @@ export default function TermsOwner() {
 
         {/* Privacy Policy */}
         <View style={[s.groupHeader, { marginTop: 8 }]}>
-          <View style={[s.groupDot, { backgroundColor: '#8B5CF6' }]} />
+          <View style={[s.groupDot, { backgroundColor: colors.primaryDark }]} />
           <Text style={s.groupTitle}>Privacy Policy</Text>
         </View>
 
@@ -198,70 +196,72 @@ export default function TermsOwner() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: BG },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
-    backgroundColor: BG, position: 'relative',
-    borderBottomWidth: 1, borderBottomColor: GRAY_BORDER,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 17, fontWeight: '700', color: TEXT_DARK,
-    position: 'absolute', left: 0, right: 0, textAlign: 'center',
-  },
-  scroll: { paddingHorizontal: 16, paddingTop: 16 },
-  hero: {
-    backgroundColor: '#fff', borderRadius: 18, padding: 20, marginBottom: 12,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
-  },
-  heroTitle: { fontSize: 22, fontWeight: '800', color: TEXT_DARK, marginBottom: 4 },
-  heroSub: { fontSize: 14, fontWeight: '600', color: PURPLE, marginBottom: 6 },
-  heroDate: { fontSize: 12, color: TEXT_MID, marginBottom: 12 },
-  heroDesc: { fontSize: 13, color: TEXT_MID, lineHeight: 20 },
-  warningBanner: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#FEF3C7', borderRadius: 14, padding: 14, marginBottom: 20,
-    borderWidth: 1, borderColor: '#FDE68A',
-  },
-  warningIcon: { fontSize: 16 },
-  warningTxt: { flex: 1, fontSize: 12, color: '#92400E', lineHeight: 18, fontWeight: '500' },
-  groupHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 8, marginBottom: 12, paddingHorizontal: 4,
-  },
-  groupDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: PURPLE },
-  groupTitle: { fontSize: 15, fontWeight: '800', color: TEXT_DARK, letterSpacing: 0.2 },
-  card: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 10,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  numBadge: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
-  },
-  numTxt: { fontSize: 12, fontWeight: '700', color: PURPLE },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: TEXT_DARK, flex: 1 },
-  cardBody: { fontSize: 13, color: TEXT_MID, lineHeight: 20 },
-  bold: { fontWeight: '700', color: TEXT_DARK },
-  bottomBar: {
-    flexDirection: 'row', gap: 12, padding: 16,
-    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: GRAY_BORDER, paddingBottom: 60,
-  },
-  declineBtn: {
-    flex: 1, paddingVertical: 14, borderRadius: 14,
-    borderWidth: 1.5, borderColor: PURPLE, alignItems: 'center',
-  },
-  declineTxt: { fontSize: 14, fontWeight: '700', color: PURPLE },
-  acceptBtn: {
-    flex: 2, paddingVertical: 14, borderRadius: 14,
-    backgroundColor: PURPLE, alignItems: 'center',
-  },
-  acceptedBtn: { backgroundColor: '#16A34A' },
-  acceptTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
-});
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    header: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
+      backgroundColor: colors.background, position: 'relative',
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    backBtn: {
+      width: 38, height: 38, borderRadius: 19,
+      backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center',
+    },
+    headerTitle: {
+      fontSize: 17, fontWeight: '700', color: colors.text,
+      position: 'absolute', left: 0, right: 0, textAlign: 'center',
+    },
+    scroll: { paddingHorizontal: 16, paddingTop: 16 },
+    hero: {
+      backgroundColor: colors.card, borderRadius: 18, padding: 20, marginBottom: 12,
+      shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+    },
+    heroTitle: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 4 },
+    heroSub: { fontSize: 14, fontWeight: '600', color: colors.primary, marginBottom: 6 },
+    heroDate: { fontSize: 12, color: colors.textMuted, marginBottom: 12 },
+    heroDesc: { fontSize: 13, color: colors.textMuted, lineHeight: 20 },
+    warningBanner: {
+      flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+      backgroundColor: colors.warningBg, borderRadius: 14, padding: 14, marginBottom: 20,
+      borderWidth: 1, borderColor: colors.warning,
+    },
+    warningIcon: { fontSize: 16 },
+    warningTxt: { flex: 1, fontSize: 12, color: colors.warning, lineHeight: 18, fontWeight: '500' },
+    groupHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: 8, marginBottom: 12, paddingHorizontal: 4,
+    },
+    groupDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+    groupTitle: { fontSize: 15, fontWeight: '800', color: colors.text, letterSpacing: 0.2 },
+    card: {
+      backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 10,
+      shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
+    },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+    numBadge: {
+      width: 26, height: 26, borderRadius: 13,
+      backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center',
+    },
+    numTxt: { fontSize: 12, fontWeight: '700', color: colors.primary },
+    cardTitle: { fontSize: 14, fontWeight: '700', color: colors.text, flex: 1 },
+    cardBody: { fontSize: 13, color: colors.textMuted, lineHeight: 20 },
+    bold: { fontWeight: '700', color: colors.text },
+    bottomBar: {
+      flexDirection: 'row', gap: 12, padding: 16,
+      backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border, paddingBottom: 60,
+    },
+    declineBtn: {
+      flex: 1, paddingVertical: 14, borderRadius: 14,
+      borderWidth: 1.5, borderColor: colors.primary, alignItems: 'center',
+    },
+    declineTxt: { fontSize: 14, fontWeight: '700', color: colors.primary },
+    acceptBtn: {
+      flex: 2, paddingVertical: 14, borderRadius: 14,
+      backgroundColor: colors.primary, alignItems: 'center',
+    },
+    acceptedBtn: { backgroundColor: colors.success },
+    acceptTxt: { fontSize: 14, fontWeight: '700', color: '#fff' }, // white on solid button — same in both themes
+  });
+}

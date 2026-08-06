@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -15,9 +15,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ThemeColors } from '../constants/theme'; // adjust relative path to match this screen's location
+import { useAppTheme } from '../hooks/use-app-theme'; // adjust relative path to match this screen's location
 
 const { width, height } = Dimensions.get('window');
-const PURPLE_LIGHT = '#F0EBFF';
 
 interface Slide {
   id: string;
@@ -27,6 +28,9 @@ interface Slide {
   accentColor: string;
 }
 
+// Per-slide accent colors are an intentional brand progression (not a themed
+// surface), so they — and everything derived from them (pill/blob tints, dot
+// indicator, button + shadow) — stay fixed across light and dark mode.
 const SLIDES: Slide[] = [
   {
     id: '1',
@@ -53,9 +57,9 @@ const SLIDES: Slide[] = [
 
 // ─── Dot Indicator ────────────────────────────────────────────────────────────
 const DotIndicator = ({
-  count, activeIndex, color,
+  count, activeIndex, color, styles,
 }: {
-  count: number; activeIndex: number; color: string;
+  count: number; activeIndex: number; color: string; styles: ReturnType<typeof getStyles>;
 }) => (
   <View style={styles.dotRow}>
     {Array.from({ length: count }).map((_, i) => (
@@ -71,7 +75,7 @@ const DotIndicator = ({
 );
 
 // ─── Slide Item ───────────────────────────────────────────────────────────────
-const SlideItem = ({ item }: { item: Slide }) => {
+const SlideItem = ({ item, styles }: { item: Slide; styles: ReturnType<typeof getStyles> }) => {
   return (
     <View style={[styles.slide, { width }]}>
       <View style={[styles.blob, { backgroundColor: item.accentColor + '18' }]} />
@@ -93,6 +97,8 @@ const SlideItem = ({ item }: { item: Slide }) => {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function SeekerOnboarding() {
+  const { colors, isDark } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
   const flatListRef = useRef<FlatList<Slide>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -116,12 +122,12 @@ export default function SeekerOnboarding() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FAFAFA" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
 
       {/* Top bar */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.push('/portal')} style={styles.backBtn}>
-          <Feather name="arrow-left" size={22} color="#111827" />
+          <Feather name="arrow-left" size={22} color={colors.text} />
         </TouchableOpacity>
         {!isLast && (
           <TouchableOpacity
@@ -139,7 +145,7 @@ export default function SeekerOnboarding() {
         ref={flatListRef}
         data={SLIDES}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <SlideItem item={item} />}
+        renderItem={({ item }) => <SlideItem item={item} styles={styles} />}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -151,7 +157,7 @@ export default function SeekerOnboarding() {
       />
 
       <View style={styles.bottomBar}>
-        <DotIndicator count={SLIDES.length} activeIndex={activeIndex} color={currentAccent} />
+        <DotIndicator count={SLIDES.length} activeIndex={activeIndex} color={currentAccent} styles={styles} />
         <TouchableOpacity
           style={[styles.nextBtn, { backgroundColor: currentAccent }]}
           onPress={goNext}
@@ -160,7 +166,7 @@ export default function SeekerOnboarding() {
           <Text style={styles.nextBtnText}>
             {isLast ? 'Get Started' : 'Next'}
           </Text>
-          <Feather name={isLast ? 'check' : 'arrow-right'} size={18} color="#fff" />
+          <Feather name={isLast ? 'check' : 'arrow-right'} size={18} color={colors.textInverse} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -168,48 +174,50 @@ export default function SeekerOnboarding() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFAFA' },
-  topBar: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: PURPLE_LIGHT, alignItems: 'center', justifyContent: 'center',
-  },
-  skipBtn: { paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20 },
-  skipText: { fontSize: 14, fontWeight: '600' },
-  slide: { alignItems: 'center', paddingTop: 16, paddingHorizontal: 28, paddingBottom: 8 },
-  blob: {
-    position: 'absolute', top: 0,
-    left: width * 0.1, width: width * 0.8, height: width * 0.6, borderRadius: width * 0.4,
-  },
-  imageWrapper: {
-    width: width * 0.72, height: height * 0.30,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 24,
-  },
-  illustration: { width: '100%', height: '100%' },
-  textBlock: { alignItems: 'center', paddingHorizontal: 8 },
-  pill: { borderRadius: 20, paddingVertical: 5, paddingHorizontal: 14, marginBottom: 14 },
-  pillText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
-  headline: {
-    fontSize: 24, fontWeight: '800', color: '#1A1A2E',
-    textAlign: 'center', lineHeight: 32, marginBottom: 12, letterSpacing: -0.4,
-  },
-  body: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22, fontWeight: '400' },
-  bottomBar: {
-    paddingHorizontal: 28, paddingBottom: 46, paddingTop: 12,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#FAFAFA',
-  },
-  dotRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { height: 8, borderRadius: 4 },
-  nextBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 14, paddingHorizontal: 28, borderRadius: 50,
-    shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
-  },
-  nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
-});
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    topBar: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4,
+    },
+    backBtn: {
+      width: 38, height: 38, borderRadius: 19,
+      backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center',
+    },
+    skipBtn: { paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20 },
+    skipText: { fontSize: 14, fontWeight: '600' },
+    slide: { alignItems: 'center', paddingTop: 16, paddingHorizontal: 28, paddingBottom: 8 },
+    blob: {
+      position: 'absolute', top: 0,
+      left: width * 0.1, width: width * 0.8, height: width * 0.6, borderRadius: width * 0.4,
+    },
+    imageWrapper: {
+      width: width * 0.72, height: height * 0.30,
+      justifyContent: 'center', alignItems: 'center', marginBottom: 24,
+    },
+    illustration: { width: '100%', height: '100%' },
+    textBlock: { alignItems: 'center', paddingHorizontal: 8 },
+    pill: { borderRadius: 20, paddingVertical: 5, paddingHorizontal: 14, marginBottom: 14 },
+    pillText: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
+    headline: {
+      fontSize: 24, fontWeight: '800', color: colors.text,
+      textAlign: 'center', lineHeight: 32, marginBottom: 12, letterSpacing: -0.4,
+    },
+    body: { fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 22, fontWeight: '400' },
+    bottomBar: {
+      paddingHorizontal: 28, paddingBottom: 46, paddingTop: 12,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: colors.background,
+    },
+    dotRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    dot: { height: 8, borderRadius: 4 },
+    nextBtn: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      paddingVertical: 14, paddingHorizontal: 28, borderRadius: 50,
+      shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
+    },
+    nextBtnText: { color: colors.textInverse, fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  });
+}

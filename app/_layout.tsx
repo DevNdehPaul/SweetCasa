@@ -2,6 +2,7 @@ import {
   ThemePreferenceProvider,
   useResolvedTheme,
 } from "@/contexts/theme-preference";
+import { Colors } from "@/constants/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   DarkTheme,
@@ -21,6 +22,7 @@ import { useSessionGuard } from "../hooks/useSessionGuard";
 
 function RootStack() {
   const colorScheme = useResolvedTheme();
+  const colors = Colors[colorScheme];
   useSessionGuard();
 
   // ── Push notification setup ────────────────────────────────────────────────
@@ -45,8 +47,8 @@ function RootStack() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-        <Stack>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={["top"]}>
+        <Stack screenOptions={{ contentStyle: { backgroundColor: colors.background } }}>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="portal" options={{ headerShown: false }} />
           <Stack.Screen
