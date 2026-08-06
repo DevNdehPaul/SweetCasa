@@ -7,6 +7,8 @@ import {
 } from 'react-native';
 
 import { useTranslation } from 'react-i18next';
+import { ThemeColors } from '../../constants/theme';
+import { useAppTheme } from '../../hooks/use-app-theme';
 
 const { width, height } = Dimensions.get('window');
 const H_PAD = 20;
@@ -151,13 +153,23 @@ const FACILITIES: { id: string; icon: string }[] = [
 
 type PropertyStateId = 'Available' | 'Pending';
 
-const PROPERTY_STATE_META: Record<PropertyStateId, {
+function getPropertyStateMeta(colors: ThemeColors): Record<PropertyStateId, {
   labelKey: string; subtitleKey: string; icon: string;
   color: string; bg: string; border: string; activeBg: string; activeBorder: string;
-}> = {
-  Available:   { labelKey: 'search.available',   subtitleKey: 'search.availableSub',   icon: 'check-circle', color: '#7C3AED', bg: '#F5F3FF', border: '#C4B5FD', activeBg: '#EDE9FE', activeBorder: '#7C3AED' },
-  Pending:     { labelKey: 'search.pending',     subtitleKey: 'search.pendingSub',     icon: 'clock',        color: '#A78BFA', bg: '#F3F0FF', border: '#DDD6FE', activeBg: '#EDE9FE', activeBorder: '#8B5CF6' },
-};
+}> {
+  return {
+    Available: {
+      labelKey: 'search.available', subtitleKey: 'search.availableSub', icon: 'check-circle',
+      color: colors.primary, bg: colors.primaryTint, border: '#C4B5FD', // light-purple border, no matching token
+      activeBg: colors.primaryBorder, activeBorder: colors.primary,
+    },
+    Pending: {
+      labelKey: 'search.pending', subtitleKey: 'search.pendingSub', icon: 'clock',
+      color: '#A78BFA', bg: colors.primaryTint, border: '#DDD6FE', // light-purple accent, no matching token
+      activeBg: colors.primaryBorder, activeBorder: '#8B5CF6',
+    },
+  };
+}
 
 const PROPERTY_STATE_IDS: PropertyStateId[] = ['Available', 'Pending'];
 
@@ -178,6 +190,8 @@ function CityPicker({ visible, selected, onSelect, onClose, title }: {
   onSelect: (entry: CityEntry) => void;
   onClose:  () => void;
 }) {
+  const { colors } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
   const [query, setQuery] = useState('');
 
   const filteredSections = useMemo<RegionSection[]>(() => {
@@ -200,11 +214,11 @@ function CityPicker({ visible, selected, onSelect, onClose, title }: {
 
         {/* Search input */}
         <View style={s.searchRow}>
-          <Feather name="search" size={15} color="#888" style={{ marginRight: 8 }} />
+          <Feather name="search" size={15} color={colors.textMuted} style={{ marginRight: 8 }} />
           <TextInput
             style={s.searchInput}
             placeholder="Search city or region…"
-            placeholderTextColor="#C0C0C0"
+            placeholderTextColor={colors.textLight}
             value={query}
             onChangeText={setQuery}
             autoCorrect={false}
@@ -213,7 +227,7 @@ function CityPicker({ visible, selected, onSelect, onClose, title }: {
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery('')}>
-              <Feather name="x" size={14} color="#888" />
+              <Feather name="x" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -225,7 +239,7 @@ function CityPicker({ visible, selected, onSelect, onClose, title }: {
           stickySectionHeadersEnabled
           renderSectionHeader={({ section }) => (
             <View style={s.sectionHeader}>
-              <Ionicons name="location-outline" size={12} color="#7C3AED" style={{ marginRight: 6 }} />
+              <Ionicons name="location-outline" size={12} color={colors.primary} style={{ marginRight: 6 }} />
               <Text style={s.sectionHeaderTxt}>{section.title}</Text>
               <Text style={s.sectionCount}>{section.data.length} cities</Text>
             </View>
@@ -239,13 +253,13 @@ function CityPicker({ visible, selected, onSelect, onClose, title }: {
                 activeOpacity={0.7}
               >
                 <Text style={[s.cityLabel, active && s.cityLabelActive]}>{item.city}</Text>
-                {active && <Feather name="check" size={14} color="#7C3AED" />}
+                {active && <Feather name="check" size={14} color={colors.primary} />}
               </TouchableOpacity>
             );
           }}
           ListEmptyComponent={
             <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-              <Text style={{ color: '#9CA3AF', fontSize: 14 }}>No cities found</Text>
+              <Text style={{ color: colors.textLight, fontSize: 14 }}>No cities found</Text>
             </View>
           }
           contentContainerStyle={{ paddingBottom: 32 }}
@@ -259,6 +273,9 @@ function CityPicker({ visible, selected, onSelect, onClose, title }: {
 
 export default function SearchFiltersScreen() {
   const { t } = useTranslation();
+  const { colors, isDark } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
+  const PROPERTY_STATE_META = useMemo(() => getPropertyStateMeta(colors), [colors]);
 
   const [selectedCity, setSelectedCity]             = useState<CityEntry | null>(null);
   const [neighborhood, setNeighborhood]              = useState('');
@@ -314,14 +331,14 @@ export default function SearchFiltersScreen() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.card} />
 
       {/* ── Header ── */}
       <View style={s.header}>
         <View style={s.iconBtn} />
         <Text style={s.headerTitle}>{t('search.title')}</Text>
         <TouchableOpacity style={s.iconBtn} onPress={handleReset}>
-          <Feather name="rotate-ccw" size={18} color="#111" />
+          <Feather name="rotate-ccw" size={18} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -335,7 +352,7 @@ export default function SearchFiltersScreen() {
 
         {/* Country — fixed */}
         <View style={s.lockedField}>
-          <Ionicons name="flag-outline" size={16} color="#7C3AED" />
+          <Ionicons name="flag-outline" size={16} color={colors.primary} />
           <Text style={s.lockedFieldTxt}>{t('search.country')}</Text>
           <View style={s.lockedBadge}><Text style={s.lockedBadgeTxt}>{t('search.fixed')}</Text></View>
         </View>
@@ -346,7 +363,7 @@ export default function SearchFiltersScreen() {
           activeOpacity={0.7}
           onPress={() => setCityPickerVisible(true)}
         >
-          <Ionicons name="location-outline" size={16} color="#7C3AED" />
+          <Ionicons name="location-outline" size={16} color={colors.primary} />
           <View style={{ flex: 1 }}>
             {selectedCity ? (
               <>
@@ -357,23 +374,23 @@ export default function SearchFiltersScreen() {
               <Text style={[s.dropdownTxt, s.dropdownPlaceholder]}>{t('search.selectRegion')}</Text>
             )}
           </View>
-          <Feather name="chevron-down" size={16} color="#888" />
+          <Feather name="chevron-down" size={16} color={colors.textMuted} />
         </TouchableOpacity>
 
         {/* Neighborhood */}
         <View style={s.inputField}>
-          <Ionicons name="map-outline" size={16} color="#7C3AED" />
+          <Ionicons name="map-outline" size={16} color={colors.primary} />
           <TextInput
             style={s.inputTxt}
             placeholder={t('search.neighborhoodPlaceholder')}
-            placeholderTextColor="#C0C0C0"
+            placeholderTextColor={colors.textLight}
             value={neighborhood}
             onChangeText={setNeighborhood}
             returnKeyType="done"
           />
           {neighborhood.length > 0 && (
             <TouchableOpacity onPress={() => setNeighborhood('')}>
-              <Feather name="x" size={14} color="#888" />
+              <Feather name="x" size={14} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -416,7 +433,7 @@ export default function SearchFiltersScreen() {
                 key={type.id} style={[s.typeCard, active && s.typeCardActive]}
                 activeOpacity={0.75} onPress={() => setSelectedType(active ? '' : type.id)}
               >
-                <Feather name={type.icon as any} size={22} color={active ? '#7C3AED' : '#888'} />
+                <Feather name={type.icon as any} size={22} color={active ? colors.primary : colors.textMuted} />
                 <Text style={[s.typeLabel, active && s.typeLabelActive]}>{type.id}</Text>
               </TouchableOpacity>
             );
@@ -439,7 +456,7 @@ export default function SearchFiltersScreen() {
               style={s.budgetInputField}
               keyboardType="number-pad"
               placeholder={String(MIN_BUDGET)}
-              placeholderTextColor="#C0C0C0"
+              placeholderTextColor={colors.textLight}
               value={minBudgetInput}
               onChangeText={handleMinBudgetChange}
               returnKeyType="done"
@@ -447,7 +464,7 @@ export default function SearchFiltersScreen() {
           </View>
 
           <View style={s.budgetInputDivider}>
-            <Feather name="minus" size={14} color="#C0C0C0" />
+            <Feather name="minus" size={14} color={colors.textLight} />
           </View>
 
           <View style={s.budgetInputWrap}>
@@ -459,7 +476,7 @@ export default function SearchFiltersScreen() {
               style={s.budgetInputField}
               keyboardType="number-pad"
               placeholder={String(MAX_BUDGET)}
-              placeholderTextColor="#C0C0C0"
+              placeholderTextColor={colors.textLight}
               value={maxBudgetInput}
               onChangeText={handleMaxBudgetChange}
               returnKeyType="done"
@@ -478,7 +495,7 @@ export default function SearchFiltersScreen() {
                 key={f.id} style={[s.facilityRow, active && s.facilityRowActive]}
                 activeOpacity={0.75} onPress={() => toggleFacility(f.id)}
               >
-                <Feather name={f.icon as any} size={15} color={active ? '#7C3AED' : '#888'} />
+                <Feather name={f.icon as any} size={15} color={active ? colors.primary : colors.textMuted} />
                 <Text style={[s.facilityLabel, active && s.facilityLabelActive]}>{f.id}</Text>
               </TouchableOpacity>
             );
@@ -508,78 +525,80 @@ export default function SearchFiltersScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: '#fff' },
-  scroll: { paddingHorizontal: H_PAD, paddingTop: 20 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  iconBtn:{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#111', letterSpacing: -0.2 },
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe:   { flex: 1, backgroundColor: colors.card },
+    scroll: { paddingHorizontal: H_PAD, paddingTop: 20 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+    iconBtn:{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
 
-  sectionTitle:    { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2, marginBottom: 10 },
-  sectionSubtitle: { fontSize: 12, color: '#9CA3AF', marginBottom: 14, lineHeight: 17 },
+    sectionTitle:    { fontSize: 15, fontWeight: '700', color: colors.text, letterSpacing: -0.2, marginBottom: 10 },
+    sectionSubtitle: { fontSize: 12, color: colors.textLight, marginBottom: 14, lineHeight: 17 },
 
-  lockedField:    { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: '#EFEFEF', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 10, backgroundColor: '#FAFAFA' },
-  lockedFieldTxt: { flex: 1, fontSize: 14, color: '#333', fontWeight: '500' },
-  lockedBadge:    { backgroundColor: '#EDE9FE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  lockedBadgeTxt: { fontSize: 10, fontWeight: '700', color: '#7C3AED' },
+    lockedField:    { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: colors.borderLight, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, marginBottom: 10, backgroundColor: colors.cardMuted },
+    lockedFieldTxt: { flex: 1, fontSize: 14, color: colors.text, fontWeight: '500' },
+    lockedBadge:    { backgroundColor: colors.primaryBorder, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+    lockedBadgeTxt: { fontSize: 10, fontWeight: '700', color: colors.primary },
 
-  dropdownField:       { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: '#C4B5FD', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10, backgroundColor: '#fff' },
-  dropdownTxt:         { fontSize: 14, color: '#333', fontWeight: '600' },
-  dropdownRegion:      { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  dropdownPlaceholder: { color: '#C0C0C0', fontWeight: '400' },
+    dropdownField:       { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: '#C4B5FD', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10, backgroundColor: colors.card },
+    dropdownTxt:         { fontSize: 14, color: colors.text, fontWeight: '600' },
+    dropdownRegion:      { fontSize: 11, color: colors.textLight, marginTop: 2 },
+    dropdownPlaceholder: { color: colors.textLight, fontWeight: '400' },
 
-  inputField: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: '#EFEFEF', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10, backgroundColor: '#fff' },
-  inputTxt:   { flex: 1, fontSize: 14, color: '#333', padding: 0 },
+    inputField: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderColor: colors.borderLight, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10, backgroundColor: colors.card },
+    inputTxt:   { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
 
-  statusList:     { gap: 10, marginBottom: 4 },
-  statusBanner:   { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 14, overflow: 'hidden', paddingRight: 14, paddingVertical: 14 },
-  statusAccent:   { width: 4, alignSelf: 'stretch', borderRadius: 4, marginRight: 12 },
-  statusIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  statusTextWrap: { flex: 1 },
-  statusLabel:    { fontSize: 14, fontWeight: '700', letterSpacing: -0.2, marginBottom: 2 },
-  statusSubtitle: { fontSize: 11.5, color: '#9CA3AF' },
-  statusCheck:    { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+    statusList:     { gap: 10, marginBottom: 4 },
+    statusBanner:   { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 14, overflow: 'hidden', paddingRight: 14, paddingVertical: 14 },
+    statusAccent:   { width: 4, alignSelf: 'stretch', borderRadius: 4, marginRight: 12 },
+    statusIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+    statusTextWrap: { flex: 1 },
+    statusLabel:    { fontSize: 14, fontWeight: '700', letterSpacing: -0.2, marginBottom: 2 },
+    statusSubtitle: { fontSize: 11.5, color: colors.textLight },
+    statusCheck:    { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 
-  typeGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 },
-  typeCard:        { width: (width - H_PAD * 2 - 20) / 3, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: '#EFEFEF', backgroundColor: '#fff', gap: 7 },
-  typeCardActive:  { borderColor: '#C4B5FD', backgroundColor: '#F5F3FF' },
-  typeLabel:       { fontSize: 12, color: '#888', fontWeight: '500' },
-  typeLabelActive: { color: '#7C3AED', fontWeight: '700' },
+    typeGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 },
+    typeCard:        { width: (width - H_PAD * 2 - 20) / 3, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: colors.borderLight, backgroundColor: colors.card, gap: 7 },
+    typeCardActive:  { borderColor: '#C4B5FD', backgroundColor: colors.primaryTintAlt },
+    typeLabel:       { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
+    typeLabelActive: { color: colors.primary, fontWeight: '700' },
 
-  budgetHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 14 },
-  budgetValue:   { fontSize: 13, fontWeight: '700', color: '#7C3AED' },
+    budgetHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 14 },
+    budgetValue:   { fontSize: 13, fontWeight: '700', color: colors.primary },
 
-  budgetInputsRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  budgetInputWrap:      { flex: 1 },
-  budgetInputLabelRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  budgetInputLabel:     { fontSize: 10.5, fontWeight: '700', color: '#9CA3AF', letterSpacing: 0.4 },
-  budgetInputUnit:      { fontSize: 10.5, fontWeight: '600', color: '#C0C0C0' },
-  budgetInputField:     { fontSize: 14, color: '#333', fontWeight: '600', borderWidth: 1.5, borderColor: '#EFEFEF', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#fff' },
-  budgetInputDivider:   { width: 16, height: 44, marginTop: 22, alignItems: 'center', justifyContent: 'center' },
-  budgetHint:           { fontSize: 11, color: '#B0B0B0', marginTop: 10 },
+    budgetInputsRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    budgetInputWrap:      { flex: 1 },
+    budgetInputLabelRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+    budgetInputLabel:     { fontSize: 10.5, fontWeight: '700', color: colors.textLight, letterSpacing: 0.4 },
+    budgetInputUnit:      { fontSize: 10.5, fontWeight: '600', color: colors.textLight },
+    budgetInputField:     { fontSize: 14, color: colors.text, fontWeight: '600', borderWidth: 1.5, borderColor: colors.borderLight, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: colors.card },
+    budgetInputDivider:   { width: 16, height: 44, marginTop: 22, alignItems: 'center', justifyContent: 'center' },
+    budgetHint:           { fontSize: 11, color: colors.textLight, marginTop: 10 },
 
-  facilitiesGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  facilityRow:         { flexDirection: 'row', alignItems: 'center', gap: 8, width: (width - H_PAD * 2 - 10) / 2, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: '#EFEFEF', backgroundColor: '#fff' },
-  facilityRowActive:   { borderColor: '#C4B5FD', backgroundColor: '#F5F3FF' },
-  facilityLabel:       { fontSize: 13, color: '#555', fontWeight: '500', flex: 1 },
-  facilityLabelActive: { color: '#7C3AED', fontWeight: '600' },
+    facilitiesGrid:      { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    facilityRow:         { flexDirection: 'row', alignItems: 'center', gap: 8, width: (width - H_PAD * 2 - 10) / 2, paddingVertical: 13, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: colors.borderLight, backgroundColor: colors.card },
+    facilityRowActive:   { borderColor: '#C4B5FD', backgroundColor: colors.primaryTintAlt },
+    facilityLabel:       { fontSize: 13, color: colors.textSecondary, fontWeight: '500', flex: 1 },
+    facilityLabelActive: { color: colors.primary, fontWeight: '600' },
 
-  bottomBar:   { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: H_PAD, paddingBottom: 32, paddingTop: 12, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F5F5F5' },
-  resultsBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#6D28D9', borderRadius: 16, paddingVertical: 16 },
-  resultsBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: -0.1 },
+    bottomBar:   { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: H_PAD, paddingBottom: 32, paddingTop: 12, backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.borderLight },
+    resultsBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: colors.primaryDark, borderRadius: 16, paddingVertical: 16 },
+    resultsBtnTxt: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: -0.1 },
 
-  // ── City picker modal ──
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  modalSheet:   { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, maxHeight: height * 0.82 },
-  modalHandle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', alignSelf: 'center', marginBottom: 16 },
-  modalTitle:   { fontSize: 16, fontWeight: '700', color: '#111', marginBottom: 12 },
-  searchRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F3FF', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12, borderWidth: 1.5, borderColor: '#EDE9FE' },
-  searchInput:  { flex: 1, fontSize: 14, color: '#333', padding: 0 },
-  sectionHeader:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F3FF', paddingHorizontal: 14, paddingVertical: 7 },
-  sectionHeaderTxt: { fontSize: 11, fontWeight: '700', color: '#6D28D9', flex: 1, letterSpacing: 0.4, textTransform: 'uppercase' },
-  sectionCount:     { fontSize: 11, color: '#9CA3AF' },
-  cityRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
-  cityRowActive:    { backgroundColor: '#F5F3FF' },
-  cityLabel:        { flex: 1, fontSize: 14, color: '#333', fontWeight: '500' },
-  cityLabelActive:  { color: '#7C3AED', fontWeight: '700' },
-});
+    // ── City picker modal ──
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+    modalSheet:   { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, maxHeight: height * 0.82 },
+    modalHandle:  { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 16 },
+    modalTitle:   { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 12 },
+    searchRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryTintAlt, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12, borderWidth: 1.5, borderColor: colors.primaryBorder },
+    searchInput:  { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
+    sectionHeader:    { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryTintAlt, paddingHorizontal: 14, paddingVertical: 7 },
+    sectionHeaderTxt: { fontSize: 11, fontWeight: '700', color: colors.primaryDark, flex: 1, letterSpacing: 0.4, textTransform: 'uppercase' },
+    sectionCount:     { fontSize: 11, color: colors.textLight },
+    cityRow:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+    cityRowActive:    { backgroundColor: colors.primaryTintAlt },
+    cityLabel:        { flex: 1, fontSize: 14, color: colors.text, fontWeight: '500' },
+    cityLabelActive:  { color: colors.primary, fontWeight: '700' },
+  });
+}

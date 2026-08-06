@@ -5,12 +5,11 @@ import { ActivityIndicator, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAppTheme } from '@/hooks/use-app-theme';
 import { initI18n } from '../../src/i18n'; // ← i18n import
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const { colors, isDark } = useAppTheme();
   const [role, setRole]           = useState<string | null>(null);
   const [loading, setLoading]     = useState(true);
   const [i18nReady, setI18nReady] = useState(false);   // ← i18n ready state
@@ -30,22 +29,22 @@ export default function TabLayout() {
   // Show spinner while role AND language are loading (usually < 200ms)
   if (loading || !i18nReady) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator size="large" color="#7C3AED" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  const tint = Colors['light'].tint;
+  const tint = colors.tabIconSelected;
 
   const tabBarStyle = {
-  backgroundColor: '#fff',
-  color : '#0000',
+  backgroundColor: colors.card,
+  color: colors.text,
   borderTopWidth: 0.5,
-  borderTopColor: '#F0F0F0',
+  borderTopColor: colors.borderLight,
   elevation: 10,
-  shadowColor: '#7C3AED',
-  shadowOpacity: 0.08,
+  shadowColor: colors.tabBarShadow,
+  shadowOpacity: isDark ? 0.25 : 0.08,
   shadowRadius: 12,
   shadowOffset: { width: 0, height: -3 },
 };

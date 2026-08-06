@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -17,7 +17,9 @@ import {
   View,
 } from 'react-native';
 import LanguageModal from '../components/LanguageModal';
-import { useResolvedTheme, useThemePreference } from '../contexts/theme-preference';
+import { useThemePreference } from '../contexts/theme-preference';
+import { useAppTheme } from '../hooks/use-app-theme';
+import { ThemeColors } from '../constants/theme';
 
 const H_PAD = 20;
 const NOTIFICATION_KEY = 'sweetcasa_notifications_enabled';
@@ -38,50 +40,50 @@ type SettingRow = {
   iconColor: string;
 };
 
-function Row({ row }: { row: SettingRow }) {
+function Row({ row, s, colors }: { row: SettingRow; s: ReturnType<typeof getStyles>; colors: ThemeColors }) {
   const content = (
-    <View style={styles.rowContent}>
-      <View style={[styles.rowIcon, { backgroundColor: row.iconBg }]}>
+    <View style={s.rowContent}>
+      <View style={[s.rowIcon, { backgroundColor: row.iconBg }]}>
         <Feather name={row.icon as any} size={16} color={row.iconColor} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.rowLabel, row.danger && styles.dangerLabel]}>{row.label}</Text>
-        <Text style={styles.rowSub}>{row.sub}</Text>
+        <Text style={[s.rowLabel, row.danger && s.dangerLabel]}>{row.label}</Text>
+        <Text style={s.rowSub}>{row.sub}</Text>
       </View>
 
       {row.type === 'toggle' ? (
         <Switch
           value={Boolean(row.toggleValue)}
           onValueChange={row.onToggle}
-          trackColor={{ false: '#E5E7EB', true: '#7C3AED' }}
+          trackColor={{ false: colors.border, true: colors.primary }}
           thumbColor="#fff"
         />
       ) : (
-        <Feather name="chevron-right" size={16} color="#CECECE" />
+        <Feather name="chevron-right" size={16} color={colors.textLight} />
       )}
     </View>
   );
 
   if (!row.onPress && row.type !== 'toggle') {
-    return <View style={styles.row}>{content}</View>;
+    return <View style={s.row}>{content}</View>;
   }
 
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.75} onPress={row.onPress}>
+    <TouchableOpacity style={s.row} activeOpacity={0.75} onPress={row.onPress}>
       {content}
     </TouchableOpacity>
   );
 }
 
-function Group({ label, rows }: { label: string; rows: SettingRow[] }) {
+function Group({ label, rows, s, colors }: { label: string; rows: SettingRow[]; s: ReturnType<typeof getStyles>; colors: ThemeColors }) {
   return (
-    <View style={styles.group}>
-      <Text style={styles.groupLabel}>{label}</Text>
-      <View style={styles.groupCard}>
+    <View style={s.group}>
+      <Text style={s.groupLabel}>{label}</Text>
+      <View style={s.groupCard}>
         {rows.map((row, index) => (
           <View key={row.id}>
-            <Row row={row} />
-            {index < rows.length - 1 && <View style={styles.rowDivider} />}
+            <Row row={row} s={s} colors={colors} />
+            {index < rows.length - 1 && <View style={s.rowDivider} />}
           </View>
         ))}
       </View>
@@ -92,7 +94,8 @@ function Group({ label, rows }: { label: string; rows: SettingRow[] }) {
 export default function SettingsScreen() {
   const { t } = useTranslation();
   const { theme, setTheme } = useThemePreference() ?? { theme: 'light' as const, setTheme: (_: 'light' | 'dark') => {} };
-  const resolvedTheme = useResolvedTheme();
+  const { colors, isDark } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const [role, setRole] = useState<Role>(null);
   const [loading, setLoading] = useState(true);
@@ -155,13 +158,11 @@ export default function SettingsScreen() {
     }
   };
 
-  const headerColor = resolvedTheme === 'dark' ? '#fff' : '#111';
-
   if (loading) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#7C3AED" />
+      <SafeAreaView style={s.safe}>
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </SafeAreaView>
     );
@@ -174,8 +175,8 @@ export default function SettingsScreen() {
       label: t('settings.accountManagement'),
       sub: t('settings.accountManagementSub'),
       type: 'arrow',
-      iconBg: '#F3F0FF',
-      iconColor: '#7C3AED',
+      iconBg: colors.primaryTint,
+      iconColor: colors.primary,
       onPress: () => router.push('/AccountInformation'),
     },
     {
@@ -184,7 +185,7 @@ export default function SettingsScreen() {
       label: t('settings.support'),
       sub: t('settings.supportSub'),
       type: 'arrow',
-      iconBg: '#EFF6FF',
+      iconBg: isDark ? '#1E293B' : '#EFF6FF',
       iconColor: '#2563EB',
       onPress: handleSupport,
     },
@@ -199,8 +200,8 @@ export default function SettingsScreen() {
       type: 'toggle',
       toggleValue: theme === 'dark',
       onToggle: handleThemeToggle,
-      iconBg: '#F3F0FF',
-      iconColor: '#7C3AED',
+      iconBg: colors.primaryTint,
+      iconColor: colors.primary,
     },
     {
       id: 'notifications',
@@ -210,8 +211,8 @@ export default function SettingsScreen() {
       type: 'toggle',
       toggleValue: notificationsEnabled,
       onToggle: handleNotificationsToggle,
-      iconBg: '#F3F0FF',
-      iconColor: '#7C3AED',
+      iconBg: colors.primaryTint,
+      iconColor: colors.primary,
     },
     {
       id: 'language',
@@ -219,8 +220,8 @@ export default function SettingsScreen() {
       label: t('settings.language'),
       sub: t('settings.languageSub'),
       type: 'arrow',
-      iconBg: '#F3F0FF',
-      iconColor: '#7C3AED',
+      iconBg: colors.primaryTint,
+      iconColor: colors.primary,
       onPress: () => setLanguageModalVisible(true),
     },
   ];
@@ -232,8 +233,8 @@ export default function SettingsScreen() {
       label: t('settings.privacyPolicy'),
       sub: t('settings.privacyPolicySub'),
       type: 'arrow',
-      iconBg: '#ECFDF5',
-      iconColor: '#16A34A',
+      iconBg: colors.successBg,
+      iconColor: colors.success,
       onPress: () => router.push(legalRoutes.privacy),
     },
     {
@@ -242,33 +243,33 @@ export default function SettingsScreen() {
       label: t('settings.termsOfService'),
       sub: t('settings.termsOfServiceSub'),
       type: 'arrow',
-      iconBg: '#F3F0FF',
-      iconColor: '#7C3AED',
+      iconBg: colors.primaryTint,
+      iconColor: colors.primary,
       onPress: () => router.push(legalRoutes.terms),
     },
   ];
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle={resolvedTheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor="#fff" />
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.card} />
 
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
-          <Feather name="arrow-left" size={20} color={headerColor} />
+      <View style={s.header}>
+        <TouchableOpacity style={s.iconBtn} onPress={() => router.back()}>
+          <Feather name="arrow-left" size={20} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: headerColor }]}>{t('settings.title')}</Text>
+        <Text style={s.headerTitle}>{t('settings.title')}</Text>
         <View style={{ width: 38 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Group label={t('settings.accountSection')} rows={accountRows} />
-        <Group label={t('settings.preferencesSection')} rows={prefRows} />
-        <Group label={t('settings.legalSection')} rows={legalRows} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+        <Group label={t('settings.accountSection')} rows={accountRows} s={s} colors={colors} />
+        <Group label={t('settings.preferencesSection')} rows={prefRows} s={s} colors={colors} />
+        <Group label={t('settings.legalSection')} rows={legalRows} s={s} colors={colors} />
 
-        <View style={styles.footer}>
-          <Feather name="shield" size={22} color="#D1D5DB" />
-          <Text style={styles.footerVersion}>{t('common.version')}</Text>
-          <Text style={styles.footerCopy}>© 2023 SweetCasa Cameroon Inc.</Text>
+        <View style={s.footer}>
+          <Feather name="shield" size={22} color={colors.border} />
+          <Text style={s.footerVersion}>{t('common.version')}</Text>
+          <Text style={s.footerCopy}>© 2023 SweetCasa Cameroon Inc.</Text>
         </View>
 
         <View style={{ height: 32 }} />
@@ -282,41 +283,43 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F9FAFB' },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: H_PAD, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
-    backgroundColor: '#fff',
-  },
-  iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
-  scroll: { paddingHorizontal: H_PAD, paddingTop: 16 },
-  group: { marginBottom: 6 },
-  groupLabel: {
-    fontSize: 10.5, fontWeight: '700', color: '#B0B0B0',
-    letterSpacing: 1, marginBottom: 8, marginTop: 14, paddingLeft: 2,
-  },
-  groupCard: {
-    backgroundColor: '#fff', borderRadius: 18,
-    borderWidth: 1, borderColor: '#EFEFEF', overflow: 'hidden',
-  },
-  row: { paddingHorizontal: 16, paddingVertical: 14 },
-  rowContent: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 14,
-  },
-  rowIcon: {
-    width: 40, height: 40, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rowLabel: { fontSize: 13.5, fontWeight: '600', color: '#111', marginBottom: 2 },
-  dangerLabel: { color: '#EF4444' },
-  rowSub: { fontSize: 11.5, color: '#B0B0B0' },
-  rowDivider: { height: 1, backgroundColor: '#F5F5F5', marginLeft: 70 },
-  footer: { alignItems: 'center', paddingTop: 28, gap: 6 },
-  footerVersion: { fontSize: 11, fontWeight: '700', color: '#9CA3AF', letterSpacing: 0.8, marginTop: 6 },
-  footerCopy: { fontSize: 11, color: '#C0C0C0' },
-});
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: H_PAD, paddingVertical: 10,
+      borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+      backgroundColor: colors.card,
+    },
+    iconBtn: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2, color: colors.text },
+    scroll: { paddingHorizontal: H_PAD, paddingTop: 16 },
+    group: { marginBottom: 6 },
+    groupLabel: {
+      fontSize: 10.5, fontWeight: '700', color: colors.textLight,
+      letterSpacing: 1, marginBottom: 8, marginTop: 14, paddingLeft: 2,
+    },
+    groupCard: {
+      backgroundColor: colors.card, borderRadius: 18,
+      borderWidth: 1, borderColor: colors.borderLight, overflow: 'hidden',
+    },
+    row: { paddingHorizontal: 16, paddingVertical: 14 },
+    rowContent: {
+      flexDirection: 'row', alignItems: 'center',
+      gap: 14,
+    },
+    rowIcon: {
+      width: 40, height: 40, borderRadius: 12,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    rowLabel: { fontSize: 13.5, fontWeight: '600', color: colors.text, marginBottom: 2 },
+    dangerLabel: { color: colors.danger },
+    rowSub: { fontSize: 11.5, color: colors.textLight },
+    rowDivider: { height: 1, backgroundColor: colors.divider, marginLeft: 70 },
+    footer: { alignItems: 'center', paddingTop: 28, gap: 6 },
+    footerVersion: { fontSize: 11, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.8, marginTop: 6 },
+    footerCopy: { fontSize: 11, color: colors.textLight },
+  });
+}

@@ -1,7 +1,7 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Animated,
@@ -16,15 +16,18 @@ import {
   View,
 } from 'react-native';
 import api from '../../constants/api';
+import { ThemeColors } from '../../constants/theme';
+import { useAppTheme } from '../../hooks/use-app-theme';
 
 const H_PAD = 20;
-const PURPLE = '#7C3AED';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://sweetcasa.bonto.run/';
 
 // ─── Welcome Modal ────────────────────────────────────────────────────────────
 function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useTranslation();
+  const { colors, isDark } = useAppTheme();
+  const wm = useMemo(() => getWmStyles(colors), [colors]);
   const scaleAnim   = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -62,7 +65,7 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
             ].map((step, i) => (
               <View key={i} style={wm.stepRow}>
                 <View style={wm.stepIcon}>
-                  <Feather name={step.icon as any} size={14} color={PURPLE} />
+                  <Feather name={step.icon as any} size={14} color={colors.primary} />
                 </View>
                 <Text style={wm.stepTxt}>{step.text}</Text>
               </View>
@@ -82,13 +85,15 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function AgentHubScreen() {
   const { t } = useTranslation();
+  const { colors, isDark } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+
   const [profile, setProfile]         = useState<any>(null);
   const [listings, setListings]       = useState<any[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
   const [wallet, setWallet]           = useState<{ heldBalance: string; availableBalance: string } | null>(null);
   const [walletReady, setWalletReady] = useState(false);
 
-  // Live stats derived from existing endpoints — no new backend needed
   const [unreadMessages, setUnreadMessages] = useState<number>(0);
   const [leadConversion, setLeadConversion] = useState<string>('0%');
   const [statsReady,     setStatsReady]     = useState(false);
@@ -109,7 +114,6 @@ export default function AgentHubScreen() {
     } catch { /* ignore */ }
   };
 
-  // Fetch listings + conversations in parallel; derive stats from both
   const loadAll = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -123,7 +127,6 @@ export default function AgentHubScreen() {
         api.get('/wallet/me'),
       ]);
 
-      // ── Listings ──────────────────────────────────────────────────────────
       let mappedListings: any[] = [];
       if (listingsRes.status === 'fulfilled') {
         mappedListings = (listingsRes.value.data?.listings || []).map((l: any) => ({
@@ -137,21 +140,17 @@ export default function AgentHubScreen() {
         setListings(mappedListings);
       }
 
-      // ── Conversations → stats ─────────────────────────────────────────────
       if (convsRes.status === 'fulfilled') {
         const conversations: any[] = (convsRes.value as any).conversations ?? [];
 
-        // Total unread: sum of unreadCount across all conversations
         const totalUnread = conversations.reduce(
           (sum: number, c: any) => sum + (c.unreadCount ?? 0),
           0,
         );
         setUnreadMessages(totalUnread);
 
-        // Lead conversion: listings that have ≥1 conversation / total listings × 100
         const total = mappedListings.length;
         if (total > 0) {
-          // Group conversation listingIds
           const listingIdsWithConvs = new Set(
             conversations.map((c: any) => c.listing?.id).filter(Boolean),
           );
@@ -163,7 +162,6 @@ export default function AgentHubScreen() {
           setLeadConversion('0%');
         }
       }
-      // ── Wallet ────────────────────────────────────────────────────────────
       if (walletRes.status === 'fulfilled') {
         setWallet((walletRes.value as any).data?.wallet ?? null);
       }
@@ -177,21 +175,20 @@ export default function AgentHubScreen() {
 
   const latestListings = listings.slice(0, 3);
 
-  // Mirrors wallet.tsx: total = held + available; pending payout = held (still in escrow)
   const totalBalance   = wallet ? Number(wallet.heldBalance) + Number(wallet.availableBalance) : 0;
   const pendingPayout  = wallet ? Number(wallet.heldBalance) : 0;
   const formatXAF = (value: number) => `${Math.round(value).toLocaleString('en-US')} XAF`;
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F4F3FF" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <WelcomeModal visible={showWelcome} onClose={() => setShowWelcome(false)} />
 
       {/* ── Header ── */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('agentHub.title')}</Text>
         <TouchableOpacity style={styles.bellBtn} onPress={() => router.push('/notificationcenter')}>
-          <Feather name="bell" size={22} color="#111" />
+          <Feather name="bell" size={22} color={colors.text} />
           {unreadMessages > 0 && <View style={styles.bellDot} />}
         </TouchableOpacity>
       </View>
@@ -210,7 +207,7 @@ export default function AgentHubScreen() {
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{profile?.name}</Text>
             <View style={styles.verifiedRow}>
-              <Ionicons name="shield-checkmark" size={13} color={PURPLE} />
+              <Ionicons name="shield-checkmark" size={13} color={colors.primary} />
               <Text style={styles.verifiedTxt}>{t('agentHub.verifiedOwner')}</Text>
             </View>
           </View>
@@ -219,7 +216,7 @@ export default function AgentHubScreen() {
         {/* ── Escrow Wallet Card ── */}
         <View style={styles.walletCard}>
           <View style={styles.walletLabelRow}>
-            <MaterialCommunityIcons name="currency-usd" size={16} color={PURPLE} />
+            <MaterialCommunityIcons name="currency-usd" size={16} color={colors.primary} />
             <Text style={styles.walletLabel}>{t('agentHub.escrowBalance')}</Text>
           </View>
           {walletReady ? (
@@ -237,13 +234,12 @@ export default function AgentHubScreen() {
           </Link>
         </View>
 
-        {/* ── Stats Row — derived from live data ── */}
+        {/* ── Stats Row ── */}
         <View style={styles.statsRow}>
 
-          {/* Lead Conversion */}
           <View style={styles.statCard}>
             <View style={styles.statIconWrap}>
-              <Feather name="trending-up" size={18} color={PURPLE} />
+              <Feather name="trending-up" size={18} color={colors.primary} />
             </View>
             {statsReady ? (
               <Text style={styles.statNum}>{leadConversion}</Text>
@@ -254,14 +250,13 @@ export default function AgentHubScreen() {
             <Text style={styles.statHint}>Listings w/ enquiries</Text>
           </View>
 
-          {/* Unread Messages — tappable */}
           <TouchableOpacity
             style={styles.statCard}
             activeOpacity={0.8}
             onPress={() => router.push('/MessagesInbox')}
           >
             <View style={styles.statIconWrap}>
-              <Feather name="message-circle" size={18} color={PURPLE} />
+              <Feather name="message-circle" size={18} color={colors.primary} />
             </View>
             {statsReady ? (
               <Text style={[styles.statNum, unreadMessages > 0 && styles.statNumAlert]}>
@@ -290,7 +285,7 @@ export default function AgentHubScreen() {
             <Text style={styles.actionTitle}>{t('agentHub.uploadProperty')}</Text>
             <Text style={styles.actionSub}>{t('agentHub.uploadPropertySub')}</Text>
           </View>
-          <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
+          <Feather name="arrow-up-right" size={20} color={colors.textLight} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -310,7 +305,7 @@ export default function AgentHubScreen() {
               <Text style={styles.inlineBadgeTxt}>{unreadMessages}</Text>
             </View>
           )}
-          <Feather name="arrow-up-right" size={20} color="#9CA3AF" />
+          <Feather name="arrow-up-right" size={20} color={colors.textLight} />
         </TouchableOpacity>
 
         {/* ── Latest Listings ── */}
@@ -334,9 +329,9 @@ export default function AgentHubScreen() {
                     <View style={{ flex: 2 }}>
                       <Text style={styles.listingTitle} numberOfLines={1}>{item.title}</Text>
                       <View style={styles.listingMeta}>
-                        <Ionicons name="eye-outline" size={11} color="#A0A0A0" />
+                        <Ionicons name="eye-outline" size={11} color={colors.textMuted} />
                         <Text style={styles.listingMetaTxt}>{item.views}</Text>
-                        <Feather name="message-circle" size={11} color="#A0A0A0" style={{ marginLeft: 8 }} />
+                        <Feather name="message-circle" size={11} color={colors.textMuted} style={{ marginLeft: 8 }} />
                         <Text style={styles.listingMetaTxt}>{item.messages}</Text>
                       </View>
                     </View>
@@ -374,79 +369,83 @@ export default function AgentHubScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const wm = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  card: { width: '100%', backgroundColor: '#fff', borderRadius: 28, overflow: 'hidden', paddingBottom: 28 },
-  topAccent: { height: 6, backgroundColor: PURPLE, width: '100%' },
-  iconWrap: { width: 68, height: 68, borderRadius: 34, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 24, marginBottom: 16, shadowColor: PURPLE, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
-  title: { fontSize: 22, fontWeight: '800', color: '#111', textAlign: 'center', letterSpacing: -0.5, paddingHorizontal: 24 },
-  subtitle: { fontSize: 13, color: PURPLE, fontWeight: '600', textAlign: 'center', marginTop: 4, marginBottom: 14 },
-  body: { fontSize: 13.5, color: '#555', lineHeight: 21, textAlign: 'center', paddingHorizontal: 24, marginBottom: 20 },
-  bold: { fontWeight: '700', color: '#222' },
-  stepsWrap: { marginHorizontal: 24, backgroundColor: '#F8F7FF', borderRadius: 16, padding: 16, gap: 12, marginBottom: 24 },
-  stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  stepIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' },
-  stepTxt: { flex: 1, fontSize: 13, color: '#333', fontWeight: '500' },
-  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 24, backgroundColor: PURPLE, borderRadius: 16, paddingVertical: 16, shadowColor: PURPLE, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  btnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
-  skipTxt: { textAlign: 'center', fontSize: 12, color: '#A0A0A0', marginTop: 14, fontWeight: '500' },
-});
+function getWmStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+    card: { width: '100%', backgroundColor: colors.card, borderRadius: 28, overflow: 'hidden', paddingBottom: 28 },
+    topAccent: { height: 6, backgroundColor: colors.primary, width: '100%' },
+    iconWrap: { width: 68, height: 68, borderRadius: 34, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginTop: 24, marginBottom: 16, shadowColor: colors.primary, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+    title: { fontSize: 22, fontWeight: '800', color: colors.text, textAlign: 'center', letterSpacing: -0.5, paddingHorizontal: 24 },
+    subtitle: { fontSize: 13, color: colors.primary, fontWeight: '600', textAlign: 'center', marginTop: 4, marginBottom: 14 },
+    body: { fontSize: 13.5, color: colors.textSecondary, lineHeight: 21, textAlign: 'center', paddingHorizontal: 24, marginBottom: 20 },
+    bold: { fontWeight: '700', color: colors.text },
+    stepsWrap: { marginHorizontal: 24, backgroundColor: colors.primaryTint, borderRadius: 16, padding: 16, gap: 12, marginBottom: 24 },
+    stepRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    stepIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.primaryBorder, alignItems: 'center', justifyContent: 'center' },
+    stepTxt: { flex: 1, fontSize: 13, color: colors.textSecondary, fontWeight: '500' },
+    btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 24, backgroundColor: colors.primary, borderRadius: 16, paddingVertical: 16, shadowColor: colors.primary, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
+    btnTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+    skipTxt: { textAlign: 'center', fontSize: 12, color: colors.textLight, marginTop: 14, fontWeight: '500' },
+  });
+}
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F4F3FF' },
-  scroll: { paddingBottom: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, paddingTop: 8, paddingBottom: 16, backgroundColor: '#F4F3FF' },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: '#111', letterSpacing: -0.6 },
-  bellBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  bellDot: { position: 'absolute', top: 6, right: 6, width: 9, height: 9, borderRadius: 5, backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#F4F3FF' },
-  userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 20, gap: 12 },
-  avatarWrap: { position: 'relative' },
-  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: '#fff' },
-  onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, backgroundColor: '#22C55E', borderWidth: 2, borderColor: '#F4F3FF' },
-  userInfo: { flex: 1 },
-  userName: { fontSize: 17, fontWeight: '800', color: '#111', letterSpacing: -0.3, marginBottom: 3 },
-  verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  verifiedTxt: { fontSize: 12, color: PURPLE, fontWeight: '600' },
-  walletCard: { marginHorizontal: H_PAD, backgroundColor: '#EDE9FE', borderRadius: 22, padding: 22, marginBottom: 16 },
-  walletLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
-  walletLabel: { fontSize: 13, fontWeight: '600', color: PURPLE },
-  walletAmount: { fontSize: 34, fontWeight: '800', color: '#6D28D9', letterSpacing: -1, marginBottom: 6 },
-  walletPending: { fontSize: 13, color: '#8B5CF6', marginBottom: 20 },
-  walletBtn: { backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 24, alignSelf: 'flex-start', shadowColor: '#5B21B6', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
-  walletBtnTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  statsRow: { flexDirection: 'row', gap: 12, marginHorizontal: H_PAD, marginBottom: 24 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 18, padding: 18, shadowColor: PURPLE, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
-  statIconWrap: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#F3F0FF', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  statNum: { fontSize: 28, fontWeight: '800', color: '#111', letterSpacing: -0.8, marginBottom: 4 },
-  statNumAlert: { color: PURPLE },
-  skeleton: { height: 32, width: 60, borderRadius: 8, backgroundColor: '#EDEDED', marginBottom: 4 },
-  statLabel: { fontSize: 12, color: '#A0A0A0', fontWeight: '500' },
-  statHint: { fontSize: 10, color: '#C0C0C0', fontWeight: '400', marginTop: 2 },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#A0A0A0', letterSpacing: 1.2, paddingHorizontal: H_PAD, marginBottom: 10 },
-  actionCard: { flexDirection: 'row', alignItems: 'center', gap: 16, marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18, padding: 18, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
-  actionCardMessages: { marginBottom: 24 },
-  actionIconWrap: { width: 50, height: 50, borderRadius: 25, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', shadowColor: '#5B21B6', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  actionIconMessages: { backgroundColor: '#0891B2', shadowColor: '#0891B2' },
-  actionText: { flex: 1 },
-  actionTitle: { fontSize: 15, fontWeight: '700', color: '#111', letterSpacing: -0.2, marginBottom: 3 },
-  actionSub: { fontSize: 12, color: '#A0A0A0', lineHeight: 17 },
-  inlineBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: PURPLE, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
-  inlineBadgeTxt: { color: '#fff', fontSize: 11, fontWeight: '800' },
-  tableCard: { marginHorizontal: H_PAD, backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2, marginBottom: 16 },
-  tableHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FAFAFA', borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  tableHeaderTxt: { fontSize: 10, fontWeight: '700', color: '#B0B0B0', letterSpacing: 0.8 },
-  tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  tableDivider: { height: 1, backgroundColor: '#F5F5F5', marginHorizontal: 16 },
-  listingTitle: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 4, letterSpacing: -0.1 },
-  listingMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  listingMetaTxt: { fontSize: 11, color: '#A0A0A0' },
-  listingPrice: { width: 60, textAlign: 'center', fontSize: 13, fontWeight: '700', color: '#111' },
-  listingStatus: { width: 70, textAlign: 'right', fontSize: 13, fontWeight: '700' },
-  statusActive: { color: '#16A34A' },
-  statusPending: { color: '#D97706' },
-  statusRejected: { color: '#DC2626' },
-  emptyBox: { padding: 24, alignItems: 'center' },
-  emptyTxt: { fontSize: 13, color: '#A0A0A0', textAlign: 'center' },
-  viewAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginHorizontal: H_PAD, backgroundColor: PURPLE, paddingVertical: 16, borderRadius: 16, shadowColor: PURPLE, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
-  viewAllTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
-});
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
+    scroll: { paddingBottom: 20 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, paddingTop: 8, paddingBottom: 16, backgroundColor: colors.background },
+    headerTitle: { fontSize: 26, fontWeight: '800', color: colors.text, letterSpacing: -0.6 },
+    bellBtn: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+    bellDot: { position: 'absolute', top: 6, right: 6, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.danger, borderWidth: 1.5, borderColor: colors.background },
+    userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 20, gap: 12 },
+    avatarWrap: { position: 'relative' },
+    avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: colors.card },
+    onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.success, borderWidth: 2, borderColor: colors.background },
+    userInfo: { flex: 1 },
+    userName: { fontSize: 17, fontWeight: '800', color: colors.text, letterSpacing: -0.3, marginBottom: 3 },
+    verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    verifiedTxt: { fontSize: 12, color: colors.primary, fontWeight: '600' },
+    walletCard: { marginHorizontal: H_PAD, backgroundColor: colors.primaryBorder, borderRadius: 22, padding: 22, marginBottom: 16 },
+    walletLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+    walletLabel: { fontSize: 13, fontWeight: '600', color: colors.primary },
+    walletAmount: { fontSize: 34, fontWeight: '800', color: colors.primaryDark, letterSpacing: -1, marginBottom: 6 },
+    walletPending: { fontSize: 13, color: colors.primary, marginBottom: 20 },
+    walletBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 24, alignSelf: 'flex-start', shadowColor: colors.primaryDark, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
+    walletBtnTxt: { fontSize: 14, fontWeight: '700', color: '#fff' },
+    statsRow: { flexDirection: 'row', gap: 12, marginHorizontal: H_PAD, marginBottom: 24 },
+    statCard: { flex: 1, backgroundColor: colors.card, borderRadius: 18, padding: 18, shadowColor: colors.primary, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+    statIconWrap: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+    statNum: { fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.8, marginBottom: 4 },
+    statNumAlert: { color: colors.primary },
+    skeleton: { height: 32, width: 60, borderRadius: 8, backgroundColor: colors.borderLight, marginBottom: 4 },
+    statLabel: { fontSize: 12, color: colors.textLight, fontWeight: '500' },
+    statHint: { fontSize: 10, color: colors.textLight, fontWeight: '400', marginTop: 2 },
+    sectionLabel: { fontSize: 11, fontWeight: '700', color: colors.textLight, letterSpacing: 1.2, paddingHorizontal: H_PAD, marginBottom: 10 },
+    actionCard: { flexDirection: 'row', alignItems: 'center', gap: 16, marginHorizontal: H_PAD, backgroundColor: colors.card, borderRadius: 18, padding: 18, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+    actionCardMessages: { marginBottom: 24 },
+    actionIconWrap: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: colors.primaryDark, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
+    actionIconMessages: { backgroundColor: '#0891B2', shadowColor: '#0891B2' },
+    actionText: { flex: 1 },
+    actionTitle: { fontSize: 15, fontWeight: '700', color: colors.text, letterSpacing: -0.2, marginBottom: 3 },
+    actionSub: { fontSize: 12, color: colors.textLight, lineHeight: 17 },
+    inlineBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+    inlineBadgeTxt: { color: '#fff', fontSize: 11, fontWeight: '800' },
+    tableCard: { marginHorizontal: H_PAD, backgroundColor: colors.card, borderRadius: 18, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 2, marginBottom: 16 },
+    tableHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.cardMuted, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+    tableHeaderTxt: { fontSize: 10, fontWeight: '700', color: colors.textLight, letterSpacing: 0.8 },
+    tableRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
+    tableDivider: { height: 1, backgroundColor: colors.borderLight, marginHorizontal: 16 },
+    listingTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 4, letterSpacing: -0.1 },
+    listingMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    listingMetaTxt: { fontSize: 11, color: colors.textLight },
+    listingPrice: { width: 60, textAlign: 'center', fontSize: 13, fontWeight: '700', color: colors.text },
+    listingStatus: { width: 70, textAlign: 'right', fontSize: 13, fontWeight: '700' },
+    statusActive: { color: colors.success },
+    statusPending: { color: colors.warning },
+    statusRejected: { color: colors.danger },
+    emptyBox: { padding: 24, alignItems: 'center' },
+    emptyTxt: { fontSize: 13, color: colors.textLight, textAlign: 'center' },
+    viewAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginHorizontal: H_PAD, backgroundColor: colors.primary, paddingVertical: 16, borderRadius: 16, shadowColor: colors.primary, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
+    viewAllTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  });
+}

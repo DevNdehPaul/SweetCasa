@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -17,6 +17,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { ThemeColors } from "../constants/theme"; // adjust relative path to match this screen's location
+import { useAppTheme } from "../hooks/use-app-theme"; // adjust relative path to match this screen's location
 import { useConversationSocket } from "../hooks/useChatSocket";
 
 const { width } = Dimensions.get("window");
@@ -61,29 +63,33 @@ function Bubble({
   showAvatar,
   isLast,
   otherName,
+  colors,
 }: {
   msg: Message;
   showAvatar: boolean;
   isLast: boolean;
   otherName: string;
+  colors: ThemeColors;
 }) {
+  const s = useMemo(() => getStyles(colors), [colors]);
+
   if (msg.fromMe) {
     return (
       <View style={{ alignItems: "flex-end", marginBottom: isLast ? 2 : 6 }}>
         <View
           style={[
-            styles.bubbleMe,
+            s.bubbleMe,
             { borderBottomRightRadius: isLast ? 4 : 18 },
           ]}
         >
-          <Text style={styles.bubbleMeTxt}>{msg.text}</Text>
+          <Text style={s.bubbleMeTxt}>{msg.text}</Text>
         </View>
-        <View style={styles.timeRowMe}>
-          <Text style={styles.timeText}>{msg.time}</Text>
+        <View style={s.timeRowMe}>
+          <Text style={s.timeText}>{msg.time}</Text>
           <Ionicons
             name={msg.seen ? "checkmark-done" : "checkmark"}
             size={12}
-            color={msg.seen ? "#7C3AED" : "#C0C0C0"}
+            color={msg.seen ? colors.primary : colors.textLight}
           />
         </View>
       </View>
@@ -101,38 +107,38 @@ function Bubble({
     >
       <View style={{ width: 34, marginRight: 8 }}>
         {showAvatar ? (
-          <View style={styles.agentAvatarWrap}>
+          <View style={s.agentAvatarWrap}>
             <View
               style={[
-                styles.agentAvatar,
+                s.agentAvatar,
                 {
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: "#EDE9FE",
+                  backgroundColor: colors.primaryBorder,
                 },
               ]}
             >
               <Text
-                style={{ color: "#7C3AED", fontWeight: "700", fontSize: 13 }}
+                style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}
               >
                 {otherName.charAt(0).toUpperCase()}
               </Text>
             </View>
-            <View style={styles.onlineDot} />
+            <View style={s.onlineDot} />
           </View>
         ) : null}
       </View>
       <View style={{ flex: 1 }}>
         <View
           style={[
-            styles.bubbleThem,
+            s.bubbleThem,
             { borderBottomLeftRadius: isLast ? 4 : 18 },
           ]}
         >
-          <Text style={styles.bubbleThemTxt}>{msg.text}</Text>
+          <Text style={s.bubbleThemTxt}>{msg.text}</Text>
         </View>
         {isLast && (
-          <Text style={[styles.timeText, { marginTop: 3, marginLeft: 2 }]}>
+          <Text style={[s.timeText, { marginTop: 3, marginLeft: 2 }]}>
             {msg.time}
           </Text>
         )}
@@ -144,6 +150,8 @@ function Bubble({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 export default function MessagesScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
+  const { colors, isDark } = useAppTheme();
+  const s = useMemo(() => getStyles(colors), [colors]);
 
   const [input, setInput] = useState("");
   const [conv, setConv] = useState<ConversationData | null>(null);
@@ -277,11 +285,11 @@ export default function MessagesScreen() {
     return (
       <SafeAreaView
         style={[
-          styles.safe,
+          s.safe,
           { alignItems: "center", justifyContent: "center" },
         ]}
       >
-        <ActivityIndicator size="large" color="#7C3AED" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -290,13 +298,13 @@ export default function MessagesScreen() {
     return (
       <SafeAreaView
         style={[
-          styles.safe,
+          s.safe,
           { alignItems: "center", justifyContent: "center", padding: 32 },
         ]}
       >
         <Text
           style={{
-            color: "#EF4444",
+            color: colors.danger,
             fontSize: 14,
             textAlign: "center",
             marginBottom: 16,
@@ -307,13 +315,13 @@ export default function MessagesScreen() {
         <TouchableOpacity
           onPress={fetchConversation}
           style={{
-            backgroundColor: "#7C3AED",
+            backgroundColor: colors.primary,
             paddingHorizontal: 24,
             paddingVertical: 10,
             borderRadius: 24,
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>Retry</Text>
+          <Text style={{ color: colors.textInverse, fontWeight: "700" }}>Retry</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -331,36 +339,36 @@ export default function MessagesScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => router.back()}>
-          <Feather name="chevron-left" size={22} color="#111" />
+      <View style={s.header}>
+        <TouchableOpacity style={s.iconBtn} onPress={() => router.back()}>
+          <Feather name="chevron-left" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{conv.otherUser.name}</Text>
+        <Text style={s.headerTitle}>{conv.otherUser.name}</Text>
         <View style={{ flexDirection: "row" }}>
-          <TouchableOpacity style={styles.iconBtn}>
-            <Feather name="camera" size={18} color="#111" />
+          <TouchableOpacity style={s.iconBtn}>
+            <Feather name="camera" size={18} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn}>
-            <Feather name="more-vertical" size={18} color="#111" />
+          <TouchableOpacity style={s.iconBtn}>
+            <Feather name="more-vertical" size={18} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
 
       {/* ── Safety Banner ── */}
-      <View style={styles.safetyBanner}>
+      <View style={s.safetyBanner}>
         <Ionicons
           name="warning-outline"
           size={14}
-          color="#a16207"
+          color={colors.warning}
           style={{ marginTop: 1 }}
         />
         <View style={{ flex: 1 }}>
-          <Text style={styles.safetyBold}>Never pay landlords directly.</Text>
-          <Text style={styles.safetyText}>
+          <Text style={s.safetyBold}>Never pay landlords directly.</Text>
+          <Text style={s.safetyText}>
             To be protected by SweetCasa, all payments must stay inside the
             Escrow Wallet.
           </Text>
@@ -375,41 +383,41 @@ export default function MessagesScreen() {
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.chatArea}
+          contentContainerStyle={s.chatArea}
           onContentSizeChange={() =>
             scrollRef.current?.scrollToEnd({ animated: false })
           }
         >
           {/* Date */}
-          <Text style={styles.dateLabel}>Today</Text>
+          <Text style={s.dateLabel}>Today</Text>
 
           {/* Listing Preview */}
           {conv.listing && (
-            <View style={styles.listingCard}>
+            <View style={s.listingCard}>
               {conv.listing.imageUrl ? (
                 <Image
                   source={{ uri: conv.listing.imageUrl }}
-                  style={styles.listingImg}
+                  style={s.listingImg}
                   resizeMode="cover"
                 />
               ) : (
                 <View
                   style={[
-                    styles.listingImg,
+                    s.listingImg,
                     {
-                      backgroundColor: "#EDE9FE",
+                      backgroundColor: colors.primaryBorder,
                       alignItems: "center",
                       justifyContent: "center",
                     },
                   ]}
                 >
-                  <Feather name="home" size={20} color="#7C3AED" />
+                  <Feather name="home" size={20} color={colors.primary} />
                 </View>
               )}
               <View style={{ flex: 1 }}>
-                <Text style={styles.listingTitle}>{conv.listing.title}</Text>
-                <Text style={styles.listingLoc}>{conv.listing.location}</Text>
-                <Text style={styles.listingPrice}>{conv.listing.price}</Text>
+                <Text style={s.listingTitle}>{conv.listing.title}</Text>
+                <Text style={s.listingLoc}>{conv.listing.location}</Text>
+                <Text style={s.listingPrice}>{conv.listing.price}</Text>
               </View>
             </View>
           )}
@@ -422,6 +430,7 @@ export default function MessagesScreen() {
               showAvatar={isFirstInGroup && !msg.fromMe}
               isLast={isLastInGroup}
               otherName={conv.otherUser.name}
+              colors={colors}
             />
           ))}
         </ScrollView>
@@ -430,32 +439,32 @@ export default function MessagesScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.quickRow}
+          contentContainerStyle={s.quickRow}
           keyboardShouldPersistTaps="handled"
-          style={styles.quickRowWrap}
+          style={s.quickRowWrap}
         >
           {QUICK_REPLIES.map((r) => (
             <TouchableOpacity
               key={r}
-              style={styles.quickChip}
+              style={s.quickChip}
               activeOpacity={0.7}
               onPress={() => send(r)}
             >
-              <Text style={styles.quickChipTxt}>{r}</Text>
+              <Text style={s.quickChipTxt}>{r}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         {/* ── Input Bar ── */}
-        <View style={styles.inputBar}>
+        <View style={s.inputBar}>
           <TouchableOpacity>
-            <Feather name="smile" size={22} color="#C0C0C0" />
+            <Feather name="smile" size={22} color={colors.textLight} />
           </TouchableOpacity>
 
           <TextInput
-            style={styles.inputField}
+            style={s.inputField}
             placeholder="Type a message..."
-            placeholderTextColor="#BDBDBD"
+            placeholderTextColor={colors.textLight}
             value={input}
             onChangeText={setInput}
             multiline
@@ -463,20 +472,20 @@ export default function MessagesScreen() {
 
           {input.trim() ? (
             <TouchableOpacity
-              style={styles.sendBtn}
+              style={s.sendBtn}
               onPress={() => send()}
               activeOpacity={0.85}
               disabled={sending}
             >
               {sending ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.textInverse} />
               ) : (
-                <Feather name="send" size={16} color="#fff" />
+                <Feather name="send" size={16} color={colors.textInverse} />
               )}
             </TouchableOpacity>
           ) : (
             <TouchableOpacity>
-              <Feather name="paperclip" size={22} color="#C0C0C0" />
+              <Feather name="paperclip" size={22} color={colors.textLight} />
             </TouchableOpacity>
           )}
         </View>
@@ -486,183 +495,186 @@ export default function MessagesScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+function getStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background },
 
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
-  },
-  iconBtn: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111",
-    letterSpacing: -0.2,
-  },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderLight,
+      backgroundColor: colors.background,
+    },
+    iconBtn: {
+      width: 38,
+      height: 38,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    headerTitle: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: colors.text,
+      letterSpacing: -0.2,
+    },
 
-  safetyBanner: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: "#fefce8",
-    borderBottomWidth: 1,
-    borderBottomColor: "#fde047",
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  safetyBold: {
-    fontSize: 11.5,
-    fontWeight: "600",
-    color: "#854d0e",
-    marginBottom: 1,
-  },
-  safetyText: { fontSize: 11, color: "#713f12", lineHeight: 16 },
+    safetyBanner: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+      backgroundColor: colors.warningBg,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.warning,
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+    },
+    safetyBold: {
+      fontSize: 11.5,
+      fontWeight: "600",
+      color: colors.warning,
+      marginBottom: 1,
+    },
+    safetyText: { fontSize: 11, color: colors.warning, lineHeight: 16 },
 
-  chatArea: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10 },
-  dateLabel: {
-    textAlign: "center",
-    fontSize: 11,
-    color: "#B8B8B8",
-    fontWeight: "500",
-    marginBottom: 14,
-  },
+    chatArea: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10 },
+    dateLabel: {
+      textAlign: "center",
+      fontSize: 11,
+      color: colors.textLight,
+      fontWeight: "500",
+      marginBottom: 14,
+    },
 
-  listingCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#FAFAFA",
-    borderRadius: 14,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#EFEFEF",
-    marginBottom: 18,
-  },
-  listingImg: { width: 58, height: 58, borderRadius: 10 },
-  listingTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#111",
-    marginBottom: 1,
-  },
-  listingLoc: { fontSize: 11, color: "#A0A0A0", marginBottom: 2 },
-  listingPrice: { fontSize: 12, fontWeight: "700", color: "#7C3AED" },
+    listingCard: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: colors.cardMuted,
+      borderRadius: 14,
+      padding: 10,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      marginBottom: 18,
+    },
+    listingImg: { width: 58, height: 58, borderRadius: 10 },
+    listingTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 1,
+    },
+    listingLoc: { fontSize: 11, color: colors.textMuted, marginBottom: 2 },
+    listingPrice: { fontSize: 12, fontWeight: "700", color: colors.primary },
 
-  bubbleMe: {
-    backgroundColor: "#6D28D9",
-    borderRadius: 18,
-    borderTopRightRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    maxWidth: BUBBLE_MAX,
-  },
-  bubbleMeTxt: {
-    fontSize: 14,
-    color: "#fff",
-    lineHeight: 21,
-    fontWeight: "400",
-  },
-  timeRowMe: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    marginTop: 3,
-  },
-  timeText: { fontSize: 10, color: "#B8B8B8" },
+    bubbleMe: {
+      backgroundColor: colors.primaryDark,
+      borderRadius: 18,
+      borderTopRightRadius: 18,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      maxWidth: BUBBLE_MAX,
+    },
+    bubbleMeTxt: {
+      fontSize: 14,
+      color: colors.textInverse,
+      lineHeight: 21,
+      fontWeight: "400",
+    },
+    timeRowMe: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 3,
+      marginTop: 3,
+    },
+    timeText: { fontSize: 10, color: colors.textLight },
 
-  bubbleThem: {
-    backgroundColor: "#F2F2F2",
-    borderRadius: 18,
-    borderTopLeftRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    maxWidth: BUBBLE_MAX,
-  },
-  bubbleThemTxt: {
-    fontSize: 14,
-    color: "#111",
-    lineHeight: 21,
-    fontWeight: "400",
-  },
+    bubbleThem: {
+      backgroundColor: colors.cardMuted,
+      borderRadius: 18,
+      borderTopLeftRadius: 18,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      maxWidth: BUBBLE_MAX,
+    },
+    bubbleThemTxt: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 21,
+      fontWeight: "400",
+    },
 
-  agentAvatarWrap: { position: "relative" },
-  agentAvatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1.5,
-    borderColor: "#EDE9FE",
-  },
-  onlineDot: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: "#22C55E",
-    borderWidth: 1.5,
-    borderColor: "#fff",
-  },
+    agentAvatarWrap: { position: "relative" },
+    agentAvatar: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      borderWidth: 1.5,
+      borderColor: colors.primaryBorder,
+    },
+    onlineDot: {
+      position: "absolute",
+      bottom: 0,
+      right: 0,
+      width: 9,
+      height: 9,
+      borderRadius: 5,
+      backgroundColor: colors.success,
+      borderWidth: 1.5,
+      borderColor: colors.background,
+    },
 
-  quickRowWrap: {
-    height: 54,
-    flexGrow: 0,
-    flexShrink: 0,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-  },
-  quickRow: { paddingHorizontal: 14, alignItems: "center", gap: 8, flex: 1 },
-  quickChip: {
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-    borderRadius: 30,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#fff",
-  },
-  quickChipTxt: { fontSize: 12.5, color: "#333", fontWeight: "500" },
+    quickRowWrap: {
+      height: 54,
+      flexGrow: 0,
+      flexShrink: 0,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    quickRow: { paddingHorizontal: 14, alignItems: "center", gap: 8, flex: 1 },
+    quickChip: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 30,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      backgroundColor: colors.card,
+    },
+    quickChipTxt: { fontSize: 12.5, color: colors.textSecondary, fontWeight: "500" },
 
-  inputBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === "ios" ? 28 : 14,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-    backgroundColor: "#fff",
-  },
-  inputField: {
-    flex: 1,
-    backgroundColor: "#F5F5F5",
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === "ios" ? 10 : 8,
-    fontSize: 14,
-    color: "#111",
-    maxHeight: 100,
-    borderWidth: 1,
-    borderColor: "#EFEFEF",
-  },
-  sendBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#6D28D9",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
+    inputBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+      paddingBottom: Platform.OS === "ios" ? 28 : 14,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+      backgroundColor: colors.background,
+    },
+    inputField: {
+      flex: 1,
+      backgroundColor: colors.cardMuted,
+      borderRadius: 24,
+      paddingHorizontal: 16,
+      paddingVertical: Platform.OS === "ios" ? 10 : 8,
+      fontSize: 14,
+      color: colors.text,
+      maxHeight: 100,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+    },
+    sendBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: colors.primaryDark,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+  });
+}
