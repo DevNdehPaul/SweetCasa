@@ -26,11 +26,13 @@ async function ensureDatabaseCompatibility() {
   // ── Users ────────────────────────────────────────────────────────────────
   await prisma.$executeRawUnsafe(`
     ALTER TABLE public.users
-      ADD COLUMN IF NOT EXISTS company_name VARCHAR(100),
-      ADD COLUMN IF NOT EXISTS country      VARCHAR(50),
-      ADD COLUMN IF NOT EXISTS region       VARCHAR(50),
-      ADD COLUMN IF NOT EXISTS city         VARCHAR(50),
-      ADD COLUMN IF NOT EXISTS street       TEXT;
+      ADD COLUMN IF NOT EXISTS company_name      VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS country           VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS region            VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS city              VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS street            TEXT,
+      ADD COLUMN IF NOT EXISTS password_reset_token   TEXT,
+      ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
   `)
 
   await prisma.$executeRawUnsafe(`
