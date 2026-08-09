@@ -143,15 +143,22 @@ function WebAlertHost() {
   );
 }
 
+type Step = "email" | "code" | "password" | "done";
+
 export default function ForgotPasswordScreen() {
   const { colors, isDark } = useAppTheme();
   const s = useMemo(() => getStyles(colors), [colors]);
 
+  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSendCode = async () => {
     const trimmed = email.trim();
     if (!trimmed) {
       crossAlert("Missing Email", "Please enter your email address.");
@@ -166,14 +173,92 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     try {
       await api.post("/auth/forgot-password", { email: trimmed });
-      setSent(true);
+      setStep("code");
     } catch (err: any) {
       const message =
         err.response?.data?.error ||
-        "Failed to send reset email. Please try again.";
+        "Failed to send reset code. Please try again.";
       crossAlert("Error", message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    const trimmedCode = code.trim();
+    if (!/^\d{6}$/.test(trimmedCode)) {
+      crossAlert(
+        "Invalid Code",
+        "Please enter the 6-digit code you received by email.",
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post("/auth/verify-reset-code", {
+        email: email.trim(),
+        code: trimmedCode,
+      });
+      setStep("password");
+    } catch (err: any) {
+      const message =
+        err.response?.data?.error ||
+        "Failed to verify the code. Please try again.";
+      crossAlert("Verification Failed", message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!password || !confirmPassword) {
+      crossAlert(
+        "Missing Fields",
+        "Please enter and confirm your new password.",
+      );
+      return;
+    }
+    if (password.length < 8) {
+      crossAlert(
+        "Weak Password",
+        "Password must be at least 8 characters long.",
+      );
+      return;
+    }
+    if (password !== confirmPassword) {
+      crossAlert(
+        "Password Mismatch",
+        "The passwords you entered do not match.",
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post("/auth/reset-password", {
+        email: email.trim(),
+        code: code.trim(),
+        password,
+      });
+      setStep("done");
+    } catch (err: any) {
+      const message =
+        err.response?.data?.error ||
+        "Failed to reset your password. Please try again.";
+      crossAlert("Reset Failed", message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const goBack = () => {
+    if (step === "code") {
+      setStep("email");
+    } else if (step === "password") {
+      setStep("code");
+    } else {
+      router.back();
     }
   };
 
@@ -193,48 +278,53 @@ export default function ForgotPasswordScreen() {
           contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={s.backBtn}
-          >
+          <TouchableOpacity onPress={goBack} style={s.backBtn}>
             <Feather name="arrow-left" size={22} color={colors.text} />
           </TouchableOpacity>
 
-          {sent ? (
-            // ── Success state ────────────────────────────────────────────────
-            <View style={s.successWrap}>
-              <View style={s.successIcon}>
-                <Ionicons name="mail-open-outline" size={40} color={colors.primary} />
-              </View>
-              <Text style={s.successTitle}>Check your inbox</Text>
-              <Text style={s.successDesc}>
-                If an account exists for{" "}
-                <Text style={s.successEmail}>{email.trim()}</Text>, we've
-                sent you a link to reset your password. The link expires in 30
-                minutes.
-              </Text>
-              <View style={s.successTip}>
-                <Feather
-                  name="info"
-                  size={13}
-                  color={colors.textLight}
-                  style={{ marginTop: 2 }}
-                />
-                <Text style={s.successTipTxt}>
-                  Don't see the email? Check your spam or junk folder.
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={s.primaryBtn}
-                onPress={() => router.back()}
-                activeOpacity={0.88}
-              >
-                <Text style={s.primaryBtnTxt}>Back to Login</Text>
-                <Feather name="arrow-right" size={16} color={WHITE} />
-              </TouchableOpacity>
+          {/* ── Step indicator ─────────────────────────────────────────────── */}
+          {step !== "done" && (
+            <View style={s.stepsRow}>
+              {(["email", "code", "password"] as Step[]).map((st, i) => {
+                const active = step === st;
+                const done = i < (["email", "code", "password"] as Step[]).indexOf(step);
+                return (
+                  <View key={st} style={s.stepItem}>
+                    <View
+                      style={[
+                        s.stepDot,
+                        active && s.stepDotActive,
+                        done && s.stepDotDone,
+                      ]}
+                    >
+                      {done ? (
+                        <Feather name="check" size={12} color={WHITE} />
+                      ) : (
+                        <Text
+                          style={[
+                            s.stepDotTxt,
+                            active && s.stepDotTxtActive,
+                          ]}
+                        >
+                          {i + 1}
+                        </Text>
+                      )}
+                    </View>
+                    {i < 2 && (
+                      <View
+                        style={[
+                          s.stepLine,
+                          done && s.stepLineDone,
+                        ]}
+                      />
+                    )}
+                  </View>
+                );
+              })}
             </View>
-          ) : (
-            // ── Form state ───────────────────────────────────────────────────
+          )}
+
+          {step === "email" && (
             <>
               <View style={s.hero}>
                 <View style={s.shieldWrap}>
@@ -242,8 +332,8 @@ export default function ForgotPasswordScreen() {
                 </View>
                 <Text style={s.heroTitle}>Forgot Password?</Text>
                 <Text style={s.heroDesc}>
-                  No worries. Enter the email address you registered with and
-                  we'll send you a link to reset your password.
+                  Enter the email address you registered with and we'll send a
+                  verification code to reset your password.
                 </Text>
               </View>
 
@@ -261,7 +351,7 @@ export default function ForgotPasswordScreen() {
                     autoCapitalize="none"
                     autoCorrect={false}
                     returnKeyType="go"
-                    onSubmitEditing={handleSubmit}
+                    onSubmitEditing={handleSendCode}
                   />
                 </View>
               </View>
@@ -272,14 +362,14 @@ export default function ForgotPasswordScreen() {
                   loading && s.primaryBtnDisabled,
                 ]}
                 disabled={loading}
-                onPress={handleSubmit}
+                onPress={handleSendCode}
                 activeOpacity={0.88}
               >
                 {loading ? (
                   <ActivityIndicator color={WHITE} />
                 ) : (
                   <>
-                    <Text style={s.primaryBtnTxt}>Send Reset Link</Text>
+                    <Text style={s.primaryBtnTxt}>Send Verification Code</Text>
                     <Feather name="arrow-right" size={17} color={WHITE} />
                   </>
                 )}
@@ -296,11 +386,196 @@ export default function ForgotPasswordScreen() {
                   <Text style={{ fontWeight: "700", color: colors.primary }}>
                     Tip:{" "}
                   </Text>
-                  The reset link is single-use and expires after 30 minutes for
-                  your security.
+                  The verification code is single-use and expires after 10
+                  minutes for your security.
                 </Text>
               </View>
             </>
+          )}
+
+          {step === "code" && (
+            <>
+              <View style={s.hero}>
+                <View style={s.shieldWrap}>
+                  <Ionicons name="mail-open-outline" size={30} color={colors.primary} />
+                </View>
+                <Text style={s.heroTitle}>Check your inbox</Text>
+                <Text style={s.heroDesc}>
+                  We sent a 6-digit verification code to{" "}
+                  <Text style={s.successEmail}>{email.trim()}</Text>. Enter it
+                  below to continue.
+                </Text>
+              </View>
+
+              <View style={s.fieldGroup}>
+                <Text style={s.fieldLabel}>Verification Code</Text>
+                <View style={s.inputWrap}>
+                  <Feather name="key" size={15} color={colors.textLight} />
+                  <TextInput
+                    style={s.fieldInput}
+                    placeholder="Enter 6-digit code"
+                    placeholderTextColor={colors.textLight}
+                    value={code}
+                    onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="go"
+                    onSubmitEditing={handleVerifyCode}
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  s.primaryBtn,
+                  loading && s.primaryBtnDisabled,
+                ]}
+                disabled={loading}
+                onPress={handleVerifyCode}
+                activeOpacity={0.88}
+              >
+                {loading ? (
+                  <ActivityIndicator color={WHITE} />
+                ) : (
+                  <>
+                    <Text style={s.primaryBtnTxt}>Verify Code</Text>
+                    <Feather name="arrow-right" size={17} color={WHITE} />
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <View style={s.helpCard}>
+                <Feather
+                  name="info"
+                  size={13}
+                  color={colors.textLight}
+                  style={{ marginTop: 2 }}
+                />
+                <Text style={s.helpText}>
+                  Don't see the email? Check your spam or junk folder. The code
+                  expires in 10 minutes.
+                </Text>
+              </View>
+            </>
+          )}
+
+          {step === "password" && (
+            <>
+              <View style={s.hero}>
+                <View style={s.shieldWrap}>
+                  <Ionicons name="lock-closed-outline" size={30} color={colors.primary} />
+                </View>
+                <Text style={s.heroTitle}>Set a New Password</Text>
+                <Text style={s.heroDesc}>
+                  Creating a new password for{" "}
+                  <Text style={s.successEmail}>{email.trim()}</Text>.
+                </Text>
+              </View>
+
+              <View style={s.fieldGroup}>
+                <Text style={s.fieldLabel}>New Password</Text>
+                <View style={s.inputWrap}>
+                  <Feather name="lock" size={15} color={colors.textLight} />
+                  <TextInput
+                    style={s.fieldInput}
+                    placeholder="Min. 8 characters"
+                    placeholderTextColor={colors.textLight}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    returnKeyType="next"
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword((v) => !v)}>
+                    <Feather
+                      name={showPassword ? "eye-off" : "eye"}
+                      size={15}
+                      color={colors.textLight}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={s.fieldGroup}>
+                <Text style={s.fieldLabel}>Confirm New Password</Text>
+                <View style={s.inputWrap}>
+                  <Feather name="lock" size={15} color={colors.textLight} />
+                  <TextInput
+                    style={s.fieldInput}
+                    placeholder="Repeat your new password"
+                    placeholderTextColor={colors.textLight}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirm}
+                    autoCapitalize="none"
+                    returnKeyType="go"
+                    onSubmitEditing={handleResetPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowConfirm((v) => !v)}>
+                    <Feather
+                      name={showConfirm ? "eye-off" : "eye"}
+                      size={15}
+                      color={colors.textLight}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={s.helpCard}>
+                <Feather
+                  name="info"
+                  size={13}
+                  color={colors.textLight}
+                  style={{ marginTop: 2 }}
+                />
+                <Text style={s.helpText}>
+                  Use at least 8 characters with a mix of letters, numbers, and
+                  symbols.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  s.primaryBtn,
+                  loading && s.primaryBtnDisabled,
+                ]}
+                disabled={loading}
+                onPress={handleResetPassword}
+                activeOpacity={0.88}
+              >
+                {loading ? (
+                  <ActivityIndicator color={WHITE} />
+                ) : (
+                  <>
+                    <Text style={s.primaryBtnTxt}>Reset Password</Text>
+                    <Feather name="arrow-right" size={17} color={WHITE} />
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+
+          {step === "done" && (
+            <View style={s.successWrap}>
+              <View style={s.successIcon}>
+                <Ionicons name="checkmark-circle-outline" size={40} color={colors.primary} />
+              </View>
+              <Text style={s.successTitle}>Password Updated</Text>
+              <Text style={s.successDesc}>
+                Your password has been reset successfully. You can now log in
+                with your new password.
+              </Text>
+              <TouchableOpacity
+                style={s.primaryBtn}
+                onPress={() => router.replace("/portal")}
+                activeOpacity={0.88}
+              >
+                <Text style={s.primaryBtnTxt}>Back to Login</Text>
+                <Feather name="arrow-right" size={16} color={WHITE} />
+              </TouchableOpacity>
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -325,6 +600,47 @@ function getStyles(colors: ThemeColors) {
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 24,
+    },
+    stepsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 28,
+    },
+    stepItem: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    stepDot: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      backgroundColor: colors.divider,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    stepDotActive: {
+      backgroundColor: colors.primary,
+    },
+    stepDotDone: {
+      backgroundColor: colors.success,
+    },
+    stepDotTxt: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: colors.textSecondary,
+    },
+    stepDotTxtActive: {
+      color: WHITE,
+    },
+    stepLine: {
+      width: 46,
+      height: 2,
+      backgroundColor: colors.divider,
+      marginHorizontal: 6,
+    },
+    stepLineDone: {
+      backgroundColor: colors.success,
     },
     hero: { alignItems: "center", marginBottom: 28 },
     shieldWrap: {
@@ -436,16 +752,6 @@ function getStyles(colors: ThemeColors) {
       maxWidth: 320,
     },
     successEmail: { fontWeight: "700", color: colors.primary },
-    successTip: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 8,
-      backgroundColor: colors.cardMuted,
-      borderRadius: 12,
-      padding: 12,
-      marginBottom: 24,
-    },
-    successTipTxt: { flex: 1, fontSize: 12, color: colors.textMuted, lineHeight: 18 },
   });
 }
 

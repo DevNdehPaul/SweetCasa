@@ -1,8 +1,8 @@
-const express  = require('express')
-const multer   = require('multer')
-const router   = express.Router()
+const express = require('express')
+const multer = require('multer')
+const router = express.Router()
 
-const { register, login, logout, updateProfile, forgotPassword, resetPassword } = require('../controllers/auth.controller')
+const { register, login, logout, updateProfile, forgotPassword, verifyResetCode, resetPassword } = require('../controllers/auth.controller')
 const requireRole = require('../middleware/requireRole')
 
 // ─── Multer – memory storage (buffer handed to Cloudinary stream) ─────────────
@@ -54,7 +54,8 @@ router.post('/login', login)
 
 // ── Password reset (public, no auth required) ─────────────────────────────────
 router.post('/forgot-password', express.json(), forgotPassword)
-router.post('/reset-password',  express.json(), resetPassword)
+router.post('/verify-reset-code', express.json(), verifyResetCode)
+router.post('/reset-password', express.json(), resetPassword)
 
 // PUT /auth/profile — optionally accepts a "nationalId" file to replace the stored one
 router.put(
@@ -73,8 +74,8 @@ router.post('/logout', requireRole(), logout)
 router.get('/session', requireRole(), (req, res) => res.json({ ok: true, role: req.user.role }))
 
 // ─── Role-scoped test routes ───────────────────────────────────────────────────
-router.get('/buyer-only',  requireRole('BUYER'),  (_req, res) => res.json({ ok: true, role: 'BUYER' }))
+router.get('/buyer-only', requireRole('BUYER'), (_req, res) => res.json({ ok: true, role: 'BUYER' }))
 router.get('/seller-only', requireRole('SELLER'), (_req, res) => res.json({ ok: true, role: 'SELLER' }))
-router.get('/admin-only',  requireRole('ADMIN'),  (_req, res) => res.json({ ok: true, role: 'ADMIN' }))
+router.get('/admin-only', requireRole('ADMIN'), (_req, res) => res.json({ ok: true, role: 'ADMIN' }))
 
 module.exports = router

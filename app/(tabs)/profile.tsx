@@ -263,7 +263,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Agent Mode Banner — only for buyers */}
-        {!isSeller && (
+        {/* {!isSeller && (
           <TouchableOpacity style={styles.agentBanner} activeOpacity={0.85}>
             <View style={styles.agentIconWrap}>
               <Ionicons name="flash" size={20} color="#fff" />
@@ -278,7 +278,7 @@ export default function ProfileScreen() {
             </View>
             <Feather name="chevron-right" size={18} color={colors.primary} />
           </TouchableOpacity>
-        )}
+        )} */}
 
         <MenuGroup items={MENU_GROUP_1} colors={colors} styles={styles} />
         <MenuGroup items={MENU_GROUP_2} colors={colors} styles={styles} />
