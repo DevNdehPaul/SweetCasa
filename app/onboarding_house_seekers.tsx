@@ -78,7 +78,7 @@ const DotIndicator = ({
 const SlideItem = ({ item, styles }: { item: Slide; styles: ReturnType<typeof getStyles> }) => {
   return (
     <View style={[styles.slide, { width }]}>
-      <View style={[styles.blob, { backgroundColor: item.accentColor + '18' }]} />
+      
       <View style={styles.imageWrapper}>
         <Image source={item.image} style={styles.illustration} resizeMode="contain" />
       </View>

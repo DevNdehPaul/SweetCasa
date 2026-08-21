@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://sweetcasa-production-4232.up.railway.app';
+export const BASE_URL = 'https://sweetcasa-production-4232.up.railway.app';
 
 const api = axios.create({
   baseURL: BASE_URL,

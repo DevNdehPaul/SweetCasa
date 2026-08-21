@@ -630,11 +630,24 @@ function OwnerGuideModal({ visible, onClose }: { visible: boolean; onClose: () =
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function EscrowWalletScreen({ role = 'seeker' }: { role?: 'owner' | 'seeker' }) {
+export default function EscrowWalletScreen({ role: roleProp }: { role?: string }) {
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
-  const isOwner = role === 'owner';
+
+  // `role` isn't always forwarded as a prop by every screen that mounts this
+  // component — it's already persisted in storage under the "role" key (the
+  // same one visible under Local Storage in devtools), so fall back to that
+  // when no prop is given rather than silently defaulting to the tenant view.
+  const [storedRole, setStoredRole] = useState<string | null>(null);
+  useEffect(() => {
+    if (!roleProp) {
+      AsyncStorage.getItem('role').then(setStoredRole).catch(() => {});
+    }
+  }, [roleProp]);
+  const role = roleProp ?? storedRole;
+
+  const isOwner = role === 'SELLER'; // mirrors `const isBuyer = role === 'BUYER'` used elsewhere in the app
 
   const [infoVisible, setInfoVisible] = useState(false);
   const [depositVisible, setDepositVisible] = useState(false);
