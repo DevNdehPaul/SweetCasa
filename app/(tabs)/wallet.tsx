@@ -1,6 +1,5 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -167,6 +166,16 @@ function ActivityRow({ item }: { item: Transaction }) {
 
 // ─── Deposit Modal ────────────────────────────────────────────────────────────
 
+const FAPSHI_MEDIUMS: { value: 'mobile money' | 'orange money'; labelKey: string }[] = [
+  { value: 'mobile money', labelKey: 'escrow.mtnMomo' },
+  { value: 'orange money', labelKey: 'escrow.orangeMoney' },
+];
+
+// Direct Pay is async — the person has to approve a prompt on their own phone,
+// so we poll for the outcome instead of getting an instant response.
+const VERIFY_POLL_INTERVAL_MS = 2500;
+const VERIFY_POLL_MAX_ATTEMPTS = 16; // ~40s, generous enough for a MoMo/OM prompt
+
 function DepositModal({
   visible, onClose, onDeposited,
 }: { visible: boolean; onClose: () => void; onDeposited: () => void }) {
@@ -177,12 +186,16 @@ function DepositModal({
   const [results, setResults] = useState<ListingOption[]>([]);
   const [selected, setSelected] = useState<ListingOption | null>(null);
   const [amount, setAmount] = useState('');
+  const [phone, setPhone] = useState('');
+  const [medium, setMedium] = useState<'mobile money' | 'orange money'>('mobile money');
   const [busy, setBusy] = useState(false);
+  const [waitingForApproval, setWaitingForApproval] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) {
-      setQuery(''); setResults([]); setSelected(null); setAmount(''); setError(null);
+      setQuery(''); setResults([]); setSelected(null); setAmount('');
+      setPhone(''); setMedium('mobile money'); setError(null); setWaitingForApproval(false);
     }
   }, [visible]);
 
@@ -198,39 +211,65 @@ function DepositModal({
     }
   };
 
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // Polls /wallet/deposit/:id/verify until Fapshi reports a final status, or we
+  // time out waiting for the person to approve the prompt on their phone.
+  const pollForOutcome = async (transactionId: number) => {
+    for (let attempt = 0; attempt < VERIFY_POLL_MAX_ATTEMPTS; attempt += 1) {
+      await sleep(VERIFY_POLL_INTERVAL_MS);
+      try {
+        const verified = await authedFetch(`/wallet/deposit/${transactionId}/verify`);
+        const status = verified.transaction?.status;
+        const reason = verified.transaction?.reason;
+        if (status === 'Completed') {
+          return { status, reason };
+        }
+        if (status === 'Failed' || status === 'Cancelled') {
+          return { status, reason };
+        }
+        // still Pending — keep polling
+      } catch {
+        // a single failed poll is fine — keep trying until we run out of attempts
+      }
+    }
+    return { status: 'Pending', reason: null };
+  };
+
   const handleConfirm = async () => {
     setError(null);
     if (!selected) { setError(t('escrow.selectAPropertyError')); return; }
     const amt = Number.parseInt(amount.replace(/[^0-9]/g, ''), 10);
     if (!Number.isFinite(amt) || amt < 100) { setError(t('escrow.enterValidAmount')); return; }
+    if (!phone.trim()) { setError(t('escrow.enterPhoneNumber')); return; }
 
     setBusy(true);
     try {
       const data = await authedFetch('/wallet/deposit', {
         method: 'POST',
-        body: JSON.stringify({ listingId: selected.id, amount: amt }),
+        body: JSON.stringify({ listingId: selected.id, amount: amt, phone: phone.trim(), medium }),
       });
+
+      // A prompt has now been pushed to the person's phone — wait here so they
+      // see the "check your phone" state instead of the modal just vanishing.
+      setWaitingForApproval(true);
+      const outcome = await pollForOutcome(data.transaction.id);
+      setWaitingForApproval(false);
       onClose();
 
-      if (data.link) {
-        await WebBrowser.openBrowserAsync(data.link);
-        // Sync status right after the checkout closes rather than waiting on the webhook.
-        try {
-          const verified = await authedFetch(`/wallet/deposit/${data.transaction.id}/verify`);
-          const status = verified.transaction?.status;
-          if (status === 'Completed') {
-            Alert.alert(t('escrow.depositSuccessTitle'), t('escrow.depositSuccessDesc'));
-          } else if (status === 'Failed' || status === 'Cancelled') {
-            Alert.alert(t('escrow.depositFailedTitle'), t('escrow.depositFailedDesc'));
-          } else {
-            Alert.alert(t('escrow.depositPendingTitle'), t('escrow.depositPendingDesc'));
-          }
-        } catch {
-          Alert.alert(t('escrow.depositPendingTitle'), t('escrow.depositPendingDesc'));
-        }
+      if (outcome.status === 'Completed') {
+        Alert.alert(t('escrow.depositSuccessTitle'), t('escrow.depositSuccessDesc'));
+      } else if (outcome.status === 'Failed' || outcome.status === 'Cancelled') {
+        Alert.alert(
+          t('escrow.depositFailedTitle'),
+          outcome.reason ? t('escrow.depositFailedDescReason', { reason: outcome.reason }) : t('escrow.depositFailedDesc'),
+        );
+      } else {
+        Alert.alert(t('escrow.depositPendingTitle'), t('escrow.depositPendingDesc'));
       }
       onDeposited();
     } catch (err: any) {
+      setWaitingForApproval(false);
       setError(err.message || t('common.error'));
     } finally {
       setBusy(false);
@@ -244,49 +283,95 @@ function DepositModal({
           <Text style={modalStyles.title}>{t('escrow.depositModalTitle')}</Text>
           <Text style={modalStyles.desc}>{t('escrow.depositModalDesc')}</Text>
 
-          {error && <Text style={modalStyles.error}>{error}</Text>}
-
-          {!selected ? (
-            <>
-              <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
-              <TextInput
-                style={modalStyles.input}
-                placeholder={t('escrow.searchProperties')}
-                placeholderTextColor={colors.textLight}
-                value={query}
-                onChangeText={handleSearch}
-              />
-              <ScrollView style={{ maxHeight: 200 }}>
-                {results.map((r) => (
-                  <TouchableOpacity key={r.id} style={modalStyles.resultRow} onPress={() => setSelected(r)}>
-                    <Text style={modalStyles.resultTitle} numberOfLines={1}>{r.title}</Text>
-                    <Text style={modalStyles.resultMeta}>{r.city} · {formatXAF(r.price)}</Text>
-                  </TouchableOpacity>
-                ))}
-                {query.length >= 2 && results.length === 0 && (
-                  <Text style={modalStyles.hint}>{t('common.noResults')}</Text>
-                )}
-              </ScrollView>
-            </>
+          {waitingForApproval ? (
+            <View style={{ alignItems: 'center', paddingVertical: 24, gap: 12 }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.text, textAlign: 'center' }}>
+                {t('escrow.depositWaitingTitle')}
+              </Text>
+              <Text style={{ fontSize: 12.5, color: colors.textLight, textAlign: 'center', lineHeight: 18 }}>
+                {t('escrow.depositWaitingDesc')}
+              </Text>
+            </View>
           ) : (
             <>
-              <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
-              <View style={modalStyles.selectedRow}>
-                <Text style={modalStyles.selectedTxt} numberOfLines={1}>{selected.title}</Text>
-                <TouchableOpacity onPress={() => setSelected(null)}>
-                  <Text style={modalStyles.changeTxt}>{t('common.edit')}</Text>
-                </TouchableOpacity>
-              </View>
+              {error && <Text style={modalStyles.error}>{error}</Text>}
 
-              <Text style={modalStyles.label}>{t('escrow.amountXAF')}</Text>
-              <TextInput
-                style={modalStyles.input}
-                placeholder={t('escrow.amountPlaceholder')}
-                placeholderTextColor={colors.textLight}
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="number-pad"
-              />
+              {!selected ? (
+                <>
+                  <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
+                  <TextInput
+                    style={modalStyles.input}
+                    placeholder={t('escrow.searchProperties')}
+                    placeholderTextColor={colors.textLight}
+                    value={query}
+                    onChangeText={handleSearch}
+                  />
+                  <ScrollView style={{ maxHeight: 200 }}>
+                    {results.map((r) => (
+                      <TouchableOpacity key={r.id} style={modalStyles.resultRow} onPress={() => setSelected(r)}>
+                        <Text style={modalStyles.resultTitle} numberOfLines={1}>{r.title}</Text>
+                        <Text style={modalStyles.resultMeta}>{r.city} · {formatXAF(r.price)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    {query.length >= 2 && results.length === 0 && (
+                      <Text style={modalStyles.hint}>{t('common.noResults')}</Text>
+                    )}
+                  </ScrollView>
+                </>
+              ) : (
+                <>
+                  <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
+                  <View style={modalStyles.selectedRow}>
+                    <Text style={modalStyles.selectedTxt} numberOfLines={1}>{selected.title}</Text>
+                    <TouchableOpacity onPress={() => setSelected(null)}>
+                      <Text style={modalStyles.changeTxt}>{t('common.edit')}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={modalStyles.label}>{t('escrow.amountXAF')}</Text>
+                  <TextInput
+                    style={modalStyles.input}
+                    placeholder={t('escrow.amountPlaceholder')}
+                    placeholderTextColor={colors.textLight}
+                    value={amount}
+                    onChangeText={setAmount}
+                    keyboardType="number-pad"
+                  />
+
+                  <Text style={modalStyles.label}>{t('escrow.selectNetwork')}</Text>
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
+                    {FAPSHI_MEDIUMS.map((m) => (
+                      <TouchableOpacity
+                        key={m.value}
+                        onPress={() => setMedium(m.value)}
+                        style={{
+                          flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center',
+                          borderWidth: 1.5,
+                          borderColor: medium === m.value ? colors.primary : colors.border,
+                          backgroundColor: medium === m.value ? colors.primaryTint : colors.card,
+                        }}>
+                        <Text style={{
+                          fontSize: 13, fontWeight: '700',
+                          color: medium === m.value ? colors.primary : colors.textSecondary,
+                        }}>
+                          {t(m.labelKey)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={modalStyles.label}>{t('escrow.phoneNumber')}</Text>
+                  <TextInput
+                    style={modalStyles.input}
+                    placeholder={t('escrow.phonePlaceholder')}
+                    placeholderTextColor={colors.textLight}
+                    value={phone}
+                    onChangeText={setPhone}
+                    keyboardType="phone-pad"
+                  />
+                </>
+              )}
             </>
           )}
 

@@ -5,8 +5,8 @@
 // service, that service can no longer collect payments. Use separate services for
 // collections and payouts."). So this file talks to TWO separate Fapshi services with
 // TWO separate credential pairs:
-//   - "collection" service → /initiate-pay, /payment-status  (deposits coming in)
-//   - "payout" service     → /payout                          (refunds + withdrawals going out)
+//   - "collection" service → /direct-pay, /initiate-pay, /payment-status  (deposits coming in)
+//   - "payout" service     → /payout                                      (refunds + withdrawals going out)
 //
 // Also note: payouts are disabled by default in Fapshi's live environment. You must test
 // in sandbox first, then email support@fapshi.com with your LIVE payout service's API
@@ -18,7 +18,10 @@ const BASE_URLS = {
 }
 
 function baseUrl() {
-  return BASE_URLS[process.env.FAPSHI_ENV === 'live' ? 'live' : 'sandbox']
+  // Defaults to LIVE. Set FAPSHI_ENV=sandbox explicitly to test against sandbox instead —
+  // sandbox uses a separate set of API credentials from live, so both env vars and
+  // credentials need to change together when switching.
+  return BASE_URLS[process.env.FAPSHI_ENV === 'sandbox' ? 'sandbox' : 'live']
 }
 
 function collectionHeaders() {
@@ -56,7 +59,25 @@ async function parseOrThrow(res, label) {
   return data
 }
 
-// ── POST /initiate-pay — deposit: seeker is redirected to a Fapshi-hosted checkout ──
+// ── POST /direct-pay — deposit: charge the seeker's own MTN MoMo / Orange Money number ──
+// directly, no redirect — Fapshi pushes a USSD/app prompt straight to their phone.
+// medium must be 'mobile money' (MTN) or 'orange money'.
+// Returns { message, transId, dateInitiated }
+async function directPay({ amount, phone, medium, email, userId, externalId, message }) {
+  if (!phone || !medium) {
+    throw new Error('directPay requires both phone and medium (the payer has no checkout page to enter these on).')
+  }
+  const res = await fetch(`${baseUrl()}/direct-pay`, {
+    method: 'POST',
+    headers: collectionHeaders(),
+    body: JSON.stringify({ amount, phone, medium, email, userId, externalId, message }),
+  })
+  return parseOrThrow(res, 'direct-pay')
+}
+
+// ── POST /initiate-pay — deposit (redirect flow): seeker is sent to a Fapshi-hosted ──
+// checkout page instead of being charged directly. Kept for reference / fallback —
+// the deposit flow now calls directPay above instead.
 // Returns { message, link, transId, dateInitiated }
 async function initiatePay({ amount, email, redirectUrl, userId, externalId, message }) {
   const res = await fetch(`${baseUrl()}/initiate-pay`, {
@@ -68,7 +89,8 @@ async function initiatePay({ amount, email, redirectUrl, userId, externalId, mes
 }
 
 // ── GET /payment-status/:transId — poll a deposit's current state ────────────────
-// Returns { transId, status, amount, revenue, financialTransId, dateInitiated, dateConfirmed, ... }
+// Works the same for both direct-pay and initiate-pay transactions.
+// Returns { transId, status, medium, amount, revenue, financialTransId, dateInitiated, dateConfirmed, ... }
 // status is one of: CREATED | PENDING | SUCCESSFUL | FAILED | EXPIRED
 async function getPaymentStatus(transId) {
   const res = await fetch(`${baseUrl()}/payment-status/${encodeURIComponent(transId)}`, {
@@ -88,4 +110,4 @@ async function payout({ amount, phone, medium, name, email, userId, externalId, 
   return parseOrThrow(res, 'payout')
 }
 
-module.exports = { initiatePay, getPaymentStatus, payout, baseUrl }
+module.exports = { directPay, initiatePay, getPaymentStatus, payout, baseUrl }
