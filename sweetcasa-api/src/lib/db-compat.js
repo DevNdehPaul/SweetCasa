@@ -42,6 +42,32 @@ async function ensureDatabaseCompatibility() {
       ALTER COLUMN name     TYPE VARCHAR(100);
   `)
 
+  // ── Social auth (Google / Apple sign-in) ────────────────────────────────
+  // password becomes optional: social accounts never set one.
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE public.users
+      ALTER COLUMN password DROP NOT NULL,
+      ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(20) DEFAULT 'LOCAL',
+      ADD COLUMN IF NOT EXISTS google_id     VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS apple_id      VARCHAR(255);
+  `)
+
+  await prisma.$executeRawUnsafe(`
+    UPDATE public.users
+    SET auth_provider = 'LOCAL'
+    WHERE auth_provider IS NULL;
+  `)
+
+  await prisma.$executeRawUnsafe(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id
+      ON public.users (google_id) WHERE google_id IS NOT NULL;
+  `)
+
+  await prisma.$executeRawUnsafe(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_apple_id
+      ON public.users (apple_id) WHERE apple_id IS NOT NULL;
+  `)
+
   await prisma.$executeRawUnsafe(`
     UPDATE public.users
     SET company_name = name

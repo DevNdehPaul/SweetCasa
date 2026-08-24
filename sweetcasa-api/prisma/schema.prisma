@@ -11,7 +11,12 @@ model User {
   name                String             @db.VarChar(100)
   companyName         String?            @map("company_name") @db.VarChar(100)
   email               String             @unique @db.VarChar(255)
-  password            String             @db.VarChar(255)
+  /// Null for accounts created via Google/Apple sign-in — they never set one.
+  password            String?            @db.VarChar(255)
+  /// 'LOCAL' | 'GOOGLE' | 'APPLE' — which auth method created this account.
+  authProvider        String             @default("LOCAL") @map("auth_provider") @db.VarChar(20)
+  googleId            String?            @unique @map("google_id")
+  appleId             String?            @unique @map("apple_id")
   phone               BigInt?
   role                String             @default("BUYER") @db.VarChar(50)
   /// 'Active' | 'Suspended'

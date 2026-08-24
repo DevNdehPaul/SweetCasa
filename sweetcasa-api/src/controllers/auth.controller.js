@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 const streamifier = require('streamifier')
+const { OAuth2Client } = require('google-auth-library')
+const appleSignin = require('apple-signin-auth')
 require('dotenv').config()
 
 const { getPrisma } = require('../lib/prisma')
@@ -53,6 +55,7 @@ function toProfile(user) {
     phone: String(user.phone ?? ''),
     role: user.role,
     status: user.status,
+    authProvider: user.authProvider || 'LOCAL',
     country: user.country || '',
     region: user.region || '',
     city: user.city || '',
@@ -60,6 +63,43 @@ function toProfile(user) {
     nationalIdUrl: user.nationalIdUrl || '',
     createdAt: user.createdAt,
   }
+}
+
+// ─── Social auth (Google / Apple) ──────────────────────────────────────────
+
+const googleClient = new OAuth2Client()
+
+// All client IDs (iOS, Android, web) that are allowed to mint tokens we accept.
+const GOOGLE_CLIENT_IDS = [
+  process.env.GOOGLE_IOS_CLIENT_ID,
+  process.env.GOOGLE_ANDROID_CLIENT_ID,
+  process.env.GOOGLE_WEB_CLIENT_ID,
+].filter(Boolean)
+
+async function verifyGoogleToken(idToken) {
+  if (!GOOGLE_CLIENT_IDS.length) {
+    throw new Error('Google sign-in is not configured (no GOOGLE_*_CLIENT_ID set).')
+  }
+  const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_IDS })
+  const payload = ticket.getPayload()
+  if (!payload?.email_verified) {
+    throw new Error('Google account email is not verified.')
+  }
+  return { providerId: payload.sub, email: payload.email, name: payload.name || '' }
+}
+
+async function verifyAppleToken(idToken) {
+  if (!process.env.APPLE_CLIENT_ID) {
+    throw new Error('Apple sign-in is not configured (no APPLE_CLIENT_ID set).')
+  }
+  // Apple's token never carries the user's name — it's only ever handed to
+  // the client once, on the very first authorization. The frontend must
+  // capture it then and pass it up as `fullName` in the request body.
+  const payload = await appleSignin.verifyIdToken(idToken, {
+    audience: process.env.APPLE_CLIENT_ID,
+    ignoreExpiration: false,
+  })
+  return { providerId: payload.sub, email: payload.email, name: null }
 }
 
 // ─── Upload buffer to Cloudinary (stream-based, works with multer memoryStorage) ─
@@ -185,6 +225,108 @@ exports.register = async (req, res) => {
   }
 }
 
+// ─── Social auth (Google / Apple) ──────────────────────────────────────────
+// POST /auth/social  { provider: 'GOOGLE' | 'APPLE', idToken, role, fullName?, companyName? }
+//
+// Creates or logs into an account with NO password — the account can only
+// ever be accessed by presenting a valid Google/Apple idToken again. We
+// verify that token server-side; we never trust identity fields from the
+// request body, only `role`/`fullName`/`companyName`, which are legitimate
+// user choices Google/Apple don't know about.
+//
+// National ID upload is required elsewhere in this app but multipart file
+// upload doesn't fit an OAuth callback, so a social account is created with
+// nationalIdUrl empty. The response's `profileComplete` flag tells the
+// frontend to route the user to "finish your profile" (PUT /auth/profile,
+// which already accepts an optional nationalId file) before letting them
+// list a property, message a seller, or pay.
+exports.socialAuth = async (req, res) => {
+  try {
+    const { provider, idToken, role, fullName, companyName } = req.body
+
+    if (!['GOOGLE', 'APPLE'].includes(provider)) {
+      return res.status(400).json({ error: 'Unsupported provider.' })
+    }
+    if (!idToken) {
+      return res.status(400).json({ error: 'Missing idToken.' })
+    }
+
+    let verified
+    try {
+      verified = provider === 'GOOGLE'
+        ? await verifyGoogleToken(idToken)
+        : await verifyAppleToken(idToken)
+    } catch (verifyErr) {
+      console.error(`${provider} token verification failed:`, verifyErr.message)
+      return res.status(401).json({ error: 'Could not verify your account. Please try again.' })
+    }
+
+    const normalizedEmail = normalizeEmail(verified.email)
+    if (!normalizedEmail) {
+      return res.status(400).json({ error: `${provider} did not return an email address.` })
+    }
+
+    const prisma = getPrisma()
+    const providerField = provider === 'GOOGLE' ? 'googleId' : 'appleId'
+
+    // 1. Already linked to this provider → returning social login.
+    let user = await prisma.user.findFirst({ where: { [providerField]: verified.providerId } })
+
+    if (!user) {
+      // 2. An account with this email already exists (password account, or
+      //    signed up with the other provider) → link this provider to it
+      //    instead of creating a duplicate account with the same email.
+      user = await prisma.user.findFirst({ where: { email: normalizedEmail } })
+
+      if (user) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { [providerField]: verified.providerId },
+        })
+      } else {
+        // 3. Brand new account — no password, ever.
+        const userRole = normalizeRole(role)
+        const name = buildDisplayName({
+          role: userRole,
+          fullName: fullName || verified.name,
+          companyName,
+          email: normalizedEmail,
+        })
+
+        user = await prisma.user.create({
+          data: {
+            name,
+            companyName: userRole === 'SELLER' ? String(companyName || '').trim() || null : null,
+            email: normalizedEmail,
+            password: null,
+            authProvider: provider,
+            [providerField]: verified.providerId,
+            role: userRole,
+          },
+        })
+      }
+    }
+
+    if (user.status === 'Suspended') {
+      return res.status(403).json({
+        error: 'This account has been suspended. Contact SweetCasa support if you believe this is a mistake.',
+        code: 'ACCOUNT_SUSPENDED',
+      })
+    }
+
+    const token = signToken(user)
+    res.json({
+      token,
+      role: user.role,
+      profile: toProfile(user),
+      profileComplete: Boolean(user.nationalIdUrl),
+    })
+  } catch (err) {
+    console.error(`${req.body?.provider || 'Social'} auth error:`, err)
+    res.status(500).json({ error: 'Sign-in failed.' })
+  }
+}
+
 // ─── Login ────────────────────────────────────────────────────────────────────
 
 exports.login = async (req, res) => {
@@ -198,6 +340,16 @@ exports.login = async (req, res) => {
     })
 
     if (!user) return res.status(401).json({ error: 'Invalid credentials.' })
+
+    // Social accounts have no password — bcrypt.compare would throw on null.
+    // Tell the user which provider to use instead of a generic failure.
+    if (!user.password) {
+      const providerName = user.authProvider === 'APPLE' ? 'Apple' : 'Google'
+      return res.status(400).json({
+        error: `This account signed up with ${providerName}. Please continue with ${providerName} Sign-In instead.`,
+        code: 'SOCIAL_ACCOUNT_NO_PASSWORD',
+      })
+    }
 
     const valid = await bcrypt.compare(password, user.password)
     if (!valid) return res.status(401).json({ error: 'Invalid credentials.' })

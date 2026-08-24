@@ -2,7 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const router = express.Router()
 
-const { register, login, logout, updateProfile, forgotPassword, verifyResetCode, resetPassword } = require('../controllers/auth.controller')
+const { register, login, logout, socialAuth, updateProfile, forgotPassword, verifyResetCode, resetPassword } = require('../controllers/auth.controller')
 const requireRole = require('../middleware/requireRole')
 
 // ─── Multer – memory storage (buffer handed to Cloudinary stream) ─────────────
@@ -51,6 +51,9 @@ router.post(
 )
 
 router.post('/login', login)
+
+// POST /auth/social — Google/Apple sign-in. JSON body: { provider, idToken, role, fullName?, companyName? }
+router.post('/social', express.json(), socialAuth)
 
 // ── Password reset (public, no auth required) ─────────────────────────────────
 router.post('/forgot-password', express.json(), forgotPassword)
