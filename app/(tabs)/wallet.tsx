@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { BASE_URL } from '../../constants/api';
 import { ThemeColors } from '../../constants/theme';
 import { useAppTheme } from '../../hooks/use-app-theme';
+import { getSocket } from '../../src/lib/socket';
 
 const { width, height } = Dimensions.get('window');
 const H_PAD = 20;
@@ -184,9 +185,12 @@ const FAPSHI_MEDIUMS: { value: 'mobile money' | 'orange money'; labelKey: string
   { value: 'orange money', labelKey: 'escrow.orangeMoney' },
 ];
 
-// Direct Pay is async — the person has to approve a prompt on their own phone,
-// so we poll for the outcome instead of getting an instant response.
-// Total wait is capped at VERIFY_POLL_MAX_ATTEMPTS * VERIFY_POLL_INTERVAL_MS = 40s.
+// Direct Pay is async — the person has to approve a prompt on their own phone.
+// We now race two paths to find out the outcome:
+//  1. A Socket.IO push (near-instant — server emits the moment the Fapshi
+//     webhook resolves the deposit).
+//  2. A polling fallback, in case the socket never connects or drops mid-wait.
+// Total wait is still capped at VERIFY_POLL_MAX_ATTEMPTS * VERIFY_POLL_INTERVAL_MS = 40s.
 // If nothing resolves within that window, the transaction is cancelled server-side
 // (see /wallet/deposit/:id/cancel) instead of being left dangling as Pending.
 const VERIFY_POLL_INTERVAL_MS = 4000;
@@ -208,6 +212,10 @@ function DepositModal({
   const [waitingForApproval, setWaitingForApproval] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Holds whichever teardown fn (socket listener unsubscribe) needs to run
+  // once one of the two race paths in waitForOutcome resolves.
+  const socketCleanupRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (!visible) {
       setQuery(''); setResults([]); setSelected(null); setAmount('');
@@ -227,38 +235,71 @@ function DepositModal({
     }
   };
 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  // Waits for a terminal deposit status two ways at once:
+  //  1. The socket push — resolves the instant the webhook lands server-side.
+  //  2. The original poll loop — resolves within ~40s even if the socket
+  //     never connected or dropped along the way, and cancels the deposit
+  //     server-side if nothing resolved by the last attempt.
+  // Whichever path settles first wins; the other is torn down (poll timer
+  // cleared, or socket listener unsubscribed) so onClose()/Alert never fire twice.
+  const waitForOutcome = async (transactionId: number) => {
+    let settled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Polls /wallet/deposit/:id/verify until Fapshi reports a final status. If we
-  // run out of attempts (~40s) with no resolution — the person never approved
-  // the prompt on their phone — we explicitly cancel the deposit server-side
-  // rather than leaving it stuck as Pending.
-  const pollForOutcome = async (transactionId: number) => {
-    for (let attempt = 0; attempt < VERIFY_POLL_MAX_ATTEMPTS; attempt += 1) {
-      await sleep(VERIFY_POLL_INTERVAL_MS);
-      try {
-        const verified = await authedFetch(`/wallet/deposit/${transactionId}/verify`);
-        const status = verified.transaction?.status;
-        const reason = verified.transaction?.reason;
-        if (status === 'Completed' || status === 'Failed' || status === 'Cancelled') {
-          return { status, reason };
+    const socketPromise = new Promise<{ status: string; reason: string | null }>((resolve) => {
+      getSocket()
+        .then((socket) => {
+          if (settled) return; // poll loop already won by the time we connected
+          const handler = (tx: { id: number; status: string; reason: string | null }) => {
+            if (settled || tx.id !== transactionId) return;
+            if (tx.status === 'Completed' || tx.status === 'Failed' || tx.status === 'Cancelled') {
+              socket.off('wallet:deposit_update', handler);
+              resolve({ status: tx.status, reason: tx.reason });
+            }
+          };
+          socket.on('wallet:deposit_update', handler);
+          socketCleanupRef.current = () => socket.off('wallet:deposit_update', handler);
+        })
+        .catch(() => {
+          // Socket unavailable — the poll loop below is the only path, that's fine.
+        });
+    });
+
+    const pollPromise = (async () => {
+      for (let attempt = 0; attempt < VERIFY_POLL_MAX_ATTEMPTS; attempt += 1) {
+        await new Promise<void>((resolve) => { pollTimer = setTimeout(resolve, VERIFY_POLL_INTERVAL_MS); });
+        if (settled) return { status: 'Cancelled', reason: null }; // socket already won, value unused
+        try {
+          const verified = await authedFetch(`/wallet/deposit/${transactionId}/verify`);
+          const status = verified.transaction?.status;
+          const reason = verified.transaction?.reason;
+          if (status === 'Completed' || status === 'Failed' || status === 'Cancelled') {
+            return { status, reason };
+          }
+          // still Pending — keep polling
+        } catch {
+          // a single failed poll is fine — keep trying until we run out of attempts
         }
-        // still Pending — keep polling
-      } catch {
-        // a single failed poll is fine — keep trying until we run out of attempts
       }
-    }
 
-    // Timed out — cancel the deposit so it can't complete later via a stray webhook.
-    try {
-      const cancelled = await authedFetch(`/wallet/deposit/${transactionId}/cancel`, { method: 'PATCH' });
-      return {
-        status: cancelled.transaction?.status || 'Cancelled',
-        reason: cancelled.transaction?.reason || null,
-      };
-    } catch {
-      return { status: 'Cancelled', reason: null };
-    }
+      // Timed out — cancel the deposit so it can't complete later via a stray webhook.
+      try {
+        const cancelled = await authedFetch(`/wallet/deposit/${transactionId}/cancel`, { method: 'PATCH' });
+        return {
+          status: cancelled.transaction?.status || 'Cancelled',
+          reason: cancelled.transaction?.reason || null,
+        };
+      } catch {
+        return { status: 'Cancelled', reason: null };
+      }
+    })();
+
+    const outcome = await Promise.race([socketPromise, pollPromise]);
+    settled = true;
+    if (pollTimer) clearTimeout(pollTimer);
+    socketCleanupRef.current?.();
+    socketCleanupRef.current = null;
+    return outcome;
   };
 
   const handleConfirm = async () => {
@@ -278,7 +319,7 @@ function DepositModal({
       // A prompt has now been pushed to the person's phone — wait here so they
       // see the "check your phone" state instead of the modal just vanishing.
       setWaitingForApproval(true);
-      const outcome = await pollForOutcome(data.transaction.id);
+      const outcome = await waitForOutcome(data.transaction.id);
       // Stop the spinner the instant we have an outcome — success, failure, or timeout.
       setWaitingForApproval(false);
       onClose();
@@ -784,6 +825,30 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
   }, [t]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Keeps the wallet screen itself live too — e.g. if a Hold gets released
+  // or refunded by staff while this screen is open, or a deposit resolves
+  // via the webhook while the DepositModal isn't the active view.
+  useEffect(() => {
+    let unsub: (() => void) | null = null;
+    let cancelled = false;
+
+    getSocket()
+      .then((socket) => {
+        if (cancelled) return;
+        const handler = () => load();
+        socket.on('wallet:deposit_update', handler);
+        unsub = () => socket.off('wallet:deposit_update', handler);
+      })
+      .catch(() => {
+        // No socket — screen still works via pull-to-refresh / the modal's own polling.
+      });
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [load]);
 
   const onRefresh = () => { setRefreshing(true); load(); };
 
