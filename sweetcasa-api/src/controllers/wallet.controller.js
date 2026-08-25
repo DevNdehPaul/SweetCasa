@@ -100,9 +100,21 @@ exports.cancelDeposit = async (req, res) => {
       return res.status(403).json({ error: 'Access denied.' })
     }
     if (transaction.type !== 'Deposit') return res.status(400).json({ error: 'Not a deposit transaction.' })
+    if (transaction.status !== 'Pending') {
+      // Already resolved (e.g. by the webhook) — just report what it is now.
+      return res.json({ transaction: serializeTransaction(transaction) })
+    }
 
-    // One last check — in case it actually resolved right as the client timed out.
-    const resolved = await confirmDeposit(transaction)
+    // Last-chance check with Fapshi — but this call can legitimately fail
+    // (rate limits, network blips), and that must NEVER stop us from cancelling.
+    // A failed courtesy check just means we fall through to cancelling below.
+    let resolved = transaction
+    try {
+      resolved = await confirmDeposit(transaction)
+    } catch (checkErr) {
+      console.error('Cancel deposit — final Fapshi check failed, cancelling anyway:', checkErr.message)
+    }
+
     if (resolved.status !== 'Pending') {
       return res.json({ transaction: serializeTransaction(resolved) })
     }

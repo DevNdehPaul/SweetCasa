@@ -189,8 +189,8 @@ const FAPSHI_MEDIUMS: { value: 'mobile money' | 'orange money'; labelKey: string
 // Total wait is capped at VERIFY_POLL_MAX_ATTEMPTS * VERIFY_POLL_INTERVAL_MS = 40s.
 // If nothing resolves within that window, the transaction is cancelled server-side
 // (see /wallet/deposit/:id/cancel) instead of being left dangling as Pending.
-const VERIFY_POLL_INTERVAL_MS = 2500;
-const VERIFY_POLL_MAX_ATTEMPTS = 16; // 16 * 2500ms = 40s
+const VERIFY_POLL_INTERVAL_MS = 4000;
+const VERIFY_POLL_MAX_ATTEMPTS = 10; // 10 * 4000ms = 40s
 
 function DepositModal({
   visible, onClose, onDeposited,
