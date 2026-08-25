@@ -22,6 +22,7 @@ router.get('/transactions', requireRole(), listMyTransactions)
 router.post('/deposit', requireRole(), deposit)
 router.get('/deposit/:id/verify', requireRole(), verifyDeposit)
 router.post('/withdraw', requireRole('SELLER'), withdraw)
+router.patch('/deposit/:id/cancel', authenticate, walletController.cancelDeposit)
 
 // ── Admin/staff — the "admin-triggered release" from the roadmap ─────────────
 router.patch('/transactions/:id/release', requireRole('ADMIN', 'STAFF'), releaseHold)

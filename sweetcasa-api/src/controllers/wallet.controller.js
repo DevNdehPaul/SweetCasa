@@ -87,6 +87,37 @@ exports.getMyWallet = async (req, res) => {
   }
 }
 
+// ── PATCH /wallet/deposit/:id/cancel — frontend calls this when the 40s wait
+// times out with no resolution, so the deposit doesn't hang as Pending forever.
+exports.cancelDeposit = async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!id) return res.status(400).json({ error: 'Invalid transaction ID.' })
+
+    const transaction = await getPrisma().transaction.findUnique({ where: { id }, include: { wallet: true } })
+    if (!transaction) return res.status(404).json({ error: 'Transaction not found.' })
+    if (transaction.wallet.userId !== req.user.id && req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
+      return res.status(403).json({ error: 'Access denied.' })
+    }
+    if (transaction.type !== 'Deposit') return res.status(400).json({ error: 'Not a deposit transaction.' })
+
+    // One last check — in case it actually resolved right as the client timed out.
+    const resolved = await confirmDeposit(transaction)
+    if (resolved.status !== 'Pending') {
+      return res.json({ transaction: serializeTransaction(resolved) })
+    }
+
+    const cancelled = await getPrisma().transaction.update({
+      where: { id },
+      data: { status: 'Cancelled', reason: 'Timed out waiting for approval.' },
+    })
+    res.json({ transaction: serializeTransaction(cancelled) })
+  } catch (err) {
+    console.error('Cancel deposit error:', err)
+    res.status(500).json({ error: 'Failed to cancel deposit.' })
+  }
+}
+
 // ── GET /wallet/transactions — own transactions, paginated ───────────────────
 exports.listMyTransactions = async (req, res) => {
   try {

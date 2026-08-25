@@ -186,8 +186,11 @@ const FAPSHI_MEDIUMS: { value: 'mobile money' | 'orange money'; labelKey: string
 
 // Direct Pay is async — the person has to approve a prompt on their own phone,
 // so we poll for the outcome instead of getting an instant response.
+// Total wait is capped at VERIFY_POLL_MAX_ATTEMPTS * VERIFY_POLL_INTERVAL_MS = 40s.
+// If nothing resolves within that window, the transaction is cancelled server-side
+// (see /wallet/deposit/:id/cancel) instead of being left dangling as Pending.
 const VERIFY_POLL_INTERVAL_MS = 2500;
-const VERIFY_POLL_MAX_ATTEMPTS = 16; // ~40s, generous enough for a MoMo/OM prompt
+const VERIFY_POLL_MAX_ATTEMPTS = 16; // 16 * 2500ms = 40s
 
 function DepositModal({
   visible, onClose, onDeposited,
@@ -226,8 +229,10 @@ function DepositModal({
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  // Polls /wallet/deposit/:id/verify until Fapshi reports a final status, or we
-  // time out waiting for the person to approve the prompt on their phone.
+  // Polls /wallet/deposit/:id/verify until Fapshi reports a final status. If we
+  // run out of attempts (~40s) with no resolution — the person never approved
+  // the prompt on their phone — we explicitly cancel the deposit server-side
+  // rather than leaving it stuck as Pending.
   const pollForOutcome = async (transactionId: number) => {
     for (let attempt = 0; attempt < VERIFY_POLL_MAX_ATTEMPTS; attempt += 1) {
       await sleep(VERIFY_POLL_INTERVAL_MS);
@@ -235,10 +240,7 @@ function DepositModal({
         const verified = await authedFetch(`/wallet/deposit/${transactionId}/verify`);
         const status = verified.transaction?.status;
         const reason = verified.transaction?.reason;
-        if (status === 'Completed') {
-          return { status, reason };
-        }
-        if (status === 'Failed' || status === 'Cancelled') {
+        if (status === 'Completed' || status === 'Failed' || status === 'Cancelled') {
           return { status, reason };
         }
         // still Pending — keep polling
@@ -246,7 +248,17 @@ function DepositModal({
         // a single failed poll is fine — keep trying until we run out of attempts
       }
     }
-    return { status: 'Pending', reason: null };
+
+    // Timed out — cancel the deposit so it can't complete later via a stray webhook.
+    try {
+      const cancelled = await authedFetch(`/wallet/deposit/${transactionId}/cancel`, { method: 'PATCH' });
+      return {
+        status: cancelled.transaction?.status || 'Cancelled',
+        reason: cancelled.transaction?.reason || null,
+      };
+    } catch {
+      return { status: 'Cancelled', reason: null };
+    }
   };
 
   const handleConfirm = async () => {
@@ -267,18 +279,18 @@ function DepositModal({
       // see the "check your phone" state instead of the modal just vanishing.
       setWaitingForApproval(true);
       const outcome = await pollForOutcome(data.transaction.id);
+      // Stop the spinner the instant we have an outcome — success, failure, or timeout.
       setWaitingForApproval(false);
       onClose();
 
       if (outcome.status === 'Completed') {
         Alert.alert(t('escrow.depositSuccessTitle'), t('escrow.depositSuccessDesc'));
-      } else if (outcome.status === 'Failed' || outcome.status === 'Cancelled') {
+      } else {
+        // Failed, Cancelled, or timed out — all flash as a failure.
         Alert.alert(
           t('escrow.depositFailedTitle'),
           outcome.reason ? t('escrow.depositFailedDescReason', { reason: outcome.reason }) : t('escrow.depositFailedDesc'),
         );
-      } else {
-        Alert.alert(t('escrow.depositPendingTitle'), t('escrow.depositPendingDesc'));
       }
       onDeposited();
     } catch (err: any) {
