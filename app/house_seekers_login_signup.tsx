@@ -1,5 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Google from 'expo-auth-session/providers/google';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -25,9 +27,21 @@ import { persistAuthSession, routeForRole } from '../constants/auth';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
 
+// Required once per app for expo-auth-session's browser-based OAuth flow to
+// resolve correctly when the app comes back into the foreground.
+WebBrowser.maybeCompleteAuthSession();
+
 const H_PAD = 20;
 const GOOGLE_EMAIL_SIGNUP_URL =
   'https://accounts.google.com/signup/v2/webcreateaccount?flowName=GlifWebSignIn&flowEntry=SignUp';
+
+// ── Google OAuth client IDs ─────────────────────────────────────────────
+// Create these in Google Cloud Console → APIs & Services → Credentials.
+// Set them in your .env (must be prefixed EXPO_PUBLIC_ to be readable
+// client-side) — see GOOGLE_APPLE_LOGIN_SETUP.md for the full walkthrough.
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
 // White text sitting directly on a solid-color button (primary CTA, checkbox
 // check) stays hardcoded — that swatch doesn't change between light/dark, so
@@ -35,11 +49,168 @@ const GOOGLE_EMAIL_SIGNUP_URL =
 const WHITE = '#FFFFFF';
 
 type Styles = ReturnType<typeof getStyles>;
+type SocialProvider = 'google' | 'apple' | null;
 
 // Opens Google's account creation page directly in the browser — no
 // intermediate provider-choice dialog.
 function openEmailSignupOptions() {
   WebBrowser.openBrowserAsync(GOOGLE_EMAIL_SIGNUP_URL);
+}
+
+// ─── Social auth hook ───────────────────────────────────────────────────────
+// Shared by both LoginTab and SignupTab so "Continue with Google/Apple"
+// behaves identically no matter which tab the user taps it from — the
+// backend decides whether it's a fresh signup or a returning login.
+function useSocialAuth(role: 'BUYER') {
+  const [socialLoading, setSocialLoading] = useState<SocialProvider>(null);
+
+  const [, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+  });
+
+  const completeSocialAuth = useCallback(
+    async (payload: { provider: 'GOOGLE' | 'APPLE'; idToken: string; role: string; fullName?: string }) => {
+      try {
+        const res = await api.post('/auth/social', payload);
+        const { token, role: userRole, profile, profileComplete } = res.data;
+        await persistAuthSession({ token, role: userRole, profile });
+        router.replace((profileComplete ? routeForRole(userRole) : '/finish-profile') as any);
+      } catch (err: any) {
+        const message = err.response?.data?.error || 'Could not sign you in. Please try again.';
+        Alert.alert('Sign-In Failed', message);
+      } finally {
+        setSocialLoading(null);
+      }
+    },
+    []
+  );
+
+  // Google's flow is a browser redirect — the result comes back async via
+  // this response object rather than as a return value from promptAsync.
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const { id_token } = googleResponse.params;
+      completeSocialAuth({ provider: 'GOOGLE', idToken: id_token, role });
+    } else if (googleResponse?.type === 'error') {
+      Alert.alert('Google Sign-In Failed', 'Something went wrong. Please try again.');
+      setSocialLoading(null);
+    } else if (googleResponse?.type === 'cancel' || googleResponse?.type === 'dismiss') {
+      setSocialLoading(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleResponse]);
+
+  const handleGoogleAuth = useCallback(async () => {
+    if (!GOOGLE_IOS_CLIENT_ID && !GOOGLE_ANDROID_CLIENT_ID && !GOOGLE_WEB_CLIENT_ID) {
+      Alert.alert('Not Configured', 'Google Sign-In is not set up yet. Please try again later.');
+      return;
+    }
+    setSocialLoading('google');
+    const result = await promptGoogleAsync();
+    if (result.type !== 'success') setSocialLoading(null);
+  }, [promptGoogleAsync]);
+
+  const handleAppleAuth = useCallback(async () => {
+    try {
+      setSocialLoading('apple');
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple did not return an identity token.');
+      }
+
+      // credential.fullName is ONLY populated on the very first-ever
+      // authorization for this Apple ID + app — capture it now.
+      const fullName = credential.fullName
+        ? `${credential.fullName.givenName ?? ''} ${credential.fullName.familyName ?? ''}`.trim()
+        : undefined;
+
+      await completeSocialAuth({
+        provider: 'APPLE',
+        idToken: credential.identityToken,
+        role,
+        fullName: fullName || undefined,
+      });
+    } catch (err: any) {
+      if (err.code !== 'ERR_REQUEST_CANCELED') {
+        Alert.alert('Apple Sign-In Failed', 'Something went wrong. Please try again.');
+      }
+      setSocialLoading(null);
+    }
+  }, [completeSocialAuth, role]);
+
+  return { socialLoading, handleGoogleAuth, handleAppleAuth };
+}
+
+// ─── Social sign-in row ─────────────────────────────────────────────────────
+// Apple's guidelines require their own native button styling — it can't
+// share the generic "Google" button look, and it must not appear on
+// Android (there's no way to complete Sign in with Apple there).
+function SocialAuthRow({
+  socialLoading,
+  onGoogle,
+  onApple,
+  colors,
+  s,
+}: {
+  socialLoading: SocialProvider;
+  onGoogle: () => void;
+  onApple: () => void;
+  colors: ThemeColors;
+  s: Styles;
+}) {
+  return (
+    <>
+      <View style={s.orDivider}>
+        <View style={s.dividerLine} />
+        <Text style={s.orTxt}>OR CONTINUE WITH</Text>
+        <View style={s.dividerLine} />
+      </View>
+
+      <View style={s.socialRow}>
+        <TouchableOpacity
+          style={s.socialBtn}
+          onPress={onGoogle}
+          disabled={socialLoading !== null}
+          activeOpacity={0.75}
+        >
+          {socialLoading === 'google' ? (
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+          ) : (
+            <>
+              <Feather name="globe" size={17} color={colors.textSecondary} />
+              <Text style={s.socialBtnTxt}>Google</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {Platform.OS === 'ios' && (
+          <TouchableOpacity
+            style={s.socialBtn}
+            onPress={onApple}
+            disabled={socialLoading !== null}
+            activeOpacity={0.75}
+          >
+            {socialLoading === 'apple' ? (
+              <ActivityIndicator size="small" color={colors.textSecondary} />
+            ) : (
+              <>
+                <Feather name="smartphone" size={17} color={colors.textSecondary} />
+                <Text style={s.socialBtnTxt}>Apple</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+    </>
+  );
 }
 
 // ─── Scroll-into-view helper ───────────────────────────────────────────────
@@ -294,6 +465,12 @@ function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
   const [loading, setLoading]   = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
+  // Social sign-in on the login tab still creates a brand-new account on
+  // first-ever Google/Apple use — the backend (/auth/social) decides
+  // login-vs-signup based on whether the provider ID or email is already on
+  // file, so one row of buttons correctly covers both cases.
+  const { socialLoading, handleGoogleAuth, handleAppleAuth } = useSocialAuth('BUYER');
+
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('Missing Fields', 'Please enter your email and password.');
@@ -384,22 +561,13 @@ function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
         )}
       </TouchableOpacity>
 
-      <View style={s.orDivider}>
-        <View style={s.dividerLine} />
-        <Text style={s.orTxt}>OR CONTINUE WITH</Text>
-        <View style={s.dividerLine} />
-      </View>
-
-      <View style={s.socialRow}>
-        <TouchableOpacity style={s.socialBtn}>
-          <Feather name="globe" size={17} color={colors.textSecondary} />
-          <Text style={s.socialBtnTxt}>Google</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.socialBtn}>
-          <Feather name="smartphone" size={17} color={colors.textSecondary} />
-          <Text style={s.socialBtnTxt}>Apple</Text>
-        </TouchableOpacity>
-      </View>
+      <SocialAuthRow
+        socialLoading={socialLoading}
+        onGoogle={handleGoogleAuth}
+        onApple={handleAppleAuth}
+        colors={colors}
+        s={s}
+      />
 
       <View style={s.tipCard}>
         <Feather name="info" size={13} color={colors.textLight} style={{ marginTop: 2 }} />
@@ -433,6 +601,12 @@ function SignupTab({
   const scrollRef = useRef<ScrollView>(null);
   const passwordFieldRef = useRef<View>(null);
   const confirmPasswordFieldRef = useRef<View>(null);
+
+  // Google/Apple never hand back a National ID, so a social signup started
+  // from here still goes through /auth/social and lands the user on
+  // /finish-profile to upload it afterward — it does NOT go through the
+  // multipart /auth/register flow below.
+  const { socialLoading, handleGoogleAuth, handleAppleAuth } = useSocialAuth('BUYER');
 
   const set = (k: keyof typeof EMPTY_FORM) => (v: string) =>
     setForm(p => ({ ...p, [k]: v }));
@@ -526,6 +700,20 @@ function SignupTab({
       keyboardDismissMode="interactive"
     >
       <Text style={s.stepTitle}>Find Your Dream Home</Text>
+
+      <SocialAuthRow
+        socialLoading={socialLoading}
+        onGoogle={handleGoogleAuth}
+        onApple={handleAppleAuth}
+        colors={colors}
+        s={s}
+      />
+
+      <View style={s.orDivider}>
+        <View style={s.dividerLine} />
+        <Text style={s.orTxt}>OR SIGN UP WITH EMAIL</Text>
+        <View style={s.dividerLine} />
+      </View>
 
       <SectionCard icon="user" title="Personal Details" colors={colors} s={s}>
         <View style={s.fieldGroup}>
