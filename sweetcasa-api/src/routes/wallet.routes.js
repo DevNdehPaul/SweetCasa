@@ -4,6 +4,7 @@ const {
   listMyTransactions,
   deposit,
   verifyDeposit,
+  cancelDeposit,
   fapshiWebhook,
   releaseHold,
   refundHold,
@@ -21,8 +22,8 @@ router.get('/me', requireRole(), getMyWallet)
 router.get('/transactions', requireRole(), listMyTransactions)
 router.post('/deposit', requireRole(), deposit)
 router.get('/deposit/:id/verify', requireRole(), verifyDeposit)
+router.patch('/deposit/:id/cancel', requireRole(), cancelDeposit)
 router.post('/withdraw', requireRole('SELLER'), withdraw)
-router.patch('/deposit/:id/cancel', authenticate, walletController.cancelDeposit)
 
 // ── Admin/staff — the "admin-triggered release" from the roadmap ─────────────
 router.patch('/transactions/:id/release', requireRole('ADMIN', 'STAFF'), releaseHold)
