@@ -814,6 +814,143 @@ function OwnerGuideModal({ visible, onClose }: { visible: boolean; onClose: () =
   );
 }
 
+// ─── All Activity Modal (paginated, up to ACTIVITY_PAGE_SIZE per page) ────────
+
+const ACTIVITY_PAGE_SIZE = 10;
+
+function AllActivityModal({
+  visible, transactions, onClose,
+}: { visible: boolean; transactions: Transaction[]; onClose: () => void }) {
+  const { t } = useTranslation();
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => getStyles(colors), [colors]);
+  const slideAnim = useRef(new Animated.Value(height)).current;
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.max(1, Math.ceil(transactions.length / ACTIVITY_PAGE_SIZE));
+  const pageItems = useMemo(
+    () => transactions.slice((page - 1) * ACTIVITY_PAGE_SIZE, page * ACTIVITY_PAGE_SIZE),
+    [transactions, page]
+  );
+
+  // Keep the current page in range if the underlying list shrinks (e.g. after a refresh).
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
+  React.useEffect(() => {
+    if (visible) {
+      setPage(1); // always reopen on page 1
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }).start();
+    } else {
+      Animated.timing(slideAnim, { toValue: height, duration: 260, useNativeDriver: true }).start();
+    }
+  }, [visible, slideAnim]);
+
+  const goPrev = () => setPage((p) => Math.max(1, p - 1));
+  const goNext = () => setPage((p) => Math.min(totalPages, p + 1));
+
+  // Windowed page-number list — up to 5 numbered buttons, centered on current page.
+  const pageNumbers = useMemo(() => {
+    const windowSize = 5;
+    let start = Math.max(1, page - Math.floor(windowSize / 2));
+    const end = Math.min(totalPages, start + windowSize - 1);
+    start = Math.max(1, end - windowSize + 1);
+    const nums: number[] = [];
+    for (let i = start; i <= end; i += 1) nums.push(i);
+    return nums;
+  }, [page, totalPages]);
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.modalOverlay} />
+      </TouchableWithoutFeedback>
+
+      <Animated.View style={[styles.modalSheet, { transform: [{ translateY: slideAnim }], maxHeight: height * 0.85 }]}>
+        <View style={styles.modalHandle} />
+
+        <View style={styles.modalTitleRow}>
+          <View style={styles.modalTitleIconWrap}>
+            <Feather name="list" size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.modalTitle}>{t('escrow.allActivityTitle')}</Text>
+            <Text style={styles.modalSubtitle}>{t('escrow.allActivitySub', { count: transactions.length })}</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.modalCloseBtn}>
+            <Feather name="x" size={18} color={colors.textLight} />
+          </TouchableOpacity>
+        </View>
+
+        {transactions.length === 0 ? (
+          <Text style={{ color: colors.textLight, fontSize: 13, paddingBottom: 24 }}>{t('escrow.noActivity')}</Text>
+        ) : (
+          <>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }}>
+              <View style={styles.activityList}>
+                {pageItems.map((item, index) => (
+                  <View key={item.id}>
+                    <ActivityRow item={item} />
+                    {index < pageItems.length - 1 && <View style={styles.activityDivider} />}
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+
+            {totalPages > 1 && (
+              <View style={styles.paginationRow}>
+                <TouchableOpacity
+                  onPress={goPrev}
+                  disabled={page === 1}
+                  style={[styles.pageNavBtn, page === 1 && styles.pageNavBtnDisabled]}>
+                  <Feather name="chevron-left" size={16} color={page === 1 ? colors.textLight : colors.primary} />
+                </TouchableOpacity>
+
+                {pageNumbers[0] > 1 && (
+                  <>
+                    <TouchableOpacity style={styles.pageNumBtn} onPress={() => setPage(1)}>
+                      <Text style={styles.pageNumTxt}>1</Text>
+                    </TouchableOpacity>
+                    {pageNumbers[0] > 2 && <Text style={styles.pageEllipsis}>…</Text>}
+                  </>
+                )}
+
+                {pageNumbers.map((n) => (
+                  <TouchableOpacity
+                    key={n}
+                    onPress={() => setPage(n)}
+                    style={[styles.pageNumBtn, n === page && styles.pageNumBtnActive]}>
+                    <Text style={[styles.pageNumTxt, n === page && styles.pageNumTxtActive]}>{n}</Text>
+                  </TouchableOpacity>
+                ))}
+
+                {pageNumbers[pageNumbers.length - 1] < totalPages && (
+                  <>
+                    {pageNumbers[pageNumbers.length - 1] < totalPages - 1 && <Text style={styles.pageEllipsis}>…</Text>}
+                    <TouchableOpacity style={styles.pageNumBtn} onPress={() => setPage(totalPages)}>
+                      <Text style={styles.pageNumTxt}>{totalPages}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                <TouchableOpacity
+                  onPress={goNext}
+                  disabled={page === totalPages}
+                  style={[styles.pageNavBtn, page === totalPages && styles.pageNavBtnDisabled]}>
+                  <Feather name="chevron-right" size={16} color={page === totalPages ? colors.textLight : colors.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        )}
+
+        <View style={{ height: 24 }} />
+      </Animated.View>
+    </Modal>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function EscrowWalletScreen({ role: roleProp }: { role?: string }) {
@@ -838,6 +975,7 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
   const [infoVisible, setInfoVisible] = useState(false);
   const [depositVisible, setDepositVisible] = useState(false);
   const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [allActivityVisible, setAllActivityVisible] = useState(false);
 
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -889,6 +1027,7 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
 
   const activeProtections = transactions.filter((tx) => tx.type === 'Hold' && tx.status === 'Completed' && !tx.resolvedAs);
   const totalBalance = wallet ? Number(wallet.heldBalance) + Number(wallet.availableBalance) : 0;
+  const recentActivity = transactions.slice(0, 4);
 
   if (loading) {
     return (
@@ -1018,16 +1157,21 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
 
         <View style={[styles.sectionHeader, { marginTop: 24 }]}>
           <Text style={styles.sectionTitle}>{t('escrow.recentActivity')}</Text>
+          {transactions.length > 4 && (
+            <TouchableOpacity onPress={() => setAllActivityVisible(true)} activeOpacity={0.7}>
+              <Text style={styles.seeAllTxt}>{t('escrow.seeAll')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {transactions.length === 0 ? (
           <Text style={{ color: colors.textLight, fontSize: 13, marginHorizontal: H_PAD }}>{t('escrow.noActivity')}</Text>
         ) : (
           <View style={styles.activityList}>
-            {transactions.map((item, index) => (
+            {recentActivity.map((item, index) => (
               <View key={item.id}>
                 <ActivityRow item={item} />
-                {index < transactions.length - 1 && <View style={styles.activityDivider} />}
+                {index < recentActivity.length - 1 && <View style={styles.activityDivider} />}
               </View>
             ))}
           </View>
@@ -1047,6 +1191,11 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
         availableBalance={wallet?.availableBalance || '0'}
         onClose={() => setWithdrawVisible(false)}
         onWithdrawn={load}
+      />
+      <AllActivityModal
+        visible={allActivityVisible}
+        transactions={transactions}
+        onClose={() => setAllActivityVisible(false)}
       />
     </SafeAreaView>
   );
@@ -1088,6 +1237,7 @@ function getStyles(colors: ThemeColors) {
 
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 14 },
     sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
+    seeAllTxt: { fontSize: 12.5, fontWeight: '700', color: colors.primary },
 
     protectionList: { paddingLeft: H_PAD, paddingRight: H_PAD / 2, gap: 14, paddingBottom: 4 },
     protectionCard: { width: PROTECTION_CARD_W, backgroundColor: colors.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: colors.borderLight, gap: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
@@ -1165,6 +1315,16 @@ function getStyles(colors: ThemeColors) {
     guideScenarioCard: { backgroundColor: colors.cardMuted, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.borderLight, marginTop: 12 },
     guideScenarioCardAlt: { backgroundColor: colors.warningBg, borderColor: colors.warning }, // early-departure scenario, deliberately flagged
     guideScenarioTitle: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 10, lineHeight: 18 },
+
+    // ── All Activity modal pagination ──
+    paginationRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingTop: 16, flexWrap: 'wrap' },
+    pageNavBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primaryTint },
+    pageNavBtnDisabled: { backgroundColor: colors.borderLight },
+    pageNumBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+    pageNumBtnActive: { backgroundColor: colors.primary },
+    pageNumTxt: { fontSize: 12.5, fontWeight: '700', color: colors.textSecondary },
+    pageNumTxtActive: { color: '#fff' },
+    pageEllipsis: { fontSize: 13, color: colors.textLight, paddingHorizontal: 2 },
   });
 }
 
