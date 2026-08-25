@@ -1,6 +1,7 @@
 const { getPrisma } = require('../lib/prisma')
 const fapshi = require('../lib/fapshi')
 const { logAction } = require('../lib/audit')
+const { getIO } = require('../lib/socket')
 
 const MIN_FAPSHI_AMOUNT = 100 // XAF — Fapshi's own minimum for both collection and payout
 
@@ -39,6 +40,20 @@ function serializeWallet(w) {
     availableBalance: toStr(w.availableBalance),
     createdAt: w.createdAt,
     updatedAt: w.updatedAt,
+  }
+}
+
+// Pushes a deposit's terminal status straight to the depositor's open app,
+// so the frontend can close its "waiting for approval" spinner the instant
+// this fires instead of waiting on its own polling cadence. Never allowed
+// to throw — a missing/dropped socket must never block the underlying
+// deposit/verify/cancel flow that called it.
+function emitDepositUpdate(walletUserId, transaction) {
+  if (!walletUserId) return
+  try {
+    getIO().to(`user:${walletUserId}`).emit('wallet:deposit_update', serializeTransaction(transaction))
+  } catch (err) {
+    console.error('[socket] failed to emit deposit update:', err.message)
   }
 }
 
@@ -84,49 +99,6 @@ exports.getMyWallet = async (req, res) => {
   } catch (err) {
     console.error('Get wallet error:', err)
     res.status(500).json({ error: 'Failed to load wallet.' })
-  }
-}
-
-// ── PATCH /wallet/deposit/:id/cancel — frontend calls this when the 40s wait
-// times out with no resolution, so the deposit doesn't hang as Pending forever.
-exports.cancelDeposit = async (req, res) => {
-  try {
-    const id = Number.parseInt(req.params.id, 10)
-    if (!id) return res.status(400).json({ error: 'Invalid transaction ID.' })
-
-    const transaction = await getPrisma().transaction.findUnique({ where: { id }, include: { wallet: true } })
-    if (!transaction) return res.status(404).json({ error: 'Transaction not found.' })
-    if (transaction.wallet.userId !== req.user.id && req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
-      return res.status(403).json({ error: 'Access denied.' })
-    }
-    if (transaction.type !== 'Deposit') return res.status(400).json({ error: 'Not a deposit transaction.' })
-    if (transaction.status !== 'Pending') {
-      // Already resolved (e.g. by the webhook) — just report what it is now.
-      return res.json({ transaction: serializeTransaction(transaction) })
-    }
-
-    // Last-chance check with Fapshi — but this call can legitimately fail
-    // (rate limits, network blips), and that must NEVER stop us from cancelling.
-    // A failed courtesy check just means we fall through to cancelling below.
-    let resolved = transaction
-    try {
-      resolved = await confirmDeposit(transaction)
-    } catch (checkErr) {
-      console.error('Cancel deposit — final Fapshi check failed, cancelling anyway:', checkErr.message)
-    }
-
-    if (resolved.status !== 'Pending') {
-      return res.json({ transaction: serializeTransaction(resolved) })
-    }
-
-    const cancelled = await getPrisma().transaction.update({
-      where: { id },
-      data: { status: 'Cancelled', reason: 'Timed out waiting for approval.' },
-    })
-    res.json({ transaction: serializeTransaction(cancelled) })
-  } catch (err) {
-    console.error('Cancel deposit error:', err)
-    res.status(500).json({ error: 'Failed to cancel deposit.' })
   }
 }
 
@@ -216,7 +188,8 @@ exports.deposit = async (req, res) => {
         message: `SweetCasa deposit — ${listing.title}`,
       })
     } catch (err) {
-      await getPrisma().transaction.update({ where: { id: transaction.id }, data: { status: 'Failed' } })
+      const failed = await getPrisma().transaction.update({ where: { id: transaction.id }, data: { status: 'Failed' } })
+      emitDepositUpdate(req.user.id, failed)
       return res.status(502).json({ error: err.message || 'Could not start the payment with Fapshi.' })
     }
 
@@ -235,12 +208,16 @@ exports.deposit = async (req, res) => {
 
 // Shared logic: re-check a Deposit's Fapshi status and, if newly successful,
 // credit the held balance and log the linked Hold transaction. Idempotent —
-// safe to call from the verify endpoint, the webhook, or both.
+// safe to call from the verify endpoint, the webhook, or the cancel fallback.
+// `transaction` must include its `wallet` relation (for the userId used to
+// push the socket event) — every caller below fetches it that way.
 async function confirmDeposit(transaction) {
   const prisma = getPrisma()
 
   if (transaction.type !== 'Deposit') throw new Error('Not a deposit transaction.')
   if (transaction.status !== 'Pending') return transaction // already resolved — nothing to do
+
+  const walletUserId = transaction.wallet?.userId
 
   const statusRes = await fapshi.getPaymentStatus(transaction.fapshiTransId)
   const fapshiStatus = statusRes.status
@@ -273,11 +250,12 @@ async function confirmDeposit(transaction) {
         data: { heldBalance: { increment: netAmount } },
       }),
     ])
+    emitDepositUpdate(walletUserId, updatedDeposit)
     return updatedDeposit
   }
 
   if (fapshiStatus === 'FAILED' || fapshiStatus === 'EXPIRED') {
-    return prisma.transaction.update({
+    const resolved = await prisma.transaction.update({
       where: { id: transaction.id },
       data: {
         status: fapshiStatus === 'EXPIRED' ? 'Cancelled' : 'Failed',
@@ -285,9 +263,11 @@ async function confirmDeposit(transaction) {
         reason: statusRes.reason || statusRes.message || null,
       },
     })
+    emitDepositUpdate(walletUserId, resolved)
+    return resolved
   }
 
-  // CREATED / PENDING — still in progress, nothing to change yet.
+  // CREATED / PENDING — still in progress, nothing final to announce yet.
   if (fapshiStatus && fapshiStatus !== transaction.fapshiStatus) {
     return prisma.transaction.update({ where: { id: transaction.id }, data: { fapshiStatus } })
   }
@@ -316,6 +296,9 @@ exports.verifyDeposit = async (req, res) => {
 }
 
 // ── POST /wallet/webhooks/fapshi — PUBLIC, called by Fapshi on status change ─
+// This is the fastest path to the frontend: Fapshi hits this the moment MTN/
+// Orange reports the person approved or declined, and we immediately push
+// that straight through to their open app via the socket in confirmDeposit.
 exports.fapshiWebhook = async (req, res) => {
   try {
     if (process.env.FAPSHI_WEBHOOK_SECRET) {
@@ -328,7 +311,10 @@ exports.fapshiWebhook = async (req, res) => {
     const transId = req.body?.transId
     if (!transId) return res.status(200).json({ ok: true }) // nothing to do, but ack so Fapshi doesn't retry
 
-    const transaction = await getPrisma().transaction.findFirst({ where: { fapshiTransId: transId, type: 'Deposit' } })
+    const transaction = await getPrisma().transaction.findFirst({
+      where: { fapshiTransId: transId, type: 'Deposit' },
+      include: { wallet: true },
+    })
     if (!transaction) return res.status(200).json({ ok: true }) // unknown transaction — ack anyway
 
     await confirmDeposit(transaction)
@@ -337,6 +323,50 @@ exports.fapshiWebhook = async (req, res) => {
     console.error('Fapshi webhook error:', err)
     // Still 200 — Fapshi only sends one attempt regardless, no point making it retry a broken handler.
     res.status(200).json({ ok: false })
+  }
+}
+
+// ── PATCH /wallet/deposit/:id/cancel — frontend calls this when its 40s wait
+// times out with no resolution, so the deposit doesn't hang as Pending forever ──
+exports.cancelDeposit = async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10)
+    if (!id) return res.status(400).json({ error: 'Invalid transaction ID.' })
+
+    const transaction = await getPrisma().transaction.findUnique({ where: { id }, include: { wallet: true } })
+    if (!transaction) return res.status(404).json({ error: 'Transaction not found.' })
+    if (transaction.wallet.userId !== req.user.id && req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
+      return res.status(403).json({ error: 'Access denied.' })
+    }
+    if (transaction.type !== 'Deposit') return res.status(400).json({ error: 'Not a deposit transaction.' })
+    if (transaction.status !== 'Pending') {
+      // Already resolved (e.g. by the webhook) — just report what it is now.
+      return res.json({ transaction: serializeTransaction(transaction) })
+    }
+
+    // Last-chance check with Fapshi — but this call can legitimately fail
+    // (rate limits, network blips), and that must NEVER stop us from cancelling.
+    // A failed courtesy check just means we fall through to cancelling below.
+    let resolved = transaction
+    try {
+      resolved = await confirmDeposit(transaction)
+    } catch (checkErr) {
+      console.error('Cancel deposit — final Fapshi check failed, cancelling anyway:', checkErr.message)
+    }
+
+    if (resolved.status !== 'Pending') {
+      return res.json({ transaction: serializeTransaction(resolved) })
+    }
+
+    const cancelled = await getPrisma().transaction.update({
+      where: { id },
+      data: { status: 'Cancelled', reason: 'Timed out waiting for approval.' },
+    })
+    emitDepositUpdate(transaction.wallet.userId, cancelled)
+    res.json({ transaction: serializeTransaction(cancelled) })
+  } catch (err) {
+    console.error('Cancel deposit error:', err)
+    res.status(500).json({ error: 'Failed to cancel deposit.' })
   }
 }
 

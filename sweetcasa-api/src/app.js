@@ -1,4 +1,5 @@
 require('dotenv').config()
+const http = require('http')
 const express = require('express')
 const cors = require('cors')
 
@@ -14,6 +15,7 @@ const walletRoutes = require('./routes/wallet.routes')   // ← NEW (Escrow Wall
 const favouriteRoutes = require('./routes/favourites.routes') // ← NEW (favourites / saved listings)
 const { ensureDatabaseCompatibility } = require('./lib/db-compat')
 const { getPrisma } = require('./lib/prisma')
+const { initSocket } = require('./lib/socket')   // ← NEW (real-time deposit updates)
 
 const app = express()
 
@@ -58,10 +60,16 @@ app.get('/db-test', async (_req, res) => {
 
 const PORT = process.env.PORT || 3000
 
+// Socket.IO needs the raw HTTP server (not the Express app) so it can
+// upgrade connections to WebSocket on the same port Express is already
+// listening on.
+const server = http.createServer(app)
+initSocket(server)
+
 async function bootstrap() {
   await ensureDatabaseCompatibility()
   await getPrisma().$connect()
-  app.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, '0.0.0.0', () => {
     console.log(`SweetCasa API running on port ${PORT}`)
   })
 }
