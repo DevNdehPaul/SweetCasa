@@ -587,13 +587,38 @@ export default function PropertyDetailScreen() {
 
   const saved = id ? isFavourite(id) : false;
 
+  // The API has been observed returning `facilities` as a JSON string, a
+  // single string, or null/undefined — not just the array the type expects.
+  // Coerce whatever comes back into a real string[] before it ever reaches
+  // .map(), instead of trusting the TypeScript cast at the fetch boundary.
+  const normalizeFacilities = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string");
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter((v): v is string => typeof v === "string");
+      } catch {
+        // not JSON — treat as a comma-separated list
+      }
+      return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    return [];
+  };
+
+  const withNormalizedFacilities = (l: ListingDetail): ListingDetail => ({
+    ...l,
+    facilities: normalizeFacilities((l as any).facilities),
+  });
+
   const fetchListing = async () => {
     setLoading(true);
     setError(null);
     try {
       if (listingData) {
         const parsed: ListingDetail = JSON.parse(listingData as string);
-        setListing(parsed);
+        setListing(withNormalizedFacilities(parsed));
         setLoading(false);
 
         try {
@@ -601,7 +626,7 @@ export default function PropertyDetailScreen() {
           if (res.ok) {
             const data = await res.json();
             const full: ListingDetail = data?.listing ?? data;
-            if (full?.id) setListing(full);
+            if (full?.id) setListing(withNormalizedFacilities(full));
           }
         } catch {
           // silently ignore
@@ -627,7 +652,7 @@ export default function PropertyDetailScreen() {
         throw new Error(data?.error || data?.message || `HTTP ${res.status}`);
       const full: ListingDetail = data?.listing ?? data;
       if (!full?.id) throw new Error(t("propertyDetail.notFound"));
-      setListing(full);
+      setListing(withNormalizedFacilities(full));
 
       const video = await fetchVideoForListing(id);
       if (video) {
@@ -1001,7 +1026,7 @@ export default function PropertyDetailScreen() {
           </View>
 
           {/* ── Facilities ── */}
-          {listing.facilities?.length > 0 && (
+          {Array.isArray(listing.facilities) && listing.facilities.length > 0 && (
             <View style={styles.sectionBlock}>
               <View style={styles.sectionTitleRow}>
                 <View style={styles.sectionDot} />

@@ -119,16 +119,22 @@ exports.listMyTransactions = async (req, res) => {
   }
 }
 
-// ── POST /wallet/deposit — seeker deposits against a listing (Fapshi collection) ──
-// { listingId, amount, redirectUrl? }
+// ── POST /wallet/deposit — seeker deposits against a listing (Fapshi Direct Pay) ──
+// { listingId, amount, phone, medium }
 exports.deposit = async (req, res) => {
   try {
     const listingId = Number.parseInt(req.body?.listingId, 10)
     const amount = Number.parseInt(req.body?.amount, 10)
+    const phone = req.body?.phone ? String(req.body.phone).trim() : null
+    const medium = req.body?.medium ? String(req.body.medium).trim() : null
 
     if (!listingId) return res.status(400).json({ error: 'listingId is required.' })
     if (!Number.isFinite(amount) || amount < MIN_FAPSHI_AMOUNT) {
       return res.status(400).json({ error: `amount must be a number, minimum ${MIN_FAPSHI_AMOUNT} XAF.` })
+    }
+    if (!phone) return res.status(400).json({ error: 'phone is required.' })
+    if (medium !== 'mobile money' && medium !== 'orange money') {
+      return res.status(400).json({ error: "medium must be 'mobile money' or 'orange money'." })
     }
 
     const listing = await getPrisma().listing.findUnique({ where: { id: listingId } })
@@ -150,15 +156,18 @@ exports.deposit = async (req, res) => {
         status: 'Pending',
         amount,
         listingId,
+        phone,
+        medium,
       },
     })
 
     let fapshiRes
     try {
-      fapshiRes = await fapshi.initiatePay({
+      fapshiRes = await fapshi.directPay({
         amount,
+        phone,
+        medium,
         email: user?.email,
-        redirectUrl: req.body?.redirectUrl,
         userId: String(req.user.id),
         externalId: String(transaction.id),
         message: `SweetCasa deposit — ${listing.title}`,
@@ -174,7 +183,7 @@ exports.deposit = async (req, res) => {
       include: { listing: { select: { id: true, title: true } } },
     })
 
-    res.status(201).json({ transaction: serializeTransaction(updated), link: fapshiRes.link })
+    res.status(201).json({ transaction: serializeTransaction(updated) })
   } catch (err) {
     console.error('Deposit error:', err)
     res.status(500).json({ error: 'Failed to start deposit.' })
@@ -227,7 +236,11 @@ async function confirmDeposit(transaction) {
   if (fapshiStatus === 'FAILED' || fapshiStatus === 'EXPIRED') {
     return prisma.transaction.update({
       where: { id: transaction.id },
-      data: { status: fapshiStatus === 'EXPIRED' ? 'Cancelled' : 'Failed', fapshiStatus },
+      data: {
+        status: fapshiStatus === 'EXPIRED' ? 'Cancelled' : 'Failed',
+        fapshiStatus,
+        reason: statusRes.reason || statusRes.message || null,
+      },
     })
   }
 
