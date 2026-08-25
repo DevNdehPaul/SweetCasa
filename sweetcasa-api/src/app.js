@@ -17,7 +17,10 @@ const { getPrisma } = require('./lib/prisma')
 
 const app = express()
 
-app.use(cors({ origin: '*' }))
+app.use(cors({
+  origin: ['http://localhost:8081', '*'],
+  credentials: true, // since you're likely sending cookies/auth tokens
+}));
 
 // ✅ Do NOT use express.json() globally — it consumes the stream before
 //    multer can parse multipart/form-data requests (listings upload).
