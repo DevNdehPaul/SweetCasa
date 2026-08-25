@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Linking,
   Modal,
   RefreshControl,
   SafeAreaView,
@@ -67,6 +68,16 @@ interface ListingOption {
 function formatXAF(value: string | number): string {
   const n = Math.round(Number(value) || 0);
   return `${n.toLocaleString('en-US')} XAF`;
+}
+
+const FAPSHI_FEE_RATE = 0.03; // must match FAPSHI_FEE_RATE in wallet.controller.js
+const FAPSHI_PRICING_URL = 'https://www.fapshi.com/en/pricing';
+
+// Local preview only — the backend computes and charges the real figure at
+// deposit time; this just shows the seeker what to expect before they confirm.
+function computeFapshiCharge(amount: number) {
+  const fee = Math.ceil(amount * FAPSHI_FEE_RATE);
+  return { fee, total: amount + fee };
 }
 
 function formatDate(iso: string | null): string {
@@ -205,7 +216,13 @@ function DepositModal({
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ListingOption[]>([]);
   const [selected, setSelected] = useState<ListingOption | null>(null);
-  const [amount, setAmount] = useState('');
+   const [amount, setAmount] = useState('');
+  const feePreview = useMemo(() => {
+    const amt = Number.parseInt(amount.replace(/[^0-9]/g, ''), 10);
+    if (!Number.isFinite(amt) || amt < 100) return null;
+    const { fee, total } = computeFapshiCharge(amt);
+    return { amount: amt, fee, total };
+  }, [amount]);
   const [phone, setPhone] = useState('');
   const [medium, setMedium] = useState<'mobile money' | 'orange money'>('mobile money');
   const [busy, setBusy] = useState(false);
@@ -395,7 +412,7 @@ function DepositModal({
                     </TouchableOpacity>
                   </View>
 
-                  <Text style={modalStyles.label}>{t('escrow.amountXAF')}</Text>
+                                    <Text style={modalStyles.label}>{t('escrow.amountXAF')}</Text>
                   <TextInput
                     style={modalStyles.input}
                     placeholder={t('escrow.amountPlaceholder')}
@@ -404,6 +421,24 @@ function DepositModal({
                     onChangeText={setAmount}
                     keyboardType="number-pad"
                   />
+
+                  {feePreview && (
+                    <View style={modalStyles.feeBox}>
+                      <View style={modalStyles.feeBoxRow}>
+                        <Text style={modalStyles.feeBoxLabel}>{t('escrow.youWillPay')}</Text>
+                        <Text style={modalStyles.feeBoxAmount}>{formatXAF(feePreview.total)}</Text>
+                      </View>
+                      <Text style={modalStyles.feeBoxNote}>
+                        {t('escrow.feePreviewNote', {
+                          escrow: formatXAF(feePreview.amount),
+                          fee: formatXAF(feePreview.fee),
+                        })}
+                      </Text>
+                      <TouchableOpacity onPress={() => Linking.openURL(FAPSHI_PRICING_URL)}>
+                        <Text style={modalStyles.feeBoxLink}>{t('escrow.seeFapshiFees')}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
                   <Text style={modalStyles.label}>{t('escrow.selectNetwork')}</Text>
                   <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
@@ -1041,6 +1076,7 @@ function getStyles(colors: ThemeColors) {
     balanceSubAmount: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: -0.3, lineHeight: 20 },
     feeBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 14, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 12 },
     feeBannerTxt: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 17, fontWeight: '500' },
+    
 
     primaryActions: { flexDirection: 'row', gap: 12, marginHorizontal: H_PAD, marginBottom: 24 },
     primaryActionBtn: { flex: 1, minHeight: 58, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 6, flexDirection: 'row', borderWidth: 1.5 },
@@ -1145,6 +1181,15 @@ function getModalStyles(colors: ThemeColors) {
       padding: 12, fontSize: 14, color: colors.text, backgroundColor: colors.card,
     },
     hint: { fontSize: 11.5, color: colors.textLight, marginTop: 4 },
+        feeBox: {
+      backgroundColor: colors.primaryTint, borderRadius: 12, padding: 12,
+      marginTop: 8, marginBottom: 4, gap: 6,
+    },
+    feeBoxRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    feeBoxLabel: { fontSize: 12.5, fontWeight: '700', color: colors.textSecondary },
+    feeBoxAmount: { fontSize: 15, fontWeight: '800', color: colors.primary },
+    feeBoxNote: { fontSize: 11.5, color: colors.textLight, lineHeight: 16 },
+    feeBoxLink: { fontSize: 11.5, fontWeight: '700', color: colors.primary, textDecorationLine: 'underline' },
     resultRow: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
     resultTitle: { fontSize: 13.5, fontWeight: '600', color: colors.text },
     resultMeta: { fontSize: 11.5, color: colors.textLight, marginTop: 1 },

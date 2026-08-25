@@ -4,6 +4,10 @@ const { logAction } = require('../lib/audit')
 const { getIO } = require('../lib/socket')
 
 const MIN_FAPSHI_AMOUNT = 100 // XAF — Fapshi's own minimum for both collection and payout
+const FAPSHI_FEE_RATE = 0.03  // Fapshi's per-transaction collection fee (see https://www.fapshi.com/en/pricing)
+                                // Charged ON TOP of the escrow amount so the full amount the seeker
+                                // intends to lock actually reaches the Hold, instead of Fapshi's cut
+                                // silently shrinking it.
 
 function toStr(decimal) {
   return decimal === null || decimal === undefined ? null : decimal.toString()
@@ -143,7 +147,7 @@ exports.deposit = async (req, res) => {
     const phone = req.body?.phone ? String(req.body.phone).trim() : null
     const medium = req.body?.medium ? String(req.body.medium).trim() : null
 
-    if (!listingId) return res.status(400).json({ error: 'listingId is required.' })
+        if (!listingId) return res.status(400).json({ error: 'listingId is required.' })
     if (!Number.isFinite(amount) || amount < MIN_FAPSHI_AMOUNT) {
       return res.status(400).json({ error: `amount must be a number, minimum ${MIN_FAPSHI_AMOUNT} XAF.` })
     }
@@ -164,12 +168,19 @@ exports.deposit = async (req, res) => {
     const user = await getPrisma().user.findUnique({ where: { id: req.user.id } })
     const wallet = await getOrCreateWallet(req.user.id)
 
+    // `amount` is what the seeker sees held/escrowed. Fapshi's 3% is charged
+    // ON TOP of it (rounded up) so the escrow itself is never short-changed by
+    // the fee — the seeker's phone prompt will show amount+fee, not `amount`.
+    const feeAmount = Math.ceil(amount * FAPSHI_FEE_RATE)
+    const chargeAmount = amount + feeAmount
+
     const transaction = await getPrisma().transaction.create({
       data: {
         walletId: wallet.id,
         type: 'Deposit',
         status: 'Pending',
         amount,
+        feeAmount,
         listingId,
         phone,
         medium,
@@ -179,7 +190,7 @@ exports.deposit = async (req, res) => {
     let fapshiRes
     try {
       fapshiRes = await fapshi.directPay({
-        amount,
+        amount: chargeAmount,
         phone,
         medium,
         email: user?.email,
@@ -222,18 +233,16 @@ async function confirmDeposit(transaction) {
   const statusRes = await fapshi.getPaymentStatus(transaction.fapshiTransId)
   const fapshiStatus = statusRes.status
 
-  if (fapshiStatus === 'SUCCESSFUL') {
-    const grossAmount = Number(transaction.amount)
-    const netAmount = Number.isFinite(Number(statusRes.revenue)) ? Number(statusRes.revenue) : grossAmount
-    const feeAmount = Math.max(0, grossAmount - netAmount)
+    if (fapshiStatus === 'SUCCESSFUL') {
+    // amount + feeAmount were fixed at deposit time (feeAmount = ceil(amount * 3%),
+    // charged to Fapshi on top of amount) — so the full `amount` the seeker was
+    // quoted is always what gets held, regardless of Fapshi's own fee accounting.
+    const netAmount = Number(transaction.amount)
 
-    // Platform absorbs Fapshi's collection fee by default — the held amount credited
-    // against the listing is the net amount Fapshi actually confirms. See SETUP notes
-    // if you'd rather pass the fee on to the seeker or deduct it at release instead.
     const [updatedDeposit] = await prisma.$transaction([
       prisma.transaction.update({
         where: { id: transaction.id },
-        data: { status: 'Completed', fapshiStatus, feeAmount },
+        data: { status: 'Completed', fapshiStatus },
       }),
       prisma.transaction.create({
         data: {
