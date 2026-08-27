@@ -7,8 +7,10 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Keyboard,
   Linking,
   Modal,
+  Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -83,6 +85,31 @@ function computeFapshiCharge(amount: number) {
 function formatDate(iso: string | null): string {
   if (!iso) return '';
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// Tracks the live keyboard height. KeyboardAvoidingView is unreliable inside
+// React Native's <Modal> (Modal renders in its own native window on Android,
+// which doesn't interact properly with 'padding'/'height' behavior), so
+// instead we track the keyboard height directly and pad the ScrollView by
+// that amount — RN's default focus behavior then scrolls the active
+// TextInput above the keyboard using that extra space.
+function useKeyboardHeight() {
+  const [kbHeight, setKbHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => setKbHeight(e.endCoordinates?.height || 0));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKbHeight(0));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  return kbHeight;
 }
 
 async function authedFetch(path: string, options: RequestInit = {}, timeoutMs = 25000) {
@@ -228,6 +255,7 @@ function DepositModal({
   const [busy, setBusy] = useState(false);
   const [waitingForApproval, setWaitingForApproval] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const keyboardHeight = useKeyboardHeight();
 
   // Holds whichever teardown fn (socket listener unsubscribe) needs to run
   // once one of the two race paths in waitForOutcome resolves.
@@ -363,6 +391,10 @@ function DepositModal({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent>
       <View style={modalStyles.overlay}>
         <View style={modalStyles.sheet}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[modalStyles.sheetScrollContent, { paddingBottom: keyboardHeight + 32 }]}>
           <Text style={modalStyles.title}>{t('escrow.depositModalTitle')}</Text>
           <Text style={modalStyles.desc}>{t('escrow.depositModalDesc')}</Text>
 
@@ -489,6 +521,7 @@ function DepositModal({
               )}
             </TouchableOpacity>
           </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -507,6 +540,7 @@ function WithdrawModal({
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const keyboardHeight = useKeyboardHeight();
 
   useEffect(() => {
     if (!visible) { setAmount(''); setPhone(''); setError(null); }
@@ -539,6 +573,10 @@ function WithdrawModal({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent>
       <View style={modalStyles.overlay}>
         <View style={modalStyles.sheet}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[modalStyles.sheetScrollContent, { paddingBottom: keyboardHeight + 32 }]}>
           <Text style={modalStyles.title}>{t('escrow.withdrawModalTitle')}</Text>
           <Text style={modalStyles.desc}>{t('escrow.withdrawModalDesc')}</Text>
 
@@ -575,6 +613,7 @@ function WithdrawModal({
               )}
             </TouchableOpacity>
           </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -1331,7 +1370,16 @@ function getStyles(colors: ThemeColors) {
 function getModalStyles(colors: ThemeColors) {
   return StyleSheet.create({
     overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-    sheet: { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32 },
+    // Reaches almost to the top of the screen so the amount/phone fields stay
+    // visible above the keyboard instead of the sheet being keyboard-covered.
+    // maxHeight (not a fixed height) lets it shrink to fit shorter content
+    // instead of always occupying 92% of the screen.
+    sheet: {
+      backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      paddingHorizontal: 20, paddingTop: 20,
+      maxHeight: height * 0.92,
+    },
+    sheetScrollContent: { flexGrow: 1 },
     title: { fontSize: 17, fontWeight: '800', color: colors.text },
     desc: { fontSize: 12.5, color: colors.textLight, marginTop: 4, marginBottom: 16, lineHeight: 17 },
     error: { fontSize: 12.5, color: colors.danger, backgroundColor: '#FEF2F2', borderRadius: 10, padding: 10, marginBottom: 12 }, // danger-tint, no matching token

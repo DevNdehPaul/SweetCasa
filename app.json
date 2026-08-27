@@ -12,7 +12,8 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.ndeh_paul.SweetCasa"
+      "package": "com.ndeh_paul.SweetCasa",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "output": "static",

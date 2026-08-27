@@ -1,5 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Google from 'expo-auth-session/providers/google';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -9,7 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   findNodeHandle,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   SafeAreaView,
@@ -26,9 +28,20 @@ import { persistAuthSession, routeForRole } from '../constants/auth';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
 
+// Required once per app for expo-auth-session's browser-based OAuth flow to
+// resolve correctly when the app comes back into the foreground.
+WebBrowser.maybeCompleteAuthSession();
+
 const H_PAD = 20;
 const GOOGLE_EMAIL_SIGNUP_URL =
   'https://accounts.google.com/signup/v2/webcreateaccount?flowName=GlifWebSignIn&flowEntry=SignUp';
+
+// ── Google OAuth client IDs ─────────────────────────────────────────────
+// Same three env vars used across Seekers and Owners — one Google Cloud
+// project backs both portals.
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
 // White text sitting directly on a solid-color button (primary CTA, checkbox
 // check, alert buttons) stays hardcoded — that swatch doesn't change between
@@ -37,6 +50,29 @@ const WHITE = '#FFFFFF';
 
 type Styles = ReturnType<typeof getStyles>;
 type WebAlertStyles = ReturnType<typeof getWebAlertStyles>;
+type SocialProvider = 'google' | 'apple' | null;
+
+// ─── Keyboard height tracking ──────────────────────────────────────────────
+function useKeyboardHeight() {
+  const [kbHeight, setKbHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, event => {
+      setKbHeight(event.endCoordinates?.height || 0);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKbHeight(0));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  return kbHeight;
+}
 
 // Opens Google's account creation page directly in the browser — no
 // intermediate provider-choice dialog.
@@ -44,27 +80,61 @@ function openEmailSignupOptions() {
   WebBrowser.openBrowserAsync(GOOGLE_EMAIL_SIGNUP_URL);
 }
 
-// ─── Scroll-into-view helper ───────────────────────────────────────────────
-// Measures a field's position relative to the enclosing ScrollView and
-// scrolls it fully clear of the keyboard when the field is focused.
+/**
+ * IMPORTANT: the ref passed here must point directly to a native host
+ * component such as TextInput — a ref attached to <View> can throw
+ * "ref.measureLayout must be called with a ref to a native component."
+ */
 function scrollFieldIntoView(
   scrollRef: React.RefObject<ScrollView | null>,
-  fieldRef: React.RefObject<View | null>,
+  fieldRef: React.RefObject<TextInput | null>,
   offset = 24
 ) {
   if (!scrollRef.current || !fieldRef.current) return;
-  // Small delay lets the keyboard finish animating in before we measure.
   setTimeout(() => {
-    const scrollNode = findNodeHandle(scrollRef.current);
+    const scroll = scrollRef.current;
+    const field = fieldRef.current;
+    if (!scroll || !field) return;
+    const scrollNode = findNodeHandle(scroll);
     if (!scrollNode) return;
-    fieldRef.current?.measureLayout(
+    field.measureLayout(
       scrollNode,
       (_x: number, y: number) => {
-        scrollRef.current?.scrollTo({ y: Math.max(y - offset, 0), animated: true });
+        scroll.scrollTo({ y: Math.max(y - offset, 0), animated: true });
       },
-      () => {}
+      () => {
+        // Measurement can fail mid keyboard-transition; the listener below retries.
+      }
     );
-  }, 60);
+  }, 100);
+}
+
+// Handles the Android timing issue where TextInput.onFocus fires before the
+// keyboard has finished opening.
+function useScrollFieldOnKeyboard(
+  scrollRef: React.RefObject<ScrollView | null>,
+  fieldRef: React.RefObject<TextInput | null>,
+  offset = 24
+) {
+  const [isFocused, setIsFocused] = useState(false);
+
+  const handleFocus = useCallback(() => {
+    setIsFocused(true);
+    scrollFieldIntoView(scrollRef, fieldRef, offset);
+  }, [scrollRef, fieldRef, offset]);
+
+  const handleBlur = useCallback(() => setIsFocused(false), []);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(showEvent, () => {
+      scrollFieldIntoView(scrollRef, fieldRef, offset);
+    });
+    return () => sub.remove();
+  }, [isFocused, scrollRef, fieldRef, offset]);
+
+  return { handleFocus, handleBlur };
 }
 
 // ─── Cross-platform Alert ─────────────────────────────────────────────────────
@@ -103,8 +173,6 @@ function crossAlert(
 }
 
 // Mount once near the root of the screen. Renders nothing on native.
-// Calls useAppTheme() itself (rather than taking colors/s as props) since it's
-// a self-contained singleton host mounted independently of the tabs below.
 function WebAlertHost() {
   const { colors } = useAppTheme();
   const ws = useMemo(() => getWebAlertStyles(colors), [colors]);
@@ -131,12 +199,7 @@ function WebAlertHost() {
   };
 
   return (
-    <Modal
-      visible={state.visible}
-      transparent
-      animationType="fade"
-      onRequestClose={() => handlePress()}
-    >
+    <Modal visible={state.visible} transparent animationType="fade" onRequestClose={() => handlePress()}>
       <View style={ws.backdrop}>
         <View style={ws.card}>
           <Text style={ws.title}>{state.title}</Text>
@@ -168,6 +231,171 @@ function WebAlertHost() {
         </View>
       </View>
     </Modal>
+  );
+}
+
+// ─── Social auth hook ───────────────────────────────────────────────────────
+// Shared by both LoginTab and SignupTab so "Continue with Google/Apple"
+// behaves identically no matter which tab it's tapped from — the backend
+// decides whether it's a fresh signup or a returning login.
+function useSocialAuth(role: 'SELLER') {
+  const [socialLoading, setSocialLoading] = useState<SocialProvider>(null);
+
+  const [, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+  });
+
+  const completeSocialAuth = useCallback(
+    async (payload: { provider: 'GOOGLE' | 'APPLE'; idToken: string; role: string; fullName?: string }) => {
+      try {
+        const res = await api.post('/auth/social', payload);
+        const { token, role: userRole, profile, profileComplete } = res.data;
+        await persistAuthSession({ token, role: userRole, profile });
+        router.replace((profileComplete ? routeForRole(userRole) : '/finish-profile') as any);
+      } catch (err: any) {
+        const message = err.response?.data?.error || 'Could not sign you in. Please try again.';
+        crossAlert('Sign-In Failed', message);
+      } finally {
+        setSocialLoading(null);
+      }
+    },
+    []
+  );
+
+  // Google's flow is a browser redirect — the result comes back async via
+  // this response object rather than as a return value from promptAsync.
+  useEffect(() => {
+    if (googleResponse?.type === 'success') {
+      const { id_token } = googleResponse.params;
+      if (!id_token) {
+        crossAlert('Google Sign-In Failed', 'Google did not return an ID token.');
+        setSocialLoading(null);
+        return;
+      }
+      completeSocialAuth({ provider: 'GOOGLE', idToken: id_token, role });
+    } else if (googleResponse?.type === 'error') {
+      crossAlert('Google Sign-In Failed', 'Something went wrong. Please try again.');
+      setSocialLoading(null);
+    } else if (googleResponse?.type === 'cancel' || googleResponse?.type === 'dismiss') {
+      setSocialLoading(null);
+    }
+  }, [googleResponse, completeSocialAuth, role]);
+
+  const handleGoogleAuth = useCallback(async () => {
+    if (!GOOGLE_IOS_CLIENT_ID && !GOOGLE_ANDROID_CLIENT_ID && !GOOGLE_WEB_CLIENT_ID) {
+      crossAlert('Not Configured', 'Google Sign-In is not set up yet. Please try again later.');
+      return;
+    }
+    setSocialLoading('google');
+    try {
+      const result = await promptGoogleAsync();
+      if (result.type !== 'success') setSocialLoading(null);
+    } catch {
+      setSocialLoading(null);
+      crossAlert('Google Sign-In Failed', 'Something went wrong. Please try again.');
+    }
+  }, [promptGoogleAsync]);
+
+  const handleAppleAuth = useCallback(async () => {
+    try {
+      setSocialLoading('apple');
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple did not return an identity token.');
+      }
+
+      // credential.fullName is ONLY populated on the very first-ever
+      // authorization for this Apple ID + app — capture it now.
+      const fullName = credential.fullName
+        ? `${credential.fullName.givenName ?? ''} ${credential.fullName.familyName ?? ''}`.trim()
+        : undefined;
+
+      await completeSocialAuth({
+        provider: 'APPLE',
+        idToken: credential.identityToken,
+        role,
+        fullName: fullName || undefined,
+      });
+    } catch (err: any) {
+      if (err.code !== 'ERR_REQUEST_CANCELED') {
+        crossAlert('Apple Sign-In Failed', 'Something went wrong. Please try again.');
+      }
+      setSocialLoading(null);
+    }
+  }, [completeSocialAuth, role]);
+
+  return { socialLoading, handleGoogleAuth, handleAppleAuth };
+}
+
+// ─── Social sign-in row ─────────────────────────────────────────────────────
+// Apple's guidelines require their own native button styling — it can't
+// share the generic "Google" button look, and it must not appear on
+// Android (there's no way to complete Sign in with Apple there).
+function SocialAuthRow({
+  socialLoading,
+  onGoogle,
+  onApple,
+  colors,
+  s,
+}: {
+  socialLoading: SocialProvider;
+  onGoogle: () => void;
+  onApple: () => void;
+  colors: ThemeColors;
+  s: Styles;
+}) {
+  return (
+    <>
+      <View style={s.orDivider}>
+        <View style={s.dividerLine} />
+        <Text style={s.orTxt}>OR CONTINUE WITH</Text>
+        <View style={s.dividerLine} />
+      </View>
+
+      <View style={s.socialRow}>
+        <TouchableOpacity
+          style={s.socialBtn}
+          onPress={onGoogle}
+          disabled={socialLoading !== null}
+          activeOpacity={0.75}
+        >
+          {socialLoading === 'google' ? (
+            <ActivityIndicator size="small" color={colors.textSecondary} />
+          ) : (
+            <>
+              <Feather name="globe" size={17} color={colors.textSecondary} />
+              <Text style={s.socialBtnTxt}>Google</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
+        {Platform.OS === 'ios' && (
+          <TouchableOpacity
+            style={s.socialBtn}
+            onPress={onApple}
+            disabled={socialLoading !== null}
+            activeOpacity={0.75}
+          >
+            {socialLoading === 'apple' ? (
+              <ActivityIndicator size="small" color={colors.textSecondary} />
+            ) : (
+              <>
+                <Feather name="smartphone" size={17} color={colors.textSecondary} />
+                <Text style={s.socialBtnTxt}>Apple</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+    </>
   );
 }
 
@@ -207,14 +435,26 @@ function Field({
   colors: ThemeColors;
   s: Styles;
 }) {
-  const fieldRef = useRef<View>(null);
+  const fieldRef = useRef<TextInput>(null);
+  const [isFocused, setIsFocused] = useState(false);
 
   const handleFocus = () => {
+    setIsFocused(true);
     if (scrollRef) scrollFieldIntoView(scrollRef, fieldRef, scrollOffset);
   };
+  const handleBlur = () => setIsFocused(false);
+
+  useEffect(() => {
+    if (!isFocused || !scrollRef) return;
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const sub = Keyboard.addListener(showEvent, () => {
+      scrollFieldIntoView(scrollRef, fieldRef, scrollOffset);
+    });
+    return () => sub.remove();
+  }, [isFocused, scrollRef, scrollOffset]);
 
   return (
-    <View style={s.fieldGroup} ref={fieldRef}>
+    <View style={s.fieldGroup}>
       {(label || topRight) && (
         <View style={s.fieldLabelRow}>
           {label && <Text style={s.fieldLabel}>{label}</Text>}
@@ -224,6 +464,7 @@ function Field({
       <View style={s.inputWrap}>
         {icon && <Feather name={icon as any} size={15} color={colors.textLight} />}
         <TextInput
+          ref={fieldRef}
           style={s.fieldInput}
           placeholder={placeholder}
           placeholderTextColor={colors.textLight}
@@ -233,6 +474,7 @@ function Field({
           keyboardType={keyboardType}
           autoCapitalize="none"
           onFocus={handleFocus}
+          onBlur={handleBlur}
         />
         {rightEl}
       </View>
@@ -335,10 +577,10 @@ function NationalIdUpload({
       'Upload National ID',
       'Choose how you would like to upload your identity document.',
       [
-        { text: 'Take Photo',       onPress: handlePickCamera },
+        { text: 'Take Photo',          onPress: handlePickCamera },
         { text: 'Choose from Gallery', onPress: handlePickImage },
-        { text: 'Upload PDF',       onPress: handlePickDocument },
-        { text: 'Cancel',           style: 'cancel' },
+        { text: 'Upload PDF',          onPress: handlePickDocument },
+        { text: 'Cancel',              style: 'cancel' },
       ],
     );
   };
@@ -401,6 +643,13 @@ function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const keyboardHeight = useKeyboardHeight();
+
+  // Social sign-in on the login tab still creates a brand-new account on
+  // first-ever Google/Apple use — the backend (/auth/social) decides
+  // login-vs-signup based on whether the provider ID or email is already on
+  // file, so one row of buttons correctly covers both cases.
+  const { socialLoading, handleGoogleAuth, handleAppleAuth } = useSocialAuth('SELLER');
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -430,7 +679,7 @@ function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
       ref={scrollRef}
       style={{ flex: 1 }}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={s.tabScroll}
+      contentContainerStyle={[s.tabScroll, { paddingBottom: 40 + keyboardHeight }]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
     >
@@ -492,22 +741,13 @@ function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
         )}
       </TouchableOpacity>
 
-      <View style={s.orDivider}>
-        <View style={s.dividerLine} />
-        <Text style={s.orTxt}>OR CONTINUE WITH</Text>
-        <View style={s.dividerLine} />
-      </View>
-
-      <View style={s.socialRow}>
-        <TouchableOpacity style={s.socialBtn}>
-          <Feather name="globe" size={17} color={colors.textSecondary} />
-          <Text style={s.socialBtnTxt}>Google</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.socialBtn}>
-          <Feather name="smartphone" size={17} color={colors.textSecondary} />
-          <Text style={s.socialBtnTxt}>Apple</Text>
-        </TouchableOpacity>
-      </View>
+      <SocialAuthRow
+        socialLoading={socialLoading}
+        onGoogle={handleGoogleAuth}
+        onApple={handleAppleAuth}
+        colors={colors}
+        s={s}
+      />
 
       <View style={s.tipCard}>
         <Feather name="info" size={13} color={colors.textLight} style={{ marginTop: 2 }} />
@@ -539,8 +779,20 @@ function SignupTab({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const passwordFieldRef = useRef<View>(null);
-  const confirmPasswordFieldRef = useRef<View>(null);
+  // IMPORTANT: these refs point directly to TextInput — a ref on <View>
+  // triggers a measureLayout warning.
+  const passwordFieldRef = useRef<TextInput>(null);
+  const confirmPasswordFieldRef = useRef<TextInput>(null);
+  const keyboardHeight = useKeyboardHeight();
+
+  const passwordKeyboard = useScrollFieldOnKeyboard(scrollRef, passwordFieldRef, 140);
+  const confirmPasswordKeyboard = useScrollFieldOnKeyboard(scrollRef, confirmPasswordFieldRef, 140);
+
+  // Google/Apple never hand back a National ID or company name, so a social
+  // signup started from here still goes through /auth/social and lands the
+  // user on /finish-profile to complete those afterward — it does NOT go
+  // through the multipart /auth/register flow below.
+  const { socialLoading, handleGoogleAuth, handleAppleAuth } = useSocialAuth('SELLER');
 
   const set = (k: keyof typeof EMPTY_OWNER_FORM) => (v: string) =>
     setForm(p => ({ ...p, [k]: v }));
@@ -631,11 +883,25 @@ function SignupTab({
       ref={scrollRef}
       style={{ flex: 1 }}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={s.tabScroll}
+      contentContainerStyle={[s.tabScroll, { paddingBottom: 40 + keyboardHeight }]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
     >
       <Text style={s.stepTitle}>List Your Property</Text>
+
+      <SocialAuthRow
+        socialLoading={socialLoading}
+        onGoogle={handleGoogleAuth}
+        onApple={handleAppleAuth}
+        colors={colors}
+        s={s}
+      />
+
+      <View style={s.orDivider}>
+        <View style={s.dividerLine} />
+        <Text style={s.orTxt}>OR SIGN UP WITH EMAIL</Text>
+        <View style={s.dividerLine} />
+      </View>
 
       {/* Partner benefits banner */}
       <View style={s.benefitsBanner}>
@@ -683,28 +949,44 @@ function SignupTab({
           </TouchableOpacity>
         </View>
 
-        <View style={s.fieldGroup} ref={passwordFieldRef}>
+        {/* PASSWORD */}
+        <View style={s.fieldGroup}>
           <RegLabel s={s}>PASSWORD</RegLabel>
           <View style={s.inputWrap}>
             <Feather name="lock" size={14} color={colors.textLight} />
-            <TextInput style={s.fieldInput} placeholder="Min. 8 characters"
-              placeholderTextColor={colors.textLight} value={form.password} onChangeText={set('password')}
+            <TextInput
+              ref={passwordFieldRef}
+              style={s.fieldInput}
+              placeholder="Min. 8 characters"
+              placeholderTextColor={colors.textLight}
+              value={form.password}
+              onChangeText={set('password')}
               secureTextEntry={!showPassword}
-              onFocus={() => scrollFieldIntoView(scrollRef, passwordFieldRef, 140)} />
+              onFocus={passwordKeyboard.handleFocus}
+              onBlur={passwordKeyboard.handleBlur}
+            />
             <TouchableOpacity onPress={() => setShowPassword(v => !v)} accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
               <Feather name={showPassword ? 'eye-off' : 'eye'} size={15} color={colors.textLight} />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={s.fieldGroup} ref={confirmPasswordFieldRef}>
+        {/* CONFIRM PASSWORD */}
+        <View style={s.fieldGroup}>
           <RegLabel s={s}>CONFIRM PASSWORD</RegLabel>
           <View style={s.inputWrap}>
             <Feather name="lock" size={14} color={colors.textLight} />
-            <TextInput style={s.fieldInput} placeholder="Repeat your password"
-              placeholderTextColor={colors.textLight} value={form.confirmPassword}
-              onChangeText={set('confirmPassword')} secureTextEntry={!showConfirmPassword}
-              onFocus={() => scrollFieldIntoView(scrollRef, confirmPasswordFieldRef, 140)} />
+            <TextInput
+              ref={confirmPasswordFieldRef}
+              style={s.fieldInput}
+              placeholder="Repeat your password"
+              placeholderTextColor={colors.textLight}
+              value={form.confirmPassword}
+              onChangeText={set('confirmPassword')}
+              secureTextEntry={!showConfirmPassword}
+              onFocus={confirmPasswordKeyboard.handleFocus}
+              onBlur={confirmPasswordKeyboard.handleBlur}
+            />
             <TouchableOpacity onPress={() => setShowConfirmPassword(v => !v)} accessibilityRole="button" accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}>
               <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={15} color={colors.textLight} />
             </TouchableOpacity>
@@ -807,8 +1089,8 @@ function SignupTab({
 
       <View style={s.actionRow}>
         <TouchableOpacity
-          style={[s.nextBtn, loading && s.primaryBtnDisabled]}
-          disabled={loading}
+          style={[s.nextBtn, (loading || !termsAccepted) && s.primaryBtnDisabled]}
+          disabled={loading || !termsAccepted}
           onPress={handleSignup}
         >
           {loading ? <ActivityIndicator color={WHITE} /> : (
@@ -833,6 +1115,12 @@ export default function HouseOwnersLoginSignup() {
   const [activeTab, setActiveTab] = useState<Tab>(
     params.tab === 'signup' ? 'signup' : 'login'
   );
+
+  useEffect(() => {
+    if (params.tab === 'signup' || params.tab === 'login') {
+      setActiveTab(params.tab as Tab);
+    }
+  }, [params.tab]);
 
   const termsAccepted = params.termsAccepted === 'true';
 
@@ -870,11 +1158,7 @@ export default function HouseOwnersLoginSignup() {
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
       <WebAlertHost />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-      >
+      <View style={{ flex: 1 }}>
         <View style={{ height: 16 }} />
         <TouchableOpacity onPress={handleBack} style={s.backBtn}>
           <Feather name="arrow-left" size={22} color={colors.text} />
@@ -921,7 +1205,7 @@ export default function HouseOwnersLoginSignup() {
             s={s}
           />
         )}
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -982,7 +1266,7 @@ function getStyles(colors: ThemeColors) {
     formHeader: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 4 },
     formHeaderTitle: { fontSize: 17, fontWeight: '700', color: colors.text, letterSpacing: -0.2 },
     formHeaderSub: { fontSize: 12, color: colors.primary, fontWeight: '600', marginTop: 2 },
-    tabScroll: { paddingHorizontal: H_PAD, paddingTop: 14, paddingBottom: 220 },
+    tabScroll: { paddingHorizontal: H_PAD, paddingTop: 14 },
     authHero: { alignItems: 'center', marginBottom: 22 },
     shieldWrap: {
       width: 60, height: 60, backgroundColor: colors.primaryTintAlt, borderRadius: 20,
