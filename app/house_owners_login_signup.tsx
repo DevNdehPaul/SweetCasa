@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import * as Google from 'expo-auth-session/providers/google';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -28,20 +28,28 @@ import { persistAuthSession, routeForRole } from '../constants/auth';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
 
-// Required once per app for expo-auth-session's browser-based OAuth flow to
-// resolve correctly when the app comes back into the foreground.
-WebBrowser.maybeCompleteAuthSession();
-
 const H_PAD = 20;
 const GOOGLE_EMAIL_SIGNUP_URL =
   'https://accounts.google.com/signup/v2/webcreateaccount?flowName=GlifWebSignIn&flowEntry=SignUp';
 
-// ── Google OAuth client IDs ─────────────────────────────────────────────
-// Same three env vars used across Seekers and Owners — one Google Cloud
-// project backs both portals.
+// ── Google Sign-In config ───────────────────────────────────────────────
+// webClientId acts as the "server client ID" — it's what makes the ID
+// token verifiable on your backend. iosClientId is only needed on iOS.
+// The Android client (package name + SHA-1) is matched automatically by
+// Play Services — it is NOT passed here.
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+
+let googleSignInConfigured = false;
+function ensureGoogleSignInConfigured() {
+  if (googleSignInConfigured) return;
+  GoogleSignin.configure({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+    offlineAccess: false,
+  });
+  googleSignInConfigured = true;
+}
 
 // White text sitting directly on a solid-color button (primary CTA, checkbox
 // check, alert buttons) stays hardcoded — that swatch doesn't change between
@@ -241,11 +249,9 @@ function WebAlertHost() {
 function useSocialAuth(role: 'SELLER') {
   const [socialLoading, setSocialLoading] = useState<SocialProvider>(null);
 
-  const [, googleResponse, promptGoogleAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: GOOGLE_IOS_CLIENT_ID,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-  });
+  useEffect(() => {
+    ensureGoogleSignInConfigured();
+  }, []);
 
   const completeSocialAuth = useCallback(
     async (payload: { provider: 'GOOGLE' | 'APPLE'; idToken: string; role: string; fullName?: string }) => {
@@ -264,39 +270,46 @@ function useSocialAuth(role: 'SELLER') {
     []
   );
 
-  // Google's flow is a browser redirect — the result comes back async via
-  // this response object rather than as a return value from promptAsync.
-  useEffect(() => {
-    if (googleResponse?.type === 'success') {
-      const { id_token } = googleResponse.params;
-      if (!id_token) {
-        crossAlert('Google Sign-In Failed', 'Google did not return an ID token.');
-        setSocialLoading(null);
-        return;
-      }
-      completeSocialAuth({ provider: 'GOOGLE', idToken: id_token, role });
-    } else if (googleResponse?.type === 'error') {
-      crossAlert('Google Sign-In Failed', 'Something went wrong. Please try again.');
-      setSocialLoading(null);
-    } else if (googleResponse?.type === 'cancel' || googleResponse?.type === 'dismiss') {
-      setSocialLoading(null);
-    }
-  }, [googleResponse, completeSocialAuth, role]);
-
+  // Native Google Sign-In talks to Play Services (Android) / the system
+  // account picker (iOS) directly — no browser, no redirect URI, no
+  // OAuth policy issues. It returns the result synchronously from this
+  // call rather than via a separate response object.
   const handleGoogleAuth = useCallback(async () => {
-    if (!GOOGLE_IOS_CLIENT_ID && !GOOGLE_ANDROID_CLIENT_ID && !GOOGLE_WEB_CLIENT_ID) {
+    if (!GOOGLE_WEB_CLIENT_ID) {
       crossAlert('Not Configured', 'Google Sign-In is not set up yet. Please try again later.');
       return;
     }
     setSocialLoading('google');
     try {
-      const result = await promptGoogleAsync();
-      if (result.type !== 'success') setSocialLoading(null);
-    } catch {
+      ensureGoogleSignInConfigured();
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const response = await GoogleSignin.signIn();
+
+      if (!isSuccessResponse(response)) {
+        // User closed the picker — not an error, just quietly stop loading.
+        setSocialLoading(null);
+        return;
+      }
+
+      const idToken = response.data.idToken;
+      if (!idToken) {
+        crossAlert('Google Sign-In Failed', 'Google did not return an ID token.');
+        setSocialLoading(null);
+        return;
+      }
+
+      await completeSocialAuth({ provider: 'GOOGLE', idToken, role });
+    } catch (err: any) {
+      if (isErrorWithCode(err) && err.code === statusCodes.SIGN_IN_CANCELLED) {
+        // User backed out — no alert needed.
+      } else if (isErrorWithCode(err) && err.code === statusCodes.IN_PROGRESS) {
+        // A sign-in is already in flight — ignore the duplicate tap.
+      } else {
+        crossAlert('Google Sign-In Failed', 'Something went wrong. Please try again.');
+      }
       setSocialLoading(null);
-      crossAlert('Google Sign-In Failed', 'Something went wrong. Please try again.');
     }
-  }, [promptGoogleAsync]);
+  }, [completeSocialAuth, role]);
 
   const handleAppleAuth = useCallback(async () => {
     try {

@@ -9,11 +9,22 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyAIePGfP4Vpa4UCC_htp3MqD2G18TUb4KI"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "SweetCasa uses your location to help you set the exact location of your property listing."
+      }
     },
     "android": {
-      "package": "com.ndeh_paul.SweetCasa",
-      "softwareKeyboardLayoutMode": "resize"
+  "package": "com.ndeh_paul.SweetCasa",
+  "softwareKeyboardLayoutMode": "resize",
+  "config": {
+    "googleMaps": {
+      "apiKey": "AIzaSyAIePGfP4Vpa4UCC_htp3MqD2G18TUb4KI"
+    }
+  }
     },
     "web": {
       "output": "static",
@@ -22,7 +33,14 @@
     "plugins": [
       "expo-router",
       "expo-localization",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SweetCasa uses your location to help you set the exact location of your property listing."
+        }
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true,
