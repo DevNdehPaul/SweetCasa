@@ -19,10 +19,29 @@ const { initSocket } = require('./lib/socket')   // ← NEW (real-time deposit u
 
 const app = express()
 
+const allowedOrigins = [
+  'http://localhost:8081',
+  'https://sweetcasa-admin-dashboard.up.railway.app',
+]
+
 app.use(cors({
-  origin: ['http://localhost:8081', '*'],
-  credentials: true, // since you're likely sending cookies/auth tokens
-}));
+  origin: (origin, callback) => {
+    // Allow requests with no Origin header
+    // (e.g. server-to-server requests)
+    if (!origin) {
+      return callback(null, true)
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+
+    return callback(new Error(`CORS blocked origin: ${origin}`))
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}))
 
 // ✅ Do NOT use express.json() globally — it consumes the stream before
 //    multer can parse multipart/form-data requests (listings upload).

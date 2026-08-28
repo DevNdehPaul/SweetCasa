@@ -1,7 +1,7 @@
 import axios from 'axios'
 import Cookies from './cookies'
 
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://sweetcasa.bonto.run/'
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL
 
 const api = axios.create({ baseURL: BASE_URL })
 
