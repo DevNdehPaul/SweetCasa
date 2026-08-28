@@ -1,8 +1,8 @@
+import { Colors } from "@/constants/theme";
 import {
   ThemePreferenceProvider,
   useResolvedTheme,
 } from "@/contexts/theme-preference";
-import { Colors } from "@/constants/theme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   DarkTheme,
@@ -71,6 +71,14 @@ function RootStack() {
           />
           <Stack.Screen
             name="onboarding_house_owners"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="neighborhoodmap"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="finish-profile"
             options={{ headerShown: false }}
           />
           <Stack.Screen name="searchresults" options={{ headerShown: false }} />

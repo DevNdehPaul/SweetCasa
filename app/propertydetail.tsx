@@ -10,7 +10,6 @@ import {
   Dimensions,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -18,6 +17,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import MapView, { Marker } from "react-native-maps";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { BASE_URL } from "../constants/api";
 import { ThemeColors } from "../constants/theme"; // adjust relative path to match this screen's location
 import { useAppTheme } from "../hooks/use-app-theme"; // adjust relative path to match this screen's location
@@ -46,6 +47,17 @@ interface Agent {
   street: string | null;
 }
 
+// A Google-detected or manually-added nearby place, from
+// GET /listings/:id/nearby-facilities
+interface NearbyFacility {
+  id?: number;
+  name: string;
+  category: string;
+  latitude: number | null;
+  longitude: number | null;
+  source: "google" | "manual";
+}
+
 interface ListingDetail {
   id: number;
   title: string;
@@ -71,6 +83,8 @@ interface ListingDetail {
   facilities: string[];
   images: ListingImage[];
   agent: Agent | null;
+  latitude: number | null;
+  longitude: number | null;
   nearby_school_name: string | null;
   nearby_bank_name: string | null;
   nearby_restaurant_name: string | null;
@@ -159,16 +173,44 @@ async function fetchVideoForListing(
   }
 }
 
-interface NearbyPlace {
+// Fetches the real Google-detected + manually-added nearby places for this
+// listing. Convenience data — failures are swallowed, the rest of the
+// screen still renders fine without it.
+async function fetchNearbyFacilitiesForListing(
+  id: string,
+): Promise<NearbyFacility[]> {
+  try {
+    const res = await fetch(`${BASE_URL}/listings/${id}/nearby-facilities`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data?.facilities) ? data.facilities : [];
+  } catch {
+    return [];
+  }
+}
+
+function groupFacilitiesByCategory(
+  items: NearbyFacility[],
+): Record<string, NearbyFacility[]> {
+  return items.reduce<Record<string, NearbyFacility[]>>((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  }, {});
+}
+
+interface LegacyNearbyPlace {
   label: string;
   example: string | null;
   icon: string;
 }
 
-function buildNearbyPlaces(
+// Fallback for older listings that only have the single named fields
+// (nearbySchoolName, etc.) and no real nearbyFacilities data yet.
+function buildLegacyNearbyPlaces(
   listing: ListingDetail,
   t: (key: string) => string,
-): NearbyPlace[] {
+): LegacyNearbyPlace[] {
   const school = listing.nearbySchoolName ?? listing.nearby_school_name ?? null;
   const bank = listing.nearbyBankName ?? listing.nearby_bank_name ?? null;
   const restaurant =
@@ -176,7 +218,7 @@ function buildNearbyPlaces(
   const market = listing.nearbyMarketName ?? listing.nearby_market_name ?? null;
   const clinic = listing.nearbyClinicName ?? listing.nearby_clinic_name ?? null;
 
-  const places: NearbyPlace[] = [
+  const places: LegacyNearbyPlace[] = [
     { label: t("propertyDetail.nearbySchool"), example: school, icon: "book" },
     {
       label: t("propertyDetail.nearbyBank"),
@@ -572,6 +614,7 @@ export default function PropertyDetailScreen() {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
   const { id, listingData } = useLocalSearchParams<{
     id: string;
     listingData?: string;
@@ -583,6 +626,8 @@ export default function PropertyDetailScreen() {
   const [fsIndex, setFsIndex] = useState(0);
   const [fsVisible, setFsVisible] = useState(false);
   const [contacting, setContacting] = useState(false);
+  const [nearbyFacilities, setNearbyFacilities] = useState<NearbyFacility[]>([]);
+  const [loadingNearby, setLoadingNearby] = useState(false);
   const { isFavourite, toggleFavourite } = useFavourite();
 
   const saved = id ? isFavourite(id) : false;
@@ -612,6 +657,17 @@ export default function PropertyDetailScreen() {
     facilities: normalizeFacilities((l as any).facilities),
   });
 
+  const loadNearbyFacilities = async () => {
+    if (!id) return;
+    setLoadingNearby(true);
+    try {
+      const facilities = await fetchNearbyFacilitiesForListing(id as string);
+      setNearbyFacilities(facilities);
+    } finally {
+      setLoadingNearby(false);
+    }
+  };
+
   const fetchListing = async () => {
     setLoading(true);
     setError(null);
@@ -636,6 +692,7 @@ export default function PropertyDetailScreen() {
         if (video) {
           setListing((prev) => (prev ? { ...prev, ...video } : prev));
         }
+        loadNearbyFacilities();
         return;
       }
 
@@ -658,6 +715,7 @@ export default function PropertyDetailScreen() {
       if (video) {
         setListing((prev) => (prev ? { ...prev, ...video } : prev));
       }
+      loadNearbyFacilities();
     } catch (err: any) {
       setError(err.message || t("errors.error"));
     } finally {
@@ -836,7 +894,10 @@ export default function PropertyDetailScreen() {
     },
   ] as const;
 
-  const nearbyPlaces = buildNearbyPlaces(listing, t);
+  const legacyNearbyPlaces = buildLegacyNearbyPlaces(listing, t);
+  const groupedFacilities = groupFacilitiesByCategory(nearbyFacilities);
+  const hasRealFacilities = nearbyFacilities.length > 0;
+  const hasMapPin = listing.latitude != null && listing.longitude != null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -861,7 +922,7 @@ export default function PropertyDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 110 }}
+        contentContainerStyle={{ paddingBottom: 110 + insets.bottom }}
       >
         {/* ── Photo Carousel ── */}
         <PhotoCarousel
@@ -1143,29 +1204,73 @@ export default function PropertyDetailScreen() {
           </TouchableOpacity>
 
           {/* ── Neighborhood ── */}
-          {nearbyPlaces.length > 0 && (
-            <View style={styles.sectionBlock}>
-              <View style={styles.sectionRow}>
-                <View style={styles.sectionTitleRow}>
-                  <View style={styles.sectionDot} />
-                  <Text style={styles.sectionTitle}>
-                    {t("propertyDetail.neighborhood")}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() =>
-                    router.push({
-                      pathname: "/neighborhoodmap",
-                      params: { listingId: String(listing.id) },
-                    } as any)
-                  }
-                >
-                  <Text style={styles.linkTxt}>
-                    {t("propertyDetail.viewMap")}
-                  </Text>
-                </TouchableOpacity>
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionRow}>
+              <View style={styles.sectionTitleRow}>
+                <View style={styles.sectionDot} />
+                <Text style={styles.sectionTitle}>
+                  {t("propertyDetail.neighborhood")}
+                </Text>
               </View>
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: "/neighborhoodmap",
+                    params: { listingId: String(listing.id) },
+                  } as any)
+                }
+              >
+                <Text style={styles.linkTxt}>
+                  {t("propertyDetail.viewMap")}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
+            {/* Real preview map — read-only, shows the property pin plus any
+               Google-detected facilities with coordinates. Tapping "View Map"
+               above opens the full interactive version. */}
+            {hasMapPin ? (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() =>
+                  router.push({
+                    pathname: "/neighborhoodmap",
+                    params: { listingId: String(listing.id) },
+                  } as any)
+                }
+              >
+                <MapView
+                  style={styles.mapPreview}
+                  pointerEvents="none"
+                  initialRegion={{
+                    latitude: listing.latitude as number,
+                    longitude: listing.longitude as number,
+                    latitudeDelta: 0.012,
+                    longitudeDelta: 0.012,
+                  }}
+                >
+                  <Marker
+                    coordinate={{
+                      latitude: listing.latitude as number,
+                      longitude: listing.longitude as number,
+                    }}
+                    pinColor={colors.primary}
+                  />
+                  {nearbyFacilities
+                    .filter((f) => f.latitude != null && f.longitude != null)
+                    .map((f, i) => (
+                      <Marker
+                        key={`${f.name}-${i}`}
+                        coordinate={{
+                          latitude: f.latitude as number,
+                          longitude: f.longitude as number,
+                        }}
+                        opacity={0.75}
+                      />
+                    ))}
+                </MapView>
+              </TouchableOpacity>
+            ) : (
               <View style={styles.mapPlaceholder}>
                 <View style={styles.mapPill}>
                   <Ionicons name="location-outline" size={14} color={colors.primary} />
@@ -1174,8 +1279,36 @@ export default function PropertyDetailScreen() {
                   </Text>
                 </View>
               </View>
+            )}
 
-              {nearbyPlaces.map((n, i) => (
+            {loadingNearby && (
+              <Text style={styles.nearbyLoadingTxt}>{t("common.loading")}</Text>
+            )}
+
+            {/* Real Google-detected facilities, grouped by category */}
+            {!loadingNearby && hasRealFacilities &&
+              Object.entries(groupedFacilities).map(([category, items]) => (
+                <View key={category} style={styles.nearbyCategoryGroup}>
+                  <Text style={styles.nearbyCategoryTitle}>{category}</Text>
+                  {items.map((facility, i) => (
+                    <View key={`${facility.name}-${i}`} style={styles.nearbyRow}>
+                      <View style={styles.nearbyIcon}>
+                        <Feather name="map-pin" size={15} color={colors.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.nearbyLabel} numberOfLines={1}>
+                          {facility.name}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ))}
+
+            {/* Fallback to the old single-value fields only when the real
+               facilities list is empty (older listings) */}
+            {!loadingNearby && !hasRealFacilities &&
+              legacyNearbyPlaces.map((n, i) => (
                 <View key={i} style={styles.nearbyRow}>
                   <View style={styles.nearbyIcon}>
                     <Feather name={n.icon as any} size={15} color={colors.primary} />
@@ -1188,8 +1321,13 @@ export default function PropertyDetailScreen() {
                   </View>
                 </View>
               ))}
-            </View>
-          )}
+
+            {!loadingNearby && !hasRealFacilities && legacyNearbyPlaces.length === 0 && (
+              <Text style={styles.nearbyLoadingTxt}>
+                {t("listing.noNearbyFound")}
+              </Text>
+            )}
+          </View>
 
           {/* ── Agent ── */}
           <View style={styles.sectionBlock}>
@@ -1244,7 +1382,7 @@ export default function PropertyDetailScreen() {
       </ScrollView>
 
       {/* ── Bottom CTA bar ── */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: 14 + insets.bottom }]}>
         <TouchableOpacity
           style={styles.contactBtn}
           onPress={handleContact}
@@ -1665,6 +1803,12 @@ function getStyles(colors: ThemeColors) {
       justifyContent: "center",
       marginBottom: 14,
     },
+    mapPreview: {
+      width: "100%",
+      height: 150,
+      borderRadius: 16,
+      marginBottom: 14,
+    },
     mapPill: {
       flexDirection: "row",
       alignItems: "center",
@@ -1681,6 +1825,21 @@ function getStyles(colors: ThemeColors) {
     },
     mapPillTxt: { fontSize: 13, fontWeight: "600", color: colors.primary },
 
+    nearbyLoadingTxt: {
+      fontSize: 12,
+      color: colors.textLight,
+      fontStyle: "italic",
+      marginBottom: 6,
+    },
+    nearbyCategoryGroup: { marginBottom: 4 },
+    nearbyCategoryTitle: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.textMuted,
+      marginBottom: 2,
+      marginTop: 6,
+      textTransform: "capitalize",
+    },
     nearbyRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -1754,7 +1913,6 @@ function getStyles(colors: ThemeColors) {
       flexDirection: "row",
       gap: 12,
       paddingHorizontal: H_PAD,
-      paddingBottom: 34,
       paddingTop: 14,
       backgroundColor: colors.card,
       borderTopWidth: 1,

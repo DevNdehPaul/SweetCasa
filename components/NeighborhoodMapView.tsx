@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Callout, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const PURPLE = '#7C3AED';
 const TEXT_DARK = '#111827';
@@ -59,6 +60,7 @@ export default function NeighborhoodMapView({
   facilities: Facility[];
 }) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [gettingDirections, setGettingDirections] = useState(false);
 
   const handleDirections = async () => {
@@ -148,7 +150,7 @@ export default function NeighborhoodMapView({
         </View>
       )}
 
-      <View style={s.bottomBar}>
+      <View style={[s.bottomBar, { bottom: 20 + insets.bottom }]}>
         <TouchableOpacity
           style={[s.directionsBtn, gettingDirections && { opacity: 0.6 }]}
           onPress={handleDirections}
@@ -173,7 +175,7 @@ const s = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, elevation: 3,
   },
   noticeTxt: { fontSize: 12, color: TEXT_MID, textAlign: 'center' },
-  bottomBar: { position: 'absolute', bottom: 20, left: 16, right: 16 },
+  bottomBar: { position: 'absolute', left: 16, right: 16 },
   directionsBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 14,

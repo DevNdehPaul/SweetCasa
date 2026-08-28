@@ -11,7 +11,6 @@ import {
   Image,
   Modal,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -20,6 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BASE_URL } from '../constants/api';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
@@ -814,6 +814,7 @@ export default function MyListings() {
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const s = useMemo(() => getStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
 
   const [listings, setListings]         = useState<Listing[]>([]);
   const [loading, setLoading]           = useState(true);
@@ -965,7 +966,7 @@ export default function MyListings() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => fetchListings(true)} tintColor={colors.primary} />
@@ -1016,7 +1017,10 @@ export default function MyListings() {
       )}
 
       {/* FAB */}
-      <TouchableOpacity style={s.fab} onPress={() => router.push('/upload')}>
+      <TouchableOpacity
+        style={[s.fab, { bottom: 28 + insets.bottom }]}
+        onPress={() => router.push('/upload')}
+      >
         <Text style={s.fabTxt}>{t('myListings.addNew')}</Text>
       </TouchableOpacity>
     </SafeAreaView>

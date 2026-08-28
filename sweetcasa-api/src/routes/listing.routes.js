@@ -80,6 +80,6 @@ router.patch(
 )
 
 // ── Listing experience review (authenticated sellers) ─────────────────────────
-router.post('/reviews', requireRole('SELLER'), submitListingReview)
+router.post('/reviews', express.json(), requireRole('SELLER'), submitListingReview)
 
 module.exports = router

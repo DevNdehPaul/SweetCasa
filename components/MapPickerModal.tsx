@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Modal,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BASE_URL } from '../constants/api';
 
@@ -33,6 +33,7 @@ export default function MapPickerModal({
 }) {
   const { t } = useTranslation();
   const mapRef = useRef<MapView>(null);
+  const insets = useSafeAreaInsets();
 
   const startLat = initialLatitude ?? DEFAULT_MAP_REGION.latitude;
   const startLng = initialLongitude ?? DEFAULT_MAP_REGION.longitude;
@@ -98,7 +99,7 @@ export default function MapPickerModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={s.safe}>
+      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
         <View style={s.header}>
           <Text style={s.headerTitle}>{t('listing.setLocation')}</Text>
         </View>
@@ -137,7 +138,7 @@ export default function MapPickerModal({
           />
         </MapView>
 
-        <View style={s.mapBottomBar}>
+        <View style={[s.mapBottomBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }]}>
           <TouchableOpacity style={s.draftBtn} onPress={onClose}>
             <Text style={s.draftBtnTxt}>{t('common.cancel')}</Text>
           </TouchableOpacity>
@@ -182,5 +183,5 @@ const s = StyleSheet.create({
   mapPredictionRow: { padding: 12, borderBottomWidth: 1, borderBottomColor: GRAY_BORDER },
   mapPredictionTxt: { fontSize: 13, color: TEXT_DARK },
   mapView: { flex: 1, marginTop: 12 },
-  mapBottomBar: { flexDirection: 'row', gap: 12, margin: 16 },
+  mapBottomBar: { flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 16 },
 });

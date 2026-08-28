@@ -5,13 +5,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import NeighborhoodMapView, { Facility } from '../components/NeighborhoodMapView';
 import { BASE_URL } from '../constants/api';
