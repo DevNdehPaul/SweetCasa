@@ -10,6 +10,9 @@ const NEARBY_CATEGORY_TYPES = {
   police: 'police',
 }
 
+// Cap nearby-facility results to a 1km radius around the listing's exact location.
+const DEFAULT_RADIUS_METERS = 1000
+
 function ensureGooglePlacesConfigured() {
   if (!process.env.GOOGLE_PLACES_API_KEY) {
     throw new Error('Google Places API key is not configured.')
@@ -17,7 +20,7 @@ function ensureGooglePlacesConfigured() {
 }
 
 // ── Nearby Search across all categories, merged into one flat list ───────────
-async function nearbySearch(lat, lng, radius = 1500) {
+async function nearbySearch(lat, lng, radius = DEFAULT_RADIUS_METERS) {
   ensureGooglePlacesConfigured()
   const key = process.env.GOOGLE_PLACES_API_KEY
   const results = []

@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { MapPressEvent, Marker, Region } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BASE_URL } from '../constants/api';
@@ -97,6 +97,13 @@ export default function MapPickerModal({
     }
   };
 
+  // ── Tap anywhere on the map to move the pin there (in addition to dragging
+  // ── the marker directly). This is what makes fine-tuning the exact spot
+  // ── discoverable — most owners will tap before they think to drag.
+  const handleMapPress = (e: MapPressEvent) => {
+    setMarkerCoord(e.nativeEvent.coordinate);
+  };
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -126,11 +133,14 @@ export default function MapPickerModal({
           )}
         </View>
 
+        <Text style={s.dragHint}>{t('listing.dragPinHint')}</Text>
+
         <MapView
           ref={mapRef}
           style={s.mapView}
           initialRegion={region}
-          onRegionChangeComplete={setRegion}>
+          onRegionChangeComplete={setRegion}
+          onPress={handleMapPress}>
           <Marker
             coordinate={markerCoord}
             draggable
@@ -182,6 +192,10 @@ const s = StyleSheet.create({
   },
   mapPredictionRow: { padding: 12, borderBottomWidth: 1, borderBottomColor: GRAY_BORDER },
   mapPredictionTxt: { fontSize: 13, color: TEXT_DARK },
-  mapView: { flex: 1, marginTop: 12 },
+  dragHint: {
+    fontSize: 11, color: TEXT_LIGHT, textAlign: 'center',
+    marginTop: 10, paddingHorizontal: 16,
+  },
+  mapView: { flex: 1, marginTop: 8 },
   mapBottomBar: { flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 16 },
 });
