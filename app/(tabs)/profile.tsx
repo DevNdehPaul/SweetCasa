@@ -1,7 +1,8 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -82,6 +83,12 @@ export default function ProfileScreen() {
     loadUserData();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadUserData();
+    }, []),
+  );
+
   const loadUserData = async () => {
     try {
       const [storedProfile, storedRole] = await Promise.all([
@@ -125,6 +132,14 @@ export default function ProfileScreen() {
   const fullName = isSeller
     ? profile?.companyName || profile?.name || "SweetCasa User"
     : profile?.fullName || profile?.name || "SweetCasa User";
+
+  const avatarUrl = profile?.avatarUrl || profile?.avatar || "";
+  const initials = String(fullName || "SC")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "SC";
 
   const locationStr =
     [profile?.city, profile?.region, profile?.country]
@@ -224,10 +239,13 @@ export default function ProfileScreen() {
         {/* Profile Hero */}
         <View style={styles.heroSection}>
           <View style={styles.avatarWrap}>
-            <Image
-              source={{ uri: "https://randomuser.me/api/portraits/men/32.jpg" }}
-              style={styles.avatar}
-            />
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              </View>
+            )}
             <View style={styles.verifiedBadge}>
               <Ionicons name="checkmark-circle" size={22} color={colors.primary} />
             </View>
@@ -351,6 +369,16 @@ function getStyles(colors: ThemeColors) {
       borderRadius: 45,
       borderWidth: 3,
       borderColor: colors.card,
+    },
+    avatarPlaceholder: {
+      backgroundColor: colors.primaryTint,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    avatarInitials: {
+      fontSize: 28,
+      fontWeight: "800",
+      color: colors.primary,
     },
     verifiedBadge: {
       position: "absolute",

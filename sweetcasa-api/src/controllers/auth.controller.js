@@ -61,6 +61,7 @@ function toProfile(user) {
     city: user.city || '',
     street: user.street || '',
     nationalIdUrl: user.nationalIdUrl || '',
+    avatarUrl: user.avatarUrl || '',
     createdAt: user.createdAt,
   }
 }
@@ -418,7 +419,7 @@ exports.forgotPassword = async (req, res) => {
     })
 
     const name = user.name || user.companyName || 'there'
-    await sendMail({
+    const mailResult = await sendMail({
       to: user.email,
       subject: 'Your SweetCasa password reset code',
       html: `
@@ -446,6 +447,21 @@ exports.forgotPassword = async (req, res) => {
         </div>
       `,
     })
+
+    if (!mailResult.sent) {
+      await getPrisma().user.update({
+        where: { id: user.id },
+        data: {
+          passwordResetToken: null,
+          passwordResetExpires: null,
+        },
+      })
+
+      return res.status(502).json({
+        error: 'We could not send the reset code right now. Please try again later.',
+        code: 'EMAIL_DELIVERY_FAILED',
+      })
+    }
 
     res.json({ message: 'A verification code has been sent to your email.' })
   } catch (err) {
@@ -571,20 +587,44 @@ exports.updateProfile = async (req, res) => {
       if (cleaned) data.phone = BigInt(cleaned)
     }
 
+    const files = req.files || {}
+    const nationalIdFile = req.file || files.nationalId?.[0]
+    const avatarFile = files.avatar?.[0]
+
     // ── Optional: replace National ID on profile update ───────────────────────
-    if (req.file) {
+    if (nationalIdFile) {
       const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf']
-      if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      if (!allowedMimeTypes.includes(nationalIdFile.mimetype)) {
         return res.status(400).json({ error: 'Invalid file type for National ID.' })
       }
-      const isPdf = req.file.mimetype === 'application/pdf'
-      const uploadResult = await uploadToCloudinary(req.file.buffer, {
+      const isPdf = nationalIdFile.mimetype === 'application/pdf'
+      const uploadResult = await uploadToCloudinary(nationalIdFile.buffer, {
         folder: 'sweetcasa/national_ids',
         resource_type: isPdf ? 'raw' : 'image',
         unique_filename: true,
       })
       data.nationalIdUrl = uploadResult.secure_url
       data.nationalIdPublicId = uploadResult.public_id
+    }
+
+    // ── Optional: replace public profile photo ────────────────────────────────
+    if (avatarFile) {
+      const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+      if (!allowedImageTypes.includes(avatarFile.mimetype)) {
+        return res.status(400).json({ error: 'Profile photo must be a JPG, PNG, or WEBP image.' })
+      }
+
+      const uploadResult = await uploadToCloudinary(avatarFile.buffer, {
+        folder: 'sweetcasa/profile_photos',
+        resource_type: 'image',
+        unique_filename: true,
+        transformation: [
+          { width: 512, height: 512, crop: 'fill', gravity: 'face:auto' },
+          { quality: 'auto', fetch_format: 'auto' },
+        ],
+      })
+      data.avatarUrl = uploadResult.secure_url
+      data.avatarPublicId = uploadResult.public_id
     }
 
     if (Object.keys(data).length === 0) {
@@ -607,6 +647,8 @@ exports.updateProfile = async (req, res) => {
         street: true,
         nationalIdUrl: true,
         nationalIdPublicId: true,
+        avatarUrl: true,
+        avatarPublicId: true,
         createdAt: true,
       },
     })

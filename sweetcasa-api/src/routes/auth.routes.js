@@ -64,7 +64,10 @@ router.post('/reset-password', express.json(), resetPassword)
 router.put(
   '/profile',
   requireRole(),
-  upload.single('nationalId'),
+  upload.fields([
+    { name: 'nationalId', maxCount: 1 },
+    { name: 'avatar', maxCount: 1 },
+  ]),
   handleMulterError,
   updateProfile,
 )
