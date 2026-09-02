@@ -13,6 +13,8 @@ type AuthProfile = {
   region: string
   city: string
   street: string
+  avatarUrl: string
+  avatar?: string
   createdAt: string | null
 }
 
@@ -43,6 +45,8 @@ function normalizeProfile(
     region:      profile?.region    || '',
     city:        profile?.city      || '',
     street:      profile?.street    || '',
+    avatarUrl:   profile?.avatarUrl || profile?.avatar || '',
+    avatar:      profile?.avatar    || profile?.avatarUrl || '',
     createdAt:   profile?.createdAt || null,
   }
 }

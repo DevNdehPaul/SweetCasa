@@ -661,13 +661,14 @@ exports.getListingById = async (req, res) => {
           country:     true,
           region:      true,
           street:      true,
+          avatarUrl:   true,
         },
       })
       if (user) {
         agent = {
           id:          user.id,
           name:        user.name ?? user.companyName ?? 'Property Agent',
-          avatarUrl:   null,
+          avatarUrl:   user.avatarUrl ?? null,
           rating:      0,
           reviewCount: 0,
           city:        user.city    ?? null,

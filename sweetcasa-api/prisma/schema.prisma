@@ -25,6 +25,8 @@ model User {
   street              String?
   nationalIdUrl       String?            @map("national_id_url")
   nationalIdPublicId  String?            @map("national_id_public_id") @db.VarChar(255)
+  avatarUrl           String?            @map("avatar_url")
+  avatarPublicId      String?            @map("avatar_public_id") @db.VarChar(255)
   passwordResetToken  String?            @map("password_reset_token")
   passwordResetExpires DateTime?         @map("password_reset_expires")
   createdAt           DateTime?          @default(now()) @map("created_at")

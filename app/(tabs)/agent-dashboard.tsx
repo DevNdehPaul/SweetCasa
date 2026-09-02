@@ -1,7 +1,8 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { Link, router } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Animated,
@@ -26,7 +27,7 @@ const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://sweetcasa.bonto.run
 // ─── Welcome Modal ────────────────────────────────────────────────────────────
 function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useTranslation();
-  const { colors, isDark } = useAppTheme();
+  const { colors } = useAppTheme();
   const wm = useMemo(() => getWmStyles(colors), [colors]);
   const scaleAnim   = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -38,7 +39,7 @@ function WelcomeModal({ visible, onClose }: { visible: boolean; onClose: () => v
         Animated.timing(opacityAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible]);
+  }, [opacityAnim, scaleAnim, visible]);
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
@@ -103,6 +104,12 @@ export default function AgentHubScreen() {
     checkWelcome();
     loadAll();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem('profile').then((p) => { if (p) setProfile(JSON.parse(p)); });
+    }, []),
+  );
 
   const checkWelcome = async () => {
     try {
@@ -175,6 +182,15 @@ export default function AgentHubScreen() {
 
   const latestListings = listings.slice(0, 3);
 
+  const avatarUrl = profile?.avatarUrl || profile?.avatar || '';
+  const displayName = profile?.companyName || profile?.name || 'SC';
+  const initials = String(displayName)
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'SC';
+
   const totalBalance   = wallet ? Number(wallet.heldBalance) + Number(wallet.availableBalance) : 0;
   const pendingPayout  = wallet ? Number(wallet.heldBalance) : 0;
   const formatXAF = (value: number) => `${Math.round(value).toLocaleString('en-US')} XAF`;
@@ -198,10 +214,13 @@ export default function AgentHubScreen() {
         {/* ── User Row ── */}
         <View style={styles.userRow}>
           <View style={styles.avatarWrap}>
-            <Image
-              source={{ uri: 'https://randomuser.me/api/portraits/men/45.jpg' }}
-              style={styles.avatar}
-            />
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              </View>
+            )}
             <View style={styles.onlineDot} />
           </View>
           <View style={styles.userInfo}>
@@ -400,6 +419,8 @@ function getStyles(colors: ThemeColors) {
     userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: H_PAD, marginBottom: 20, gap: 12 },
     avatarWrap: { position: 'relative' },
     avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: colors.card },
+    avatarPlaceholder: { backgroundColor: colors.primaryTint, alignItems: 'center', justifyContent: 'center' },
+    avatarInitials: { fontSize: 16, fontWeight: '800', color: colors.primary },
     onlineDot: { position: 'absolute', bottom: 1, right: 1, width: 12, height: 12, borderRadius: 6, backgroundColor: colors.success, borderWidth: 2, borderColor: colors.background },
     userInfo: { flex: 1 },
     userName: { fontSize: 17, fontWeight: '800', color: colors.text, letterSpacing: -0.3, marginBottom: 3 },

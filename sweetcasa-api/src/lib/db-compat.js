@@ -31,6 +31,8 @@ async function ensureDatabaseCompatibility() {
       ADD COLUMN IF NOT EXISTS region            VARCHAR(50),
       ADD COLUMN IF NOT EXISTS city              VARCHAR(50),
       ADD COLUMN IF NOT EXISTS street            TEXT,
+      ADD COLUMN IF NOT EXISTS avatar_url        TEXT,
+      ADD COLUMN IF NOT EXISTS avatar_public_id  VARCHAR(255),
       ADD COLUMN IF NOT EXISTS password_reset_token   TEXT,
       ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMPTZ;
   `)
