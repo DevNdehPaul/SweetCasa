@@ -5,7 +5,7 @@ export const BASE_URL = 'https://sweetcasa-production-4232.up.railway.app';
 
 const api = axios.create({
   baseURL: BASE_URL,
-})
+});
 
 // Automatically attach JWT token to every request
 api.interceptors.request.use(async (config) => {
@@ -27,11 +27,15 @@ api.interceptors.response.use(
 // Use this for multipart/form-data uploads (file uploads)
 // Axios on React Native doesn't handle FormData+files correctly,
 // so we use fetch directly which works natively.
-export async function uploadWithFetch(path: string, formData: FormData): Promise<any> {
+export async function uploadWithFetch(
+  path: string,
+  formData: FormData,
+  method: "POST" | "PUT" = "POST",
+): Promise<any> {
   const token = await AsyncStorage.getItem("token");
 
   const response = await fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
+    method,
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       // Do NOT set Content-Type — fetch sets it automatically with the correct boundary
