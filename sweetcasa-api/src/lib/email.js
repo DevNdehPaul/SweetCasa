@@ -1,50 +1,65 @@
-const nodemailer = require('nodemailer')
+// ─── Brevo (HTTP API) ───────────────────────────────────────────────────────
+// Sends over HTTPS instead of raw SMTP sockets, which sidesteps cloud hosts
+// (Railway, Render, etc.) having their outbound SMTP silently blocked/dropped
+// by mail providers like Gmail.
+//
+// Unlike most competitors, Brevo lets you verify a single sender EMAIL
+// ADDRESS (click a confirmation link — no domain/DNS ownership needed) and
+// still send to any recipient. Free forever: 300 emails/day.
+//
+// Setup:
+//   1. Sign up at https://www.brevo.com
+//   2. Settings → Senders, Domains & IPs → Senders → Add a Sender
+//      (use an email address you can receive mail at, e.g. your Gmail)
+//   3. Click the confirmation link Brevo emails to that address
+//   4. Settings → SMTP & API → API Keys → Generate a new API key
+//   5. On Railway, set:
+//        BREVO_API_KEY=xkeysib-xxxxxxxx
+//        MAIL_FROM=SweetCasa <the-address-you-verified@gmail.com>
 
-let transporter = null
-let attempted = false
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
 
-function getTransporter() {
-  if (attempted) return transporter
-  attempted = true
-
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.warn('[email] SMTP_HOST/SMTP_USER/SMTP_PASS not set — emails will be logged, not sent.')
-    return null
+function parseFrom(mailFrom) {
+  // MAIL_FROM can be "Name <email@x.com>" or just "email@x.com"
+  const match = String(mailFrom || '').match(/^(.*?)<(.+)>$/)
+  if (match) {
+    return { name: match[1].trim().replace(/^"|"$/g, '') || 'SweetCasa', email: match[2].trim() }
   }
-
-  transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: Number(process.env.SMTP_PORT) === 465,
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  family: 4, // force IPv4, skip broken IPv6 routes
-  connectionTimeout: 20000, // was 10000 — give the handshake more room before giving up
-  greetingTimeout: 20000,   // time to wait for the SMTP server's initial greeting
-  socketTimeout: 20000,     // time to wait for any response once connected
-  logger: true,             // TEMP: verbose step-by-step SMTP logging
-  debug: true,              // TEMP: logs the raw SMTP conversation to Railway logs
-})
-  return transporter
+  return { name: 'SweetCasa', email: String(mailFrom || '').trim() }
 }
 
 // Never throws — a failed email should not break the action that triggered it
-// (approving/rejecting a listing, sending a staff invite, etc).
+// (approving/rejecting a listing, sending a staff invite, forgot-password, etc).
 async function sendMail({ to, subject, html }) {
-  const t = getTransporter()
-
-  if (!t) {
-    console.warn(`[email] (not sent, SMTP unconfigured) to=${to} subject="${subject}"`)
+  if (!process.env.BREVO_API_KEY || !process.env.MAIL_FROM) {
+    console.warn(`[email] BREVO_API_KEY/MAIL_FROM not set — email not sent. to=${to} subject="${subject}"`)
     return { sent: false }
   }
 
   try {
-    await t.sendMail({
-      from: process.env.MAIL_FROM || 'SweetCasa <no-reply@sweetcasa.com>',
-      to,
-      subject,
-      html,
+    const response = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: parseFrom(process.env.MAIL_FROM),
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
     })
-    return { sent: true }
+
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      console.error(`[email] Brevo API error (${response.status}) sending to ${to}:`, data)
+      return { sent: false, error: data?.message || `Brevo API returned ${response.status}` }
+    }
+
+    return { sent: true, id: data?.messageId }
   } catch (err) {
     console.error(`[email] Failed to send to ${to}:`, err.message)
     return { sent: false, error: err.message }
