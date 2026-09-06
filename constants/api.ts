@@ -49,7 +49,10 @@ export async function uploadWithFetch(
     throw { response: { data, status: response.status } };
   }
 
-  return data;
+  // Wrap in the same { data } shape axios responses use, so callers can
+  // handle uploadWithFetch(...) and api.put(...)/api.post(...) results
+  // identically (e.g. `res.data?.profile || res.data`).
+  return { data };
 }
 
 export default api;

@@ -5,19 +5,19 @@ import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import api, { uploadWithFetch } from "../constants/api";
 import { ThemeColors } from "../constants/theme";
@@ -320,11 +320,23 @@ export default function AccountInformation() {
         Object.entries(payload).forEach(([key, value]) => {
           formData.append(key, String(value ?? ""));
         });
-        formData.append("avatar", {
-          uri: avatarFile.uri,
-          name: avatarFile.name,
-          type: avatarFile.mimeType,
-        } as any);
+
+        if (Platform.OS === "web") {
+          // On web, expo-image-picker returns a blob:/data: URI, and the
+          // browser's native fetch requires a real Blob/File appended to
+          // FormData — the RN {uri, name, type} object trick below only
+          // works via React Native's fetch polyfill on iOS/Android, it's a
+          // no-op (silently stringified) in a browser.
+          const blobRes = await fetch(avatarFile.uri);
+          const blob = await blobRes.blob();
+          formData.append("avatar", blob, avatarFile.name);
+        } else {
+          formData.append("avatar", {
+            uri: avatarFile.uri,
+            name: avatarFile.name,
+            type: avatarFile.mimeType,
+          } as any);
+        }
 
         res = await uploadWithFetch("/auth/profile", formData, "PUT");
       } else {

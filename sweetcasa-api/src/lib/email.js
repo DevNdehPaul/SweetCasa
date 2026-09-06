@@ -18,7 +18,11 @@ function getTransporter() {
   secure: Number(process.env.SMTP_PORT) === 465,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
   family: 4, // force IPv4, skip broken IPv6 routes
-  connectionTimeout: 10000,
+  connectionTimeout: 20000, // was 10000 — give the handshake more room before giving up
+  greetingTimeout: 20000,   // time to wait for the SMTP server's initial greeting
+  socketTimeout: 20000,     // time to wait for any response once connected
+  logger: true,             // TEMP: verbose step-by-step SMTP logging
+  debug: true,              // TEMP: logs the raw SMTP conversation to Railway logs
 })
   return transporter
 }
