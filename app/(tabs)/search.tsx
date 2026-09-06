@@ -126,15 +126,20 @@ const CAMEROON_CITIES: RegionSection[] = [
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
+// House types — id is the exact value stored/sent to the API.
+// NOTE: pricing for these categories is handled server-side / in the listing
+// creation flow only; no price is displayed in this filter UI.
 const HOUSE_TYPES: { id: string; icon: string }[] = [
-  { id: 'Apartment',   icon: 'grid'      },
-  { id: 'Studio',      icon: 'home'      },
-  { id: 'Villa',       icon: 'layers'    },
-  { id: 'Office',      icon: 'briefcase' },
-  { id: 'Room',        icon: 'square'    },
-  { id: 'Duplex',      icon: 'copy'      },
-  { id: 'Guest House', icon: 'coffee'    },
-  { id: 'Hotel',       icon: 'star'      },
+  { id: 'Room / Studio',                   icon: 'square'        },
+  { id: 'Apartment',                       icon: 'grid'          },
+  { id: 'Bungalow (Maison Basse)',         icon: 'home'          },
+  { id: 'Office',                          icon: 'briefcase'     },
+  { id: 'Duplex / Villa',                  icon: 'layers'        },
+  { id: 'Guest House / Hotel',             icon: 'star'          },
+  { id: 'Penthouse',                       icon: 'trending-up'   },
+  { id: 'Mansion / Residence',             icon: 'award'         },
+  { id: 'Commercial Building (Immeuble)',  icon: 'shopping-bag'  },
+  { id: 'School Dorm',                     icon: 'book-open'     },
 ];
 
 const FACILITIES: { id: string; icon: string }[] = [
@@ -434,7 +439,9 @@ export default function SearchFiltersScreen() {
                 activeOpacity={0.75} onPress={() => setSelectedType(active ? '' : type.id)}
               >
                 <Feather name={type.icon as any} size={22} color={active ? colors.primary : colors.textMuted} />
-                <Text style={[s.typeLabel, active && s.typeLabelActive]}>{type.id}</Text>
+                <Text style={[s.typeLabel, active && s.typeLabelActive]} numberOfLines={3}>
+                  {type.id}
+                </Text>
               </TouchableOpacity>
             );
           })}
@@ -558,10 +565,15 @@ function getStyles(colors: ThemeColors) {
     statusSubtitle: { fontSize: 11.5, color: colors.textLight },
     statusCheck:    { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 
-    typeGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 4 },
-    typeCard:        { width: (width - H_PAD * 2 - 20) / 3, alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, borderWidth: 1.5, borderColor: colors.borderLight, backgroundColor: colors.card, gap: 7 },
+    // Fixed 3-per-row grid regardless of phone width. Percentage-based width
+    // (instead of a Dimensions-derived pixel calc) guarantees exactly 3
+    // columns on any screen size, and even if a label wraps to 2–3 lines
+    // (e.g. "Commercial Building (Immeuble)") it won't push the layout to
+    // 2 or 4 per row like a fixed-height/pixel-width card could.
+    typeGrid:        { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+    typeCard:        { width: '31.5%', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 4, borderRadius: 14, borderWidth: 1.5, borderColor: colors.borderLight, backgroundColor: colors.card, gap: 7, minHeight: 92 },
     typeCardActive:  { borderColor: '#C4B5FD', backgroundColor: colors.primaryTintAlt },
-    typeLabel:       { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
+    typeLabel:       { fontSize: 11, color: colors.textMuted, fontWeight: '500', textAlign: 'center' },
     typeLabelActive: { color: colors.primary, fontWeight: '700' },
 
     budgetHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 26, marginBottom: 14 },

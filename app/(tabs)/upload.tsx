@@ -30,9 +30,20 @@ const UPLOAD_COUNT_KEY = 'sweetcasa_successful_uploads';
 
 // ─── Static IDs (never translated — values sent to API) ───────────────────────
 
+// Property type list. Pricing tiers for each type (e.g. Room/Studio, Office
+// small vs. big space, etc.) are enforced server-side and are intentionally
+// NOT shown in this UI.
 const PROP_TYPE_IDS = [
-  'Apartment', 'Studio', 'Villa', 'Office',
-  'Room', 'Duplex', 'Guest House', 'Hotel',
+  'Room / Studio',
+  'Apartment',
+  'Bungalow (Maison Basse)',
+  'Office',
+  'Duplex / Villa',
+  'Guest House / Hotel',
+  'Penthouse',
+  'Mansion / Residence',
+  'Commercial Building (Immeuble)',
+  'School Dorm',
 ];
 
 const FACILITY_IDS = [
@@ -47,6 +58,18 @@ const PAYMENT_FREQ_KEYS: Record<string, string> = {
   Yearly:     'listing.yearly',
   'For Sale': 'listing.forSale',
 };
+
+// Rental distribution timeframes. These are the exact database intervals a
+// rental listing (Monthly or Yearly contract allocation) must be segmented
+// into. Not shown/applicable when paymentFrequency === 'For Sale'.
+const RENTAL_DURATION_IDS = [
+  '1 day to 7 days',
+  '7 days to 1 month',
+  '1 month to 5 months',
+  '6 months to 1 year',
+  '2 to 5 years',
+  '5 years and above',
+] as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -399,6 +422,9 @@ export default function NewListing() {
   const [neighborhood, setNeighborhood] = useState('');
   const [price, setPrice]           = useState('');
   const [payFreq, setPayFreq]       = useState('Monthly');
+  // Rental distribution timeframe — only relevant when payFreq is a rental
+  // frequency (Monthly / Yearly), not when the property is 'For Sale'.
+  const [rentalDuration, setRentalDuration] = useState('');
   const [bedrooms, setBedrooms]     = useState(2);
   const [bathrooms, setBathrooms]   = useState(1);
   const [toilets, setToilets]       = useState(2);
@@ -429,8 +455,17 @@ export default function NewListing() {
   const [posting, setPosting]       = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
+  const isRental = payFreq !== 'For Sale';
+
   const toggle = (arr: string[], setArr: (v: string[]) => void, val: string) =>
     setArr(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
+
+  // If the owner switches from a rental frequency to "For Sale", clear the
+  // now-irrelevant duration segment so it isn't sent with the submission.
+  const handlePayFreqChange = (freq: string) => {
+    setPayFreq(freq);
+    if (freq === 'For Sale') setRentalDuration('');
+  };
 
   // ── Fetch Google-detected nearby facilities once a location is set ──
   const fetchNearbyFacilities = async (lat: number, lng: number) => {
@@ -505,7 +540,8 @@ export default function NewListing() {
   const resetForm = () => {
     setTitle(''); setPropType('Apartment'); setCountry('Cameroon');
     setRegion(''); setCity(''); setNeighborhood(''); setPrice('');
-    setPayFreq('Monthly'); setBedrooms(2); setBathrooms(1);
+    setPayFreq('Monthly'); setRentalDuration('');
+    setBedrooms(2); setBathrooms(1);
     setToilets(2); setParlors(1); setKitchens(1); setArea('');
     setAmenities(['Wifi', 'Electricity']);
     setLatitude(null); setLongitude(null);
@@ -518,6 +554,11 @@ export default function NewListing() {
   const handlePostListing = async () => {
     if (!title.trim() || !region.trim() || !city.trim() || !price.trim() || !description.trim()) {
       Alert.alert(t('errors.fillRequired'), t('errors.fillRequired'));
+      return;
+    }
+    if (isRental && !rentalDuration) {
+      Alert.alert(t('listing.rentalDurationRequired') ?? 'Rental duration required',
+        t('listing.rentalDurationRequiredDesc') ?? 'Please select a rental duration range.');
       return;
     }
     if (!photoFiles.length) {
@@ -555,7 +596,14 @@ export default function NewListing() {
       formData.append('parlors',          String(parlors));
       formData.append('kitchens',         String(kitchens));
       if (area.trim()) formData.append('areaSqm', area.trim());
+
+      // Contract allocation type (Monthly vs. Yearly), or 'For Sale'.
       formData.append('paymentFrequency', payFreq);
+      // Distribution timeframe segment — only sent for rentals.
+      if (isRental && rentalDuration) {
+        formData.append('rentalDurationRange', rentalDuration);
+      }
+
       formData.append('visitHours',       visitHours.trim());
       formData.append('facilities',       JSON.stringify(amenities));
 
@@ -725,9 +773,30 @@ export default function NewListing() {
           <View style={s.chipRow}>
             {PAYMENT_FREQ_IDS.map((f) => (
               <Chip key={f} label={t(PAYMENT_FREQ_KEYS[f])} selected={payFreq === f}
-                onPress={() => setPayFreq(f)} />
+                onPress={() => handlePayFreqChange(f)} />
             ))}
           </View>
+
+          {/* Rental distribution timeframe — contract allocation segment.
+              Only shown/required when the listing is a rental (Monthly/Yearly),
+              not when payFreq === 'For Sale'. */}
+          {isRental && (
+            <>
+              <Text style={s.label}>
+                {t('listing.rentalDuration') ?? 'Rental Duration'}
+              </Text>
+              <View style={s.chipRow}>
+                {RENTAL_DURATION_IDS.map((d) => (
+                  <Chip
+                    key={d}
+                    label={d}
+                    selected={rentalDuration === d}
+                    onPress={() => setRentalDuration(d)}
+                  />
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
         {/* 4. Property Details */}

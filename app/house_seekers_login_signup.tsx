@@ -283,6 +283,18 @@ function useSocialAuth(role: 'BUYER') {
     try {
       ensureGoogleSignInConfigured();
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+      // Force the account picker every time. Without this, Google Sign-In
+      // can silently re-use whichever Google account was authenticated last
+      // (cached session) instead of letting the user choose — signing out
+      // first clears that cached session so signIn() always shows the
+      // chooser UI.
+      try {
+        await GoogleSignin.signOut();
+      } catch {
+        // No cached session to sign out of — safe to ignore.
+      }
+
       const response = await GoogleSignin.signIn();
 
       if (!isSuccessResponse(response)) {
