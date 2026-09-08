@@ -87,7 +87,7 @@ USER PREFERENCES:
 
     // ── 4. Call Groq ─────────────────────────────────────────────────────────
     const chatResponse = await client.chat.completions.create({
-      model:       'llama-3.3-70b-versatile',   // free, fast, very capable
+      model:       'openai/gpt-oss-120b',   // free, fast, very capable
       max_tokens:  1500,
       temperature: 0.3,
       messages: [

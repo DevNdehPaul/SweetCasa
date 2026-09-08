@@ -86,7 +86,7 @@ interface AiChatMessage {
 type Screen = 'history' | 'chat';
 type Styles = ReturnType<typeof getStyles>;
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 async function getAuthHeaders(): Promise<Record<string, string>> {
