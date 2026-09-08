@@ -146,7 +146,7 @@ USER PREFERENCES:
 - Deal-breakers: ${(criteria.dealBreakers ?? []).join(', ') || 'none'}`.trim()
 
   const rankingResponse = await groq.chat.completions.create({
-    model:       'llama-3.3-70b-versatile',
+    model:       'openai/gpt-oss-120b',
     max_tokens:  1500,
     temperature: 0.2,
     messages: [
@@ -455,7 +455,7 @@ router.post(
 
       // ── 8. Call Groq ─────────────────────────────────────────────────────
       const chatResponse = await groq.chat.completions.create({
-        model:       'llama-3.3-70b-versatile',
+        model:       'openai/gpt-oss-120b',
         max_tokens:  800,
         temperature: 0.6,
         messages:    groqMessages,
@@ -480,7 +480,7 @@ router.post(
           ).join('\n')
 
           const followUpResponse = await groq.chat.completions.create({
-            model:       'llama-3.3-70b-versatile',
+            model:       'openai/gpt-oss-120b',
             max_tokens:  400,
             temperature: 0.5,
             messages: [
