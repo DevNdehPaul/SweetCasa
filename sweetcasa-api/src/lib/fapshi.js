@@ -18,10 +18,10 @@ const BASE_URLS = {
 }
 
 function baseUrl() {
-  // Defaults to LIVE. Set FAPSHI_ENV=sandbox explicitly to test against sandbox instead —
+  // Defaults to SANDBOX. Set FAPSHI_ENV=live explicitly to use the live endpoint —
   // sandbox uses a separate set of API credentials from live, so both env vars and
   // credentials need to change together when switching.
-  return BASE_URLS[process.env.FAPSHI_ENV === 'sandbox' ? 'sandbox' : 'live']
+  return BASE_URLS[process.env.FAPSHI_ENV === 'live' ? 'live' : 'sandbox']
 }
 
 function collectionHeaders() {
