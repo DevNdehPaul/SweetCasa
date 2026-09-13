@@ -14,12 +14,11 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import PropertyMapPreview from "../components/PropertyMapPreview";
 import { BASE_URL } from "../constants/api";
 import { ThemeColors } from "../constants/theme"; // adjust relative path to match this screen's location
 import { useAppTheme } from "../hooks/use-app-theme"; // adjust relative path to match this screen's location
@@ -627,13 +626,9 @@ export default function PropertyDetailScreen() {
   const [fsIndex, setFsIndex] = useState(0);
   const [fsVisible, setFsVisible] = useState(false);
   const [contacting, setContacting] = useState(false);
-  const [bookingVisible, setBookingVisible] = useState(false);
-  const [booking, setBooking] = useState(false);
-  const [viewingDate, setViewingDate] = useState("");
-  const [viewingTime, setViewingTime] = useState("");
-  const [viewingNote, setViewingNote] = useState("");
   const [nearbyFacilities, setNearbyFacilities] = useState<NearbyFacility[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
+  const [expandedNearbyCategories, setExpandedNearbyCategories] = useState<Record<string, boolean>>({});
   const { isFavourite, toggleFavourite } = useFavourite();
 
   const saved = id ? isFavourite(id) : false;
@@ -804,11 +799,7 @@ export default function PropertyDetailScreen() {
         " on SweetCasa. I am very interested in this property and would love to get more details. " +
         "Could you please let me know when a viewing would be possible? Thank you!";
 
-      if (!conversationId) {
-        throw new Error("The server did not return a conversation ID.");
-      }
-
-      const messageRes = await fetch(
+      await fetch(
         BASE_URL + "/messages/conversations/" + conversationId + "/messages",
         {
           method: "POST",
@@ -819,14 +810,6 @@ export default function PropertyDetailScreen() {
           body: JSON.stringify({ text: welcomeText }),
         },
       );
-
-      const messageData = await messageRes.json().catch(() => ({}));
-      if (!messageRes.ok) {
-        throw new Error(
-          (messageData as any).error ||
-            "Could not send message (HTTP " + messageRes.status + ").",
-        );
-      }
 
       // Navigate to the chat screen
       router.push({
@@ -840,63 +823,6 @@ export default function PropertyDetailScreen() {
       );
     } finally {
       setContacting(false);
-    }
-  };
-
-  // ── Book a property viewing ──
-  const handleBookViewing = async () => {
-    if (booking || !listing) return;
-
-    const date = viewingDate.trim();
-    const time = viewingTime.trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      Alert.alert("Invalid date", "Please enter the date as YYYY-MM-DD.");
-      return;
-    }
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
-      Alert.alert("Invalid time", "Please enter the time as HH:MM, for example 14:30.");
-      return;
-    }
-
-    setBooking(true);
-    try {
-      const token = await AsyncStorage.getItem("token");
-      if (!token) {
-        setBookingVisible(false);
-        router.push("/login" as any);
-        return;
-      }
-
-      const res = await fetch(`${BASE_URL}/viewing-requests`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          listingId: listing.id,
-          preferredDate: date,
-          preferredTime: time,
-          note: viewingNote.trim() || undefined,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data?.error || `Could not request viewing (HTTP ${res.status}).`);
-      }
-
-      setBookingVisible(false);
-      setViewingDate("");
-      setViewingTime("");
-      setViewingNote("");
-      Alert.alert(
-        "Viewing request sent",
-        "Your preferred date and time have been sent to the property agent. You will be notified when they respond.",
-      );
-    } catch (err: any) {
-      Alert.alert("Could not book viewing", err?.message || "Something went wrong. Please try again.");
-    } finally {
-      setBooking(false);
     }
   };
 
@@ -994,82 +920,6 @@ export default function PropertyDetailScreen() {
           styles={styles}
         />
       )}
-
-      <Modal
-        visible={bookingVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => !booking && setBookingVisible(false)}
-      >
-        <View style={styles.bookingBackdrop}>
-          <View style={styles.bookingSheet}>
-            <View style={styles.bookingHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.bookingTitle}>Book a Viewing</Text>
-                <Text style={styles.bookingSubtitle} numberOfLines={1}>{listing.title}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.bookingClose}
-                onPress={() => setBookingVisible(false)}
-                disabled={booking}
-              >
-                <Ionicons name="close" size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.bookingLabel}>Preferred date</Text>
-            <TextInput
-              style={styles.bookingInput}
-              value={viewingDate}
-              onChangeText={setViewingDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.textLight}
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.bookingLabel}>Preferred time</Text>
-            <TextInput
-              style={styles.bookingInput}
-              value={viewingTime}
-              onChangeText={setViewingTime}
-              placeholder="HH:MM, e.g. 14:30"
-              placeholderTextColor={colors.textLight}
-              autoCapitalize="none"
-            />
-
-            <Text style={styles.bookingLabel}>Note to agent (optional)</Text>
-            <TextInput
-              style={[styles.bookingInput, styles.bookingNote]}
-              value={viewingNote}
-              onChangeText={setViewingNote}
-              placeholder="Anything the agent should know before the viewing?"
-              placeholderTextColor={colors.textLight}
-              multiline
-              maxLength={1000}
-              textAlignVertical="top"
-            />
-
-            <TouchableOpacity
-              style={[styles.bookingSubmit, booking && { opacity: 0.65 }]}
-              onPress={handleBookViewing}
-              disabled={booking}
-              activeOpacity={0.88}
-            >
-              {booking ? (
-                <ActivityIndicator size="small" color={colors.textInverse} />
-              ) : (
-                <Ionicons name="calendar-outline" size={17} color={colors.textInverse} />
-              )}
-              <Text style={styles.bookingSubmitTxt}>
-                {booking ? "Sending request..." : "Request Viewing"}
-              </Text>
-            </TouchableOpacity>
-            <Text style={styles.bookingHint}>
-              This is a request. The viewing is only booked after the property agent confirms it.
-            </Text>
-          </View>
-        </View>
-      </Modal>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -1390,36 +1240,12 @@ export default function PropertyDetailScreen() {
                   } as any)
                 }
               >
-                <MapView
-                  style={styles.mapPreview}
-                  pointerEvents="none"
-                  initialRegion={{
-                    latitude: listing.latitude as number,
-                    longitude: listing.longitude as number,
-                    latitudeDelta: 0.012,
-                    longitudeDelta: 0.012,
-                  }}
-                >
-                  <Marker
-                    coordinate={{
-                      latitude: listing.latitude as number,
-                      longitude: listing.longitude as number,
-                    }}
-                    pinColor={colors.primary}
-                  />
-                  {nearbyFacilities
-                    .filter((f) => f.latitude != null && f.longitude != null)
-                    .map((f, i) => (
-                      <Marker
-                        key={`${f.name}-${i}`}
-                        coordinate={{
-                          latitude: f.latitude as number,
-                          longitude: f.longitude as number,
-                        }}
-                        opacity={0.75}
-                      />
-                    ))}
-                </MapView>
+                <PropertyMapPreview
+                  latitude={listing.latitude as number}
+                  longitude={listing.longitude as number}
+                  facilities={nearbyFacilities}
+                  primaryColor={colors.primary}
+                />
               </TouchableOpacity>
             ) : (
               <View style={styles.mapPlaceholder}>
@@ -1436,25 +1262,55 @@ export default function PropertyDetailScreen() {
               <Text style={styles.nearbyLoadingTxt}>{t("common.loading")}</Text>
             )}
 
-            {/* Real Google-detected facilities, grouped by category */}
+            {/* Real Google-detected facilities, grouped by category.
+                Show at most 3 facilities per category until "See more" is tapped. */}
             {!loadingNearby && hasRealFacilities &&
-              Object.entries(groupedFacilities).map(([category, items]) => (
-                <View key={category} style={styles.nearbyCategoryGroup}>
-                  <Text style={styles.nearbyCategoryTitle}>{category}</Text>
-                  {items.map((facility, i) => (
-                    <View key={`${facility.name}-${i}`} style={styles.nearbyRow}>
-                      <View style={styles.nearbyIcon}>
-                        <Feather name="map-pin" size={15} color={colors.primary} />
+              Object.entries(groupedFacilities).map(([category, items]) => {
+                const expanded = !!expandedNearbyCategories[category];
+                const visibleItems = expanded ? items : items.slice(0, 3);
+                const hasMore = items.length > 3;
+
+                return (
+                  <View key={category} style={styles.nearbyCategoryGroup}>
+                    <Text style={styles.nearbyCategoryTitle}>{category}</Text>
+
+                    {visibleItems.map((facility, i) => (
+                      <View key={`${facility.name}-${i}`} style={styles.nearbyRow}>
+                        <View style={styles.nearbyIcon}>
+                          <Feather name="map-pin" size={15} color={colors.primary} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.nearbyLabel} numberOfLines={1}>
+                            {facility.name}
+                          </Text>
+                        </View>
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.nearbyLabel} numberOfLines={1}>
-                          {facility.name}
+                    ))}
+
+                    {hasMore && (
+                      <TouchableOpacity
+                        style={styles.nearbySeeMoreBtn}
+                        activeOpacity={0.7}
+                        onPress={() =>
+                          setExpandedNearbyCategories((prev) => ({
+                            ...prev,
+                            [category]: !expanded,
+                          }))
+                        }
+                      >
+                        <Text style={styles.nearbySeeMoreTxt}>
+                          {expanded ? "See less" : `See more (${items.length - 3})`}
                         </Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              ))}
+                        <Feather
+                          name={expanded ? "chevron-up" : "chevron-down"}
+                          size={14}
+                          color={colors.primary}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
 
             {/* Fallback to the old single-value fields only when the real
                facilities list is empty (older listings) */}
@@ -1544,13 +1400,11 @@ export default function PropertyDetailScreen() {
             {t("propertyDetail.message")}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.bookBtn}
-          activeOpacity={0.88}
-          onPress={() => setBookingVisible(true)}
-        >
-          <Ionicons name="calendar-outline" size={16} color={colors.textInverse} />
-          <Text style={styles.bookBtnTxt}>Book a Viewing</Text>
+        <TouchableOpacity style={styles.bookBtn} activeOpacity={0.88}>
+          <Ionicons name="call-outline" size={16} color={colors.textInverse} />
+          <Text style={styles.bookBtnTxt}>
+            {t("propertyDetail.applyAndBook")}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -1812,6 +1666,19 @@ function getStyles(colors: ThemeColors) {
       marginBottom: 12,
     },
     linkTxt: { fontSize: 12.5, color: colors.primary, fontWeight: "600" },
+    nearbySeeMoreBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-start",
+      gap: 4,
+      paddingTop: 9,
+      paddingBottom: 3,
+    },
+    nearbySeeMoreTxt: {
+      fontSize: 12,
+      color: colors.primary,
+      fontWeight: "700",
+    },
     description: { fontSize: 13.5, color: colors.textMuted, lineHeight: 22 },
 
     facilitiesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
@@ -2108,41 +1975,5 @@ function getStyles(colors: ThemeColors) {
       paddingVertical: 8,
     },
     videoStopBtnTxt: { fontSize: 12.5, color: colors.primary, fontWeight: "600" },
-
-    bookingBackdrop: {
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.48)",
-      justifyContent: "flex-end",
-    },
-    bookingSheet: {
-      backgroundColor: colors.card,
-      borderTopLeftRadius: 26,
-      borderTopRightRadius: 26,
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 28,
-    },
-    bookingHeader: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
-    bookingTitle: { fontSize: 20, fontWeight: "800", color: colors.text },
-    bookingSubtitle: { fontSize: 12.5, color: colors.textLight, marginTop: 3 },
-    bookingClose: {
-      width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center",
-      backgroundColor: colors.background, borderWidth: 1, borderColor: colors.borderLight,
-    },
-    bookingLabel: { fontSize: 12, fontWeight: "700", color: colors.text, marginBottom: 7, marginTop: 4 },
-    bookingInput: {
-      borderWidth: 1, borderColor: colors.borderLight, backgroundColor: colors.background,
-      color: colors.text, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12,
-      fontSize: 14, marginBottom: 13,
-    },
-    bookingNote: { minHeight: 88 },
-    bookingSubmit: {
-      minHeight: 50, borderRadius: 15, backgroundColor: colors.primary,
-      flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 5,
-    },
-    bookingSubmitTxt: { color: colors.textInverse, fontSize: 14, fontWeight: "800" },
-    bookingHint: {
-      color: colors.textLight, fontSize: 11.5, lineHeight: 17, textAlign: "center", marginTop: 10,
-    },
   });
 }

@@ -19,6 +19,7 @@ const router     = express.Router()
 const { getPrisma }                          = require('../lib/prisma')
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
 const requireRole                            = require('../middleware/requireRole')
+const { searchAndRankListings }               = require('../lib/casaMatchEngine')
 
 // ─── Groq client ──────────────────────────────────────────────────────────────
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
@@ -82,133 +83,6 @@ async function transcribeAudio(buffer, mimetype) {
   return transcription.text || ''
 }
 
-// ─── Budget mapping (reused from casaMatch.js) ────────────────────────────────
-const BUDGET_MAP = {
-  u50k:      { min: 0,       max: 50_000     },
-  '50_150':  { min: 50_000,  max: 150_000    },
-  '150_500': { min: 150_000, max: 500_000    },
-  '500_1m':  { min: 500_000, max: 1_000_000  },
-  above1m:   { min: 1_000_000, max: 999_999_999 },
-}
-
-// ─── Prisma search + Groq ranking (same logic as casaMatch.js) ────────────────
-async function searchAndRankListings(criteria) {
-  const prisma  = getPrisma()
-  const budget  = BUDGET_MAP[criteria.budget] ?? { min: 0, max: 999_999_999 }
-
-  const where = {
-    status: 'Approved',
-    price:  { gte: budget.min, lte: budget.max },
-  }
-  if (criteria.city)         where.city = { equals: criteria.city,         mode: 'insensitive' }
-  if (criteria.propertyType) where.type = { equals: criteria.propertyType, mode: 'insensitive' }
-
-  const listings = await prisma.listing.findMany({
-    where,
-    include: {
-      images: {
-        where: { isPrimary: true },
-        take:  1,
-        select: { imageUrl: true },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 30,
-  })
-
-  if (!listings.length) return []
-
-  // Build compact listing block for Groq
-  const listingsBlock = listings.map((p, i) => {
-    const facilities = Array.isArray(p.facilities)
-      ? p.facilities
-      : (() => { try { return JSON.parse(p.facilities || '[]') } catch { return [] } })()
-    return (
-      `[${i}] id=${p.id} | "${p.title}" | ` +
-      `${p.bedrooms}bd ${p.bathrooms}ba ${p.toilets}wc ${p.parlors}pr | ` +
-      `XAF ${Number(p.price).toLocaleString()} | ` +
-      `city: ${p.city} | neighborhood: ${p.neighborhood ?? 'N/A'} | ` +
-      `payment: ${p.paymentFrequency ?? 'N/A'} | ` +
-      `facilities: ${facilities.slice(0, 6).join(', ') || 'N/A'} | ` +
-      `desc: ${(p.description ?? '').slice(0, 120)}`
-    )
-  }).join('\n')
-
-  const userPrefsBlock = `
-USER PREFERENCES:
-- Budget: ${criteria.budget}
-- City: ${criteria.city ?? 'any'}
-- Property type: ${criteria.propertyType ?? 'any'}
-- Purpose: ${criteria.purpose ?? 'any'}
-- Bedrooms: ${criteria.bedrooms ?? 1}, Bathrooms: ${criteria.bathrooms ?? 1}, Toilets: ${criteria.toilets ?? 1}, Kitchens: ${criteria.kitchens ?? 1}, Parlors: ${criteria.parlors ?? 0}
-- Desired facilities: ${(criteria.facilities ?? []).join(', ') || 'none'}
-- Description: "${criteria.description ?? ''}"
-- Deal-breakers: ${(criteria.dealBreakers ?? []).join(', ') || 'none'}`.trim()
-
-  const rankingResponse = await groq.chat.completions.create({
-    model:       'openai/gpt-oss-120b',
-    max_tokens:  1500,
-    temperature: 0.2,
-    messages: [
-      {
-        role: 'system',
-        content: `You are CasaMatch AI, a real estate ranking engine for Cameroon.
-Given user preferences and a list of properties, pick the TOP 5 best matches and score each 0–100.
-
-Rules:
-- Penalise properties that have deal-breakers the user listed.
-- Reward properties matching desired facilities.
-- Score based on bedroom/bathroom counts, price fit, location, and description quality.
-
-Respond ONLY with a valid JSON array (no markdown, no explanation):
-[
-  {"index": 0, "score": 92, "matchReason": "...", "badge": "Best Match"},
-  ...
-]
-
-Use badge values: "Best Match" | "Great Value" | "Popular" | null.
-matchReason must be 1 concise sentence explaining the fit.`,
-      },
-      {
-        role: 'user',
-        content: `${userPrefsBlock}\n\nAVAILABLE PROPERTIES:\n${listingsBlock}`,
-      },
-    ],
-  })
-
-  let ranked = []
-  try {
-    const raw = rankingResponse.choices[0].message.content.trim()
-    // Strip possible markdown code fences
-    const jsonStr = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '')
-    ranked = JSON.parse(jsonStr)
-  } catch {
-    // If ranking fails, return top 5 unranked
-    ranked = listings.slice(0, 5).map((_, i) => ({
-      index: i, score: 70, matchReason: 'Good match for your criteria.', badge: null,
-    }))
-  }
-
-  return ranked.slice(0, 5).map(r => {
-    const p   = listings[r.index]
-    if (!p) return null
-    const img = p.images?.[0]?.imageUrl ?? null
-    const isRent = p.paymentFrequency && p.paymentFrequency !== 'For Sale'
-    return {
-      id:          String(p.id),
-      score:       r.score,
-      matchReason: r.matchReason,
-      badge:       r.badge ?? null,
-      name:        p.title,
-      location:    [p.neighborhood, p.city, p.region].filter(Boolean).join(', '),
-      price:       `XAF ${Number(p.price).toLocaleString()}${isRent ? `/${p.paymentFrequency === 'Yearly' ? 'yr' : 'mo'}` : ''}`,
-      tags:        [p.type, `${p.bedrooms}bd`, `${p.bathrooms}ba`].filter(Boolean),
-      images:      img ? [img] : [],
-      listingType: isRent ? 'rent' : 'sale',
-    }
-  }).filter(Boolean)
-}
-
 // ─── System prompt factory ────────────────────────────────────────────────────
 function buildSystemPrompt(language) {
   const lang = language === 'fr' ? 'French' : 'English'
@@ -232,14 +106,16 @@ INFORMATION TO GATHER (conversationally, not as a list — you don't need all of
 - Free description of any other preferences
 - Deal-breakers (what they absolutely don't want)
 
-WHEN TO SEARCH: Once you have budget + city + property type (at minimum), OR when the user explicitly asks to see options, trigger a search by placing this block as the VERY LAST thing in your message:
+WHEN TO SEARCH: Search as soon as the user explicitly asks for houses/properties/options/listings, even if they did not give budget, city, or property type. If they are only describing preferences conversationally, you may ask one useful follow-up first. Trigger a search by placing this block as the VERY LAST thing in your message:
 
 <SEARCH>{"budget":"50_150","city":"Douala","propertyType":"Apartment","purpose":"renting","bedrooms":2,"bathrooms":1,"toilets":1,"kitchens":1,"parlors":0,"facilities":["Wifi","Water Supply"],"description":"","dealBreakers":[]}</SEARCH>
 
 IMPORTANT RULES:
 - Only include <SEARCH>...</SEARCH> when triggering a search. Do NOT include it on every message.
 - The <SEARCH> block must always be the LAST thing in your message. No text after it.
-- For missing optional fields use defaults: bedrooms=1, bathrooms=1, toilets=1, kitchens=1, parlors=0, facilities=[], description="", dealBreakers=[].
+- Missing criteria must stay neutral: use null for budget/city/propertyType/purpose/room counts, and [] for facilities/dealBreakers. NEVER invent bedroom counts, a city, a budget, or a property type the user did not provide.
+- Understand broad terms naturally: house/maison can include residential house types such as bungalow, duplex and villa; a place name may be a neighborhood rather than a city.
+- The database, not you, decides whether listings exist. Never tell the user there are no properties unless the backend search result says the eligible inventory is actually empty.
 - Budget must be one of: u50k, 50_150, 150_500, 500_1m, above1m.
 - When user says "show me options", "find properties", "search now", etc. → trigger the search immediately.
 - After the backend injects listing results, discuss and compare properties naturally. You can answer "why is X cheaper?", "does it have parking?", etc.
@@ -471,7 +347,8 @@ router.post(
       let finalAiContent = aiText
 
       if (criteria) {
-        listings = await searchAndRankListings(criteria)
+        const match = await searchAndRankListings(criteria)
+        listings = match.results
 
         if (listings.length > 0) {
           // Call Groq again to generate a friendly "here are your results" message
@@ -488,7 +365,7 @@ router.post(
               ...groqMessages,
               {
                 role: 'assistant',
-                content: `[I found ${listings.length} matching properties. Here are the results:]\n${resultsBlock}`,
+                content: `[Database search mode: ${match.matchMode}. I found ${listings.length} real available SweetCasa properties. ${match.matchMode === 'close' ? 'These are close matches because no exact match was found.' : 'These are exact/strong matches.'}]\n${resultsBlock}`,
               },
               {
                 role: 'user',
@@ -499,10 +376,10 @@ router.post(
 
           finalAiContent = followUpResponse.choices[0].message.content || aiText
         } else {
-          // No listings found
+          // Only say inventory is empty after the database engine confirms it.
           finalAiContent = language === 'fr'
-            ? "Je n'ai trouvé aucune propriété correspondant exactement à vos critères pour le moment. Voulez-vous élargir vos critères — peut-être ajuster le budget ou la ville ?"
-            : "I couldn't find any properties matching those exact criteria right now. Would you like to broaden your search — perhaps adjust the budget or city?"
+            ? "Il n'y a actuellement aucune annonce SweetCasa approuvée et disponible dans l'inventaire. Réessayez plus tard ou modifiez votre recherche."
+            : "There are currently no approved, available SweetCasa listings in the inventory. Please try again later or change your search."
         }
       }
 

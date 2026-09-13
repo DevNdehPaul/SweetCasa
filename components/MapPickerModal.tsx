@@ -3,15 +3,26 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import MapView, { MapPressEvent, Marker, Region } from 'react-native-maps';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapView, {
+  MapPressEvent,
+  Marker,
+  Region,
+} from 'react-native-maps';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { BASE_URL } from '../constants/api';
 
@@ -20,182 +31,616 @@ const GRAY_BORDER = '#E5E7EB';
 const TEXT_DARK = '#111827';
 const TEXT_LIGHT = '#9CA3AF';
 
-const DEFAULT_MAP_REGION = { latitude: 4.0511, longitude: 9.7679 }; // Douala fallback
+const DEFAULT_MAP_REGION = {
+  latitude: 4.0511,
+  longitude: 9.7679,
+};
 
-export default function MapPickerModal({
-  visible, initialLatitude, initialLongitude, onConfirm, onClose,
-}: {
+type Prediction = {
+  description: string;
+  placeId: string;
+};
+
+type Props = {
   visible: boolean;
   initialLatitude: number | null;
   initialLongitude: number | null;
   onConfirm: (lat: number, lng: number) => void;
   onClose: () => void;
-}) {
+};
+
+export default function MapPickerModal({
+  visible,
+  initialLatitude,
+  initialLongitude,
+  onConfirm,
+  onClose,
+}: Props) {
   const { t } = useTranslation();
   const mapRef = useRef<MapView>(null);
   const insets = useSafeAreaInsets();
 
-  const startLat = initialLatitude ?? DEFAULT_MAP_REGION.latitude;
-  const startLng = initialLongitude ?? DEFAULT_MAP_REGION.longitude;
+  const startLat =
+    initialLatitude ?? DEFAULT_MAP_REGION.latitude;
+
+  const startLng =
+    initialLongitude ?? DEFAULT_MAP_REGION.longitude;
 
   const [region, setRegion] = useState<Region>({
-    latitude: startLat, longitude: startLng,
-    latitudeDelta: 0.01, longitudeDelta: 0.01,
+    latitude: startLat,
+    longitude: startLng,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
   });
-  const [markerCoord, setMarkerCoord] = useState({ latitude: startLat, longitude: startLng });
+
+  const [markerCoord, setMarkerCoord] = useState({
+    latitude: startLat,
+    longitude: startLng,
+  });
+
   const [query, setQuery] = useState('');
-  const [predictions, setPredictions] = useState<{ description: string; placeId: string }[]>([]);
+
+  const [predictions, setPredictions] =
+    useState<Prediction[]>([]);
 
   useEffect(() => {
     if (!visible) return;
-    const lat = initialLatitude ?? DEFAULT_MAP_REGION.latitude;
-    const lng = initialLongitude ?? DEFAULT_MAP_REGION.longitude;
-    setMarkerCoord({ latitude: lat, longitude: lng });
-    setRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+
+    const lat =
+      initialLatitude ?? DEFAULT_MAP_REGION.latitude;
+
+    const lng =
+      initialLongitude ?? DEFAULT_MAP_REGION.longitude;
+
+    const nextRegion: Region = {
+      latitude: lat,
+      longitude: lng,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    };
+
+    setMarkerCoord({
+      latitude: lat,
+      longitude: lng,
+    });
+
+    setRegion(nextRegion);
     setQuery('');
     setPredictions([]);
-  }, [visible, initialLatitude, initialLongitude]);
 
-  const handleSearchChange = async (text: string) => {
+    setTimeout(() => {
+      mapRef.current?.animateToRegion(
+        nextRegion,
+        0,
+      );
+    }, 100);
+  }, [
+    visible,
+    initialLatitude,
+    initialLongitude,
+  ]);
+
+  const handleSearchChange = async (
+    text: string,
+  ) => {
     setQuery(text);
-    if (text.trim().length < 3) { setPredictions([]); return; }
+
+    if (text.trim().length < 3) {
+      setPredictions([]);
+      return;
+    }
+
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token =
+        await AsyncStorage.getItem('token');
+
       const params = new URLSearchParams({
         input: text.trim(),
         lat: String(markerCoord.latitude),
         lng: String(markerCoord.longitude),
       });
-      const res = await fetch(`${BASE_URL}/listings/places-autocomplete?${params.toString()}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      const data = await res.json();
-      if (res.ok) setPredictions(data.predictions || []);
-    } catch {
-      // Autocomplete is a convenience — fail silently, the map/GPS still work.
-    }
-  };
 
-  const handleSelectPrediction = async (placeId: string) => {
-    setPredictions([]);
-    try {
-      const token = await AsyncStorage.getItem('token');
-      const res = await fetch(`${BASE_URL}/listings/places-details?placeId=${placeId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await fetch(
+        `${BASE_URL}/listings/places-autocomplete?${params.toString()}`,
+        {
+          headers: token
+            ? {
+                Authorization: `Bearer ${token}`,
+              }
+            : {},
+        },
+      );
+
       const data = await res.json();
-      if (res.ok && data.place?.latitude != null && data.place?.longitude != null) {
-        const { latitude, longitude } = data.place;
-        const nextRegion = { latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
-        setMarkerCoord({ latitude, longitude });
-        setRegion(nextRegion);
-        mapRef.current?.animateToRegion(nextRegion, 400);
-        setQuery(data.place.formattedAddress || data.place.name || query);
+
+      if (res.ok) {
+        setPredictions(
+          data.predictions || [],
+        );
       }
     } catch {
-      Alert.alert(t('common.error'), t('listing.setLocation'));
+      // Search is optional.
+      // The user can still select the location
+      // directly from the map.
     }
   };
 
-  // ── Tap anywhere on the map to move the pin there (in addition to dragging
-  // ── the marker directly). This is what makes fine-tuning the exact spot
-  // ── discoverable — most owners will tap before they think to drag.
-  const handleMapPress = (e: MapPressEvent) => {
-    setMarkerCoord(e.nativeEvent.coordinate);
+  const handleSelectPrediction = async (
+    placeId: string,
+  ) => {
+    setPredictions([]);
+    Keyboard.dismiss();
+
+    try {
+      const token =
+        await AsyncStorage.getItem('token');
+
+      const res = await fetch(
+        `${BASE_URL}/listings/places-details?placeId=${encodeURIComponent(
+          placeId,
+        )}`,
+        {
+          headers: token
+            ? {
+                Authorization: `Bearer ${token}`,
+              }
+            : {},
+        },
+      );
+
+      const data = await res.json();
+
+      if (
+        res.ok &&
+        data.place?.latitude != null &&
+        data.place?.longitude != null
+      ) {
+        const latitude =
+          Number(data.place.latitude);
+
+        const longitude =
+          Number(data.place.longitude);
+
+        const nextRegion: Region = {
+          latitude,
+          longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        };
+
+        setMarkerCoord({
+          latitude,
+          longitude,
+        });
+
+        setRegion(nextRegion);
+
+        mapRef.current?.animateToRegion(
+          nextRegion,
+          400,
+        );
+
+        setQuery(
+          data.place.formattedAddress ||
+            data.place.name ||
+            query,
+        );
+      }
+    } catch {
+      Alert.alert(
+        t('common.error'),
+        t('listing.setLocation'),
+      );
+    }
   };
 
+  const handleMapPress = (
+    e: MapPressEvent,
+  ) => {
+    Keyboard.dismiss();
+    setPredictions([]);
+
+    setMarkerCoord(
+      e.nativeEvent.coordinate,
+    );
+  };
+
+  const handleMarkerDragEnd = (
+    e: any,
+  ) => {
+    setMarkerCoord(
+      e.nativeEvent.coordinate,
+    );
+  };
+
+  const handleConfirm = () => {
+    Keyboard.dismiss();
+
+    onConfirm(
+      markerCoord.latitude,
+      markerCoord.longitude,
+    );
+  };
+
+  /*
+   * SafeAreaView below handles the TOP inset only.
+   *
+   * We deliberately handle the bottom inset ourselves
+   * on the action bar. This prevents Android devices
+   * with large navigation bars from covering the
+   * Cancel / Confirm Location buttons.
+   */
+  const bottomPadding = Math.max(
+    insets.bottom,
+    12,
+  );
+
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
-        <View style={s.header}>
-          <Text style={s.headerTitle}>{t('listing.setLocation')}</Text>
-        </View>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      statusBarTranslucent={false}
+      onRequestClose={onClose}
+    >
+      <SafeAreaView
+        style={s.safe}
+        edges={['top']}
+      >
+        <KeyboardAvoidingView
+          style={s.keyboardContainer}
+          behavior={
+            Platform.OS === 'ios'
+              ? 'padding'
+              : undefined
+          }
+        >
+          <TouchableWithoutFeedback
+            onPress={Keyboard.dismiss}
+            accessible={false}
+          >
+            <View style={s.container}>
+              {/* Header */}
 
-        <View style={s.mapSearchWrap}>
-          <TextInput
-            style={s.input}
-            placeholder={t('listing.searchLocation')}
-            placeholderTextColor={TEXT_LIGHT}
-            value={query}
-            onChangeText={handleSearchChange}
-          />
-          {predictions.length > 0 && (
-            <View style={s.mapPredictionsBox}>
-              {predictions.map((p) => (
+              <View style={s.header}>
+                <Text
+                  style={s.headerTitle}
+                  numberOfLines={1}
+                >
+                  {t('listing.setLocation')}
+                </Text>
+              </View>
+
+              {/* Search */}
+
+              <View style={s.mapSearchWrap}>
+                <TextInput
+                  style={s.input}
+                  placeholder={t(
+                    'listing.searchLocation',
+                  )}
+                  placeholderTextColor={
+                    TEXT_LIGHT
+                  }
+                  value={query}
+                  onChangeText={
+                    handleSearchChange
+                  }
+                  returnKeyType="search"
+                />
+
+                {predictions.length >
+                  0 && (
+                  <View
+                    style={
+                      s.mapPredictionsBox
+                    }
+                  >
+                    {predictions.map(
+                      (p) => (
+                        <TouchableOpacity
+                          key={p.placeId}
+                          style={
+                            s.mapPredictionRow
+                          }
+                          activeOpacity={0.7}
+                          onPress={() =>
+                            handleSelectPrediction(
+                              p.placeId,
+                            )
+                          }
+                        >
+                          <Text
+                            style={
+                              s.mapPredictionTxt
+                            }
+                            numberOfLines={2}
+                          >
+                            {
+                              p.description
+                            }
+                          </Text>
+                        </TouchableOpacity>
+                      ),
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* Hint */}
+
+              <Text style={s.dragHint}>
+                {t(
+                  'listing.dragPinHint',
+                )}
+              </Text>
+
+              {/* Map */}
+
+              <View style={s.mapContainer}>
+                <MapView
+                  ref={mapRef}
+                  style={
+                    StyleSheet.absoluteFill
+                  }
+                  initialRegion={region}
+                  onRegionChangeComplete={
+                    setRegion
+                  }
+                  onPress={handleMapPress}
+                  mapPadding={{
+                    top: 8,
+                    right: 8,
+                    bottom: 8,
+                    left: 8,
+                  }}
+                >
+                  <Marker
+                    coordinate={
+                      markerCoord
+                    }
+                    draggable
+                    onDragEnd={
+                      handleMarkerDragEnd
+                    }
+                  />
+                </MapView>
+              </View>
+
+              {/* Bottom actions */}
+
+              <View
+                style={[
+                  s.mapBottomBar,
+                  {
+                    paddingBottom:
+                      bottomPadding,
+                  },
+                ]}
+              >
                 <TouchableOpacity
-                  key={p.placeId}
-                  style={s.mapPredictionRow}
-                  onPress={() => handleSelectPrediction(p.placeId)}>
-                  <Text style={s.mapPredictionTxt} numberOfLines={2}>{p.description}</Text>
+                  style={s.draftBtn}
+                  onPress={onClose}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={
+                      s.draftBtnTxt
+                    }
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                  >
+                    {t('common.cancel')}
+                  </Text>
                 </TouchableOpacity>
-              ))}
+
+                <TouchableOpacity
+                  style={s.postBtn}
+                  onPress={handleConfirm}
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={
+                      s.postBtnTxt
+                    }
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                  >
+                    {t(
+                      'listing.confirmLocation',
+                    )}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
-        </View>
-
-        <Text style={s.dragHint}>{t('listing.dragPinHint')}</Text>
-
-        <MapView
-          ref={mapRef}
-          style={s.mapView}
-          initialRegion={region}
-          onRegionChangeComplete={setRegion}
-          onPress={handleMapPress}>
-          <Marker
-            coordinate={markerCoord}
-            draggable
-            onDragEnd={(e) => setMarkerCoord(e.nativeEvent.coordinate)}
-          />
-        </MapView>
-
-        <View style={[s.mapBottomBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }]}>
-          <TouchableOpacity style={s.draftBtn} onPress={onClose}>
-            <Text style={s.draftBtnTxt}>{t('common.cancel')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={s.postBtn}
-            onPress={() => onConfirm(markerCoord.latitude, markerCoord.longitude)}>
-            <Text style={s.postBtnTxt}>{t('listing.confirmLocation')}</Text>
-          </TouchableOpacity>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#FAFAFA' },
+  safe: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
+
+  keyboardContainer: {
+    flex: 1,
+  },
+
+  container: {
+    flex: 1,
+    minHeight: 0,
+  },
+
   header: {
-    backgroundColor: '#fff', padding: 16, alignItems: 'center',
-    borderBottomWidth: 1, borderBottomColor: GRAY_BORDER,
+    flexShrink: 0,
+    backgroundColor: '#fff',
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: GRAY_BORDER,
   },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: TEXT_DARK },
+
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: TEXT_DARK,
+    textAlign: 'center',
+  },
+
+  mapSearchWrap: {
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    position: 'relative',
+    zIndex: 100,
+    elevation: 100,
+    backgroundColor: '#FAFAFA',
+  },
+
   input: {
-    borderWidth: 1.5, borderColor: GRAY_BORDER, borderRadius: 10,
-    padding: 12, fontSize: 14, color: TEXT_DARK, backgroundColor: '#fff',
+    width: '100%',
+    minHeight: 46,
+    borderWidth: 1.5,
+    borderColor: GRAY_BORDER,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: TEXT_DARK,
+    backgroundColor: '#fff',
   },
-  draftBtn: {
-    flex: 1, padding: 14, borderWidth: 1.5,
-    borderColor: PURPLE, borderRadius: 14, alignItems: 'center',
-  },
-  draftBtnTxt: { color: PURPLE, fontWeight: '700', fontSize: 14 },
-  postBtn: {
-    flex: 2, padding: 14, borderRadius: 14,
-    backgroundColor: PURPLE, alignItems: 'center',
-  },
-  postBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  mapSearchWrap: { paddingHorizontal: 16, paddingTop: 12, position: 'relative', zIndex: 10 },
+
   mapPredictionsBox: {
-    position: 'absolute', top: 68, left: 16, right: 16, backgroundColor: '#fff',
-    borderRadius: 10, borderWidth: 1, borderColor: GRAY_BORDER, maxHeight: 220,
-    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 6, zIndex: 20,
+    position: 'absolute',
+    top: 64,
+    left: 16,
+    right: 16,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: GRAY_BORDER,
+    maxHeight: 220,
+
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+
+    elevation: 20,
+    zIndex: 200,
   },
-  mapPredictionRow: { padding: 12, borderBottomWidth: 1, borderBottomColor: GRAY_BORDER },
-  mapPredictionTxt: { fontSize: 13, color: TEXT_DARK },
+
+  mapPredictionRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: GRAY_BORDER,
+  },
+
+  mapPredictionTxt: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: TEXT_DARK,
+  },
+
   dragHint: {
-    fontSize: 11, color: TEXT_LIGHT, textAlign: 'center',
-    marginTop: 10, paddingHorizontal: 16,
+    flexShrink: 0,
+    fontSize: 11,
+    lineHeight: 16,
+    color: TEXT_LIGHT,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  mapView: { flex: 1, marginTop: 8 },
-  mapBottomBar: { flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 16 },
+
+  /*
+   * This is the important responsive part.
+   *
+   * Instead of giving MapView flex:1 directly,
+   * the container owns the remaining available
+   * height. The bottom action bar remains a
+   * normal sibling and therefore cannot be
+   * pushed underneath Android navigation.
+   */
+  mapContainer: {
+    flex: 1,
+    minHeight: 120,
+    position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: '#E5E7EB',
+  },
+
+  mapBottomBar: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+
+    paddingTop: 12,
+    paddingHorizontal: 16,
+
+    backgroundColor: '#FAFAFA',
+
+    borderTopWidth:
+      StyleSheet.hairlineWidth,
+    borderTopColor: GRAY_BORDER,
+  },
+
+  draftBtn: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 48,
+
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+
+    borderWidth: 1.5,
+    borderColor: PURPLE,
+    borderRadius: 14,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+
+    backgroundColor: '#fff',
+  },
+
+  draftBtnTxt: {
+    color: PURPLE,
+    fontWeight: '700',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+
+  postBtn: {
+    flex: 2,
+    minWidth: 0,
+    minHeight: 48,
+
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+
+    borderRadius: 14,
+    backgroundColor: PURPLE,
+
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  postBtnTxt: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+    textAlign: 'center',
+  },
 });
