@@ -17,9 +17,9 @@ import {
   View,
 } from 'react-native';
 import LanguageModal from '../components/LanguageModal';
+import { ThemeColors } from '../constants/theme';
 import { useThemePreference } from '../contexts/theme-preference';
 import { useAppTheme } from '../hooks/use-app-theme';
-import { ThemeColors } from '../constants/theme';
 
 const H_PAD = 20;
 const NOTIFICATION_KEY = 'sweetcasa_notifications_enabled';
@@ -149,12 +149,12 @@ export default function SettingsScreen() {
 
   const handleSupport = async () => {
     try {
-      const url = 'mailto:support@sweetcasa.cm?subject=SweetCasa%20Support';
+      const url = 'mailto:sweetcasa.h@gmail.com?subject=SweetCasa%20Support';
       const canOpen = await Linking.canOpenURL(url);
       if (!canOpen) throw new Error('Mail client unavailable');
       await Linking.openURL(url);
     } catch {
-      Alert.alert(t('settings.support'), 'support@sweetcasa.cm');
+      Alert.alert(t('settings.support'), 'sweetcasa.h@gmail.com');
     }
   };
 

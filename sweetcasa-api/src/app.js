@@ -13,6 +13,7 @@ const adminRoutes = require('./routes/admin.routes')    // ← NEW (admin dashbo
 const documentRoutes = require('./routes/document.routes') // ← NEW (Document Vault review queue)
 const walletRoutes = require('./routes/wallet.routes')   // ← NEW (Escrow Wallet)
 const favouriteRoutes = require('./routes/favourites.routes') // ← NEW (favourites / saved listings)
+const viewingRoutes = require('./routes/viewing.routes') // property viewing requests
 const { ensureDatabaseCompatibility } = require('./lib/db-compat')
 const { getPrisma } = require('./lib/prisma')
 const { initSocket } = require('./lib/socket')   // ← NEW (real-time deposit updates)
@@ -55,6 +56,7 @@ app.use('/admin', express.json(), adminRoutes)     // ← NEW
 app.use('/documents', express.json(), documentRoutes) // ← NEW (handles its own body parsing)
 app.use('/wallet', express.json(), walletRoutes)   // ← NEW (Escrow Wallet + Fapshi webhook)
 app.use('/favourites', express.json(), favouriteRoutes) // ← NEW (favourites)
+app.use('/viewing-requests', viewingRoutes)
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 

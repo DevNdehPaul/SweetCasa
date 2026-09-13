@@ -46,6 +46,8 @@ model User {
   sentMessages        Message[]          @relation("SentMessages")
   documents           Document[]
   wallet              Wallet?
+  requestedViewings   ViewingRequest[] @relation("ViewingRequester")
+  receivedViewings    ViewingRequest[] @relation("ViewingAgent")
 
   @@map("users")
 }
@@ -156,6 +158,7 @@ model Listing {
   documents            Document[]
   nearbyFacilities     NearbyFacility[]
   transactions         Transaction[]
+  viewingRequests      ViewingRequest[]
 
   @@map("listings")
 }
@@ -358,4 +361,31 @@ model Message {
   sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@map("messages")
+}
+
+
+// ─── Property viewing requests ────────────────────────────────────────────────
+model ViewingRequest {
+  id             Int       @id @default(autoincrement())
+  listingId      Int       @map("listing_id")
+  requesterId    Int       @map("requester_id")
+  agentId        Int       @map("agent_id")
+  preferredDate  DateTime  @map("preferred_date") @db.Date
+  preferredTime  String    @map("preferred_time") @db.VarChar(5)
+  note           String?
+  status         String    @default("PENDING") @db.VarChar(30)
+  agentMessage   String?   @map("agent_message")
+  confirmedDate  DateTime? @map("confirmed_date") @db.Date
+  confirmedTime  String?   @map("confirmed_time") @db.VarChar(5)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  listing        Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  requester      User      @relation("ViewingRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  agent          User      @relation("ViewingAgent", fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([requesterId, status])
+  @@index([agentId, status])
+  @@map("viewing_requests")
 }
