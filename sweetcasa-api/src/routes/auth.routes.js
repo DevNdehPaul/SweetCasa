@@ -2,7 +2,7 @@ const express = require('express')
 const multer = require('multer')
 const router = express.Router()
 
-const { register, login, logout, socialAuth, updateProfile, forgotPassword, verifyResetCode, resetPassword } = require('../controllers/auth.controller')
+const { register, verifyIdentity, login, logout, socialAuth, updateProfile, forgotPassword, verifyResetCode, resetPassword } = require('../controllers/auth.controller')
 const requireRole = require('../middleware/requireRole')
 
 // ─── Multer – memory storage (buffer handed to Cloudinary stream) ─────────────
@@ -42,10 +42,24 @@ function handleMulterError(err, _req, res, next) {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
-// POST /auth/register — multipart/form-data; "nationalId" is the file field name
+// POST /auth/verify-identity — compares ID portrait with fresh camera photo
+router.post(
+  '/verify-identity',
+  upload.fields([
+    { name: 'nationalId', maxCount: 1 },
+    { name: 'verificationPhoto', maxCount: 1 },
+  ]),
+  handleMulterError,
+  verifyIdentity,
+)
+
+// POST /auth/register — verification proof is mandatory and re-bound to the same files
 router.post(
   '/register',
-  upload.single('nationalId'),
+  upload.fields([
+    { name: 'nationalId', maxCount: 1 },
+    { name: 'verificationPhoto', maxCount: 1 },
+  ]),
   handleMulterError,
   register,
 )

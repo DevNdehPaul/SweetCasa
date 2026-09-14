@@ -20,6 +20,7 @@ import {
 import { BASE_URL } from '../constants/api';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
+import { useTranslation } from 'react-i18next';
 
 type Tab = 'all' | 'unread';
 
@@ -272,7 +273,7 @@ function MessagesInbox() {
         <TouchableOpacity style={s.backBtn} activeOpacity={0.7} onPress={() => router.back()}>
           <Text style={s.backArrow}>‹</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Messages</Text>
+        <Text style={s.headerTitle}>{t('messages.title')}</Text>
         <View style={s.headerSpacer} />
       </View>
 
@@ -282,7 +283,7 @@ function MessagesInbox() {
           style={[s.tab, activeTab === 'all' && s.tabActive]}
           onPress={() => setActiveTab('all')}
         >
-          <Text style={[s.tabTxt, activeTab === 'all' && s.tabTxtActive]}>All Messages</Text>
+          <Text style={[s.tabTxt, activeTab === 'all' && s.tabTxtActive]}>{t('messages.allMessages')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.85}
@@ -290,7 +291,7 @@ function MessagesInbox() {
           onPress={() => setActiveTab('unread')}
         >
           <Text style={[s.tabTxt, activeTab === 'unread' && s.tabTxtActive]}>
-            Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}
+            {t('messages.unread')}{unreadCount > 0 ? ` (${unreadCount})` : ''}
           </Text>
         </TouchableOpacity>
       </View>
@@ -303,13 +304,13 @@ function MessagesInbox() {
         <View style={s.center}>
           <Text style={s.errorTxt}>{error}</Text>
           <TouchableOpacity onPress={fetchConversations} style={s.retryBtn}>
-            <Text style={s.retryTxt}>Retry</Text>
+            <Text style={s.retryTxt}>{t('chat.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : displayed.length === 0 ? (
         <View style={s.center}>
           <Text style={s.emptyTxt}>
-            {activeTab === 'unread' ? 'No unread messages.' : 'No conversations yet.'}
+            {activeTab === 'unread' ? t('chat.noUnread') : t('chat.noConversations')}
           </Text>
         </View>
       ) : (
@@ -486,13 +487,13 @@ function ChatView({ conversationId }: { conversationId: number }) {
           <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
             <Text style={s.backArrow}>‹</Text>
           </TouchableOpacity>
-          <Text style={s.chatHeaderTitle}>Conversation</Text>
+          <Text style={s.chatHeaderTitle}>{t('chat.conversation')}</Text>
           <View style={s.headerSpacer} />
         </View>
         <View style={s.center}>
           <Text style={s.errorTxt}>{error || 'Conversation not found.'}</Text>
           <TouchableOpacity onPress={fetchMessages} style={s.retryBtn}>
-            <Text style={s.retryTxt}>Retry</Text>
+            <Text style={s.retryTxt}>{t('chat.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -575,7 +576,7 @@ function ChatView({ conversationId }: { conversationId: number }) {
               </View>
             </View>
           )}
-          ListEmptyComponent={<Text style={s.emptyTxt}>No messages yet. Say hello.</Text>}
+          ListEmptyComponent={<Text style={s.emptyTxt}>{t('chat.noMessages')}</Text>}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -593,7 +594,7 @@ function ChatView({ conversationId }: { conversationId: number }) {
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder="Write a message..."
+            placeholder={t('chat.writeMessage')}
             placeholderTextColor={colors.textLight}
             style={s.composerInput}
             multiline
@@ -618,6 +619,7 @@ function ChatView({ conversationId }: { conversationId: number }) {
 }
 
 export default function MessagesScreen() {
+  const { t } = useTranslation();
   const params = useLocalSearchParams<{ conversationId?: string | string[] }>();
   const rawId = Array.isArray(params.conversationId)
     ? params.conversationId[0]

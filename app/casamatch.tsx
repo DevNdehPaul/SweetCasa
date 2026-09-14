@@ -37,6 +37,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View
 } from 'react-native';
 import { ThemeColors } from '../constants/theme';
@@ -194,6 +195,7 @@ function AudioPlayer({ uri, colors, s }: { uri: string; colors: ThemeColors; s: 
 
 // ─── Listing Card (inline, compact) ──────────────────────────────────────────
 function ListingCard({ item, colors, s }: { item: MatchResult; colors: ThemeColors; s: Styles }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
   const handlePress = async () => {
@@ -250,15 +252,47 @@ function ListingCard({ item, colors, s }: { item: MatchResult; colors: ThemeColo
         </View>
         {loading
           ? <ActivityIndicator size="small" color={colors.primaryDark} style={{ marginTop: 8 }} />
-          : <View style={s.viewBtn}><Text style={s.viewBtnTxt}>View Property</Text><Feather name="arrow-right" size={12} color={colors.primary} /></View>
+          : <View style={s.viewBtn}><Text style={s.viewBtnTxt}>{t('casaMatch.chat_view_property')}</Text><Feather name="arrow-right" size={12} color={colors.primary} /></View>
         }
       </View>
     </TouchableOpacity>
   );
 }
 
+// ─── Rich AI text ─────────────────────────────────────────────────────────────
+// CasaMatch replies use lightweight Markdown. Render it as native typography
+// instead of showing raw **, ## and list markers to the user.
+function RichAiText({ content, s }: { content: string; s: Styles }) {
+  const renderInline = (text: string, keyPrefix: string) => {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+    return parts.map((part, index) => {
+      const bold = part.startsWith('**') && part.endsWith('**');
+      const clean = bold ? part.slice(2, -2) : part;
+      return <Text key={`${keyPrefix}-${index}`} style={bold ? s.aiBold : undefined}>{clean}</Text>;
+    });
+  };
+
+  return (
+    <View style={s.aiRichText}>
+      {content.split(/\r?\n/).map((raw, index) => {
+        const line = raw.trim();
+        if (!line) return <View key={`space-${index}`} style={s.aiParagraphGap} />;
+        const heading = line.match(/^#{1,3}\s+(.*)$/);
+        const bullet = line.match(/^[-•]\s+(.*)$/);
+        const numbered = line.match(/^(\d+)[.)]\s+(.*)$/);
+        if (heading) return <Text key={index} style={s.aiHeading}>{renderInline(heading[1], `h-${index}`)}</Text>;
+        if (bullet) return <View key={index} style={s.aiListRow}><Text style={s.aiBullet}>•</Text><Text style={s.aiLine}>{renderInline(bullet[1], `b-${index}`)}</Text></View>;
+        if (numbered) return <View key={index} style={s.aiListRow}><Text style={s.aiNumber}>{numbered[1]}.</Text><Text style={s.aiLine}>{renderInline(numbered[2], `n-${index}`)}</Text></View>;
+        if (/^---+$/.test(line)) return <View key={index} style={s.aiDivider} />;
+        return <Text key={index} style={s.aiLine}>{renderInline(line, `p-${index}`)}</Text>;
+      })}
+    </View>
+  );
+}
+
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 function MessageBubble({ msg, colors, s }: { msg: AiChatMessage; colors: ThemeColors; s: Styles }) {
+  const { t } = useTranslation();
   const isUser   = msg.role === 'user';
   const listings = msg.listingResults ?? [];
 
@@ -273,9 +307,11 @@ function MessageBubble({ msg, colors, s }: { msg: AiChatMessage; colors: ThemeCo
         {/* Text content */}
         {!!msg.content && (
           <View style={[s.bubble, isUser ? s.bubbleUser : s.bubbleAI]}>
-            <Text style={[s.bubbleTxt, isUser && s.bubbleTxtUser]}>
-              {msg.content}
-            </Text>
+            {isUser ? (
+              <Text style={[s.bubbleTxt, s.bubbleTxtUser]}>{msg.content}</Text>
+            ) : (
+              <RichAiText content={msg.content} s={s} />
+            )}
           </View>
         )}
 
@@ -302,7 +338,7 @@ function MessageBubble({ msg, colors, s }: { msg: AiChatMessage; colors: ThemeCo
         {listings.length > 0 && (
           <View style={s.listingsBlock}>
             <Text style={s.listingsHeading}>
-              {listings.length} {listings.length === 1 ? 'match' : 'matches'} found
+              {t(listings.length === 1 ? 'casaMatch.chat_match_found' : 'casaMatch.chat_matches_found', { count: listings.length })}
             </Text>
             {listings.map(item => (
               <ListingCard key={item.id} item={item} colors={colors} s={s} />
@@ -332,7 +368,9 @@ function ChatScreen({
   isDark: boolean;
   s: Styles;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { width: screenWidth } = useWindowDimensions();
+  const compact = screenWidth < 380;
 
   const [messages,  setMessages]  = useState<AiChatMessage[]>([]);
   const [title,     setTitle]     = useState('CasaMatch AI');
@@ -357,7 +395,7 @@ function ChatScreen({
         setMessages(data.conversation.messages ?? []);
         setTitle(data.conversation.title || 'CasaMatch AI');
       } catch (err: any) {
-        Alert.alert('Error', err.message);
+        Alert.alert(t('common.error'), err.message);
       } finally {
         setLoading(false);
       }
@@ -374,7 +412,7 @@ function ChatScreen({
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow access to your photo library to attach images.');
+      Alert.alert(t('casaMatch.chat_permission_needed'), t('casaMatch.chat_photo_permission'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -393,7 +431,7 @@ function ChatScreen({
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Allow microphone access to send voice messages.');
+        Alert.alert(t('casaMatch.chat_permission_needed'), t('casaMatch.chat_microphone_permission'));
         return;
       }
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
@@ -405,7 +443,7 @@ function ChatScreen({
       setRecordingSec(0);
       recordTimer.current = setInterval(() => setRecordingSec(sec => sec + 1), 1000);
     } catch (err: any) {
-      Alert.alert('Recording failed', err.message);
+      Alert.alert(t('casaMatch.chat_recording_failed'), err.message);
     }
   };
 
@@ -422,7 +460,7 @@ function ChatScreen({
       setRecording(null);
       if (uri) await sendMessage(undefined, undefined, uri);
     } catch (err: any) {
-      Alert.alert('Error', 'Could not process voice message.');
+      Alert.alert(t('common.error'), t('casaMatch.chat_voice_failed'));
     }
   };
 
@@ -469,6 +507,7 @@ function ChatScreen({
       const headers = await getAuthHeaders();
       const form    = new FormData();
       if (msgText)  form.append('content', msgText);
+      form.append('language', (i18n.resolvedLanguage || i18n.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en');
 
       if (imgToSend?.uri) {
         const ext = imgToSend.uri.split('.').pop() ?? 'jpg';
@@ -511,7 +550,7 @@ function ChatScreen({
     } catch (err: any) {
       // Remove optimistic message on error
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
-      Alert.alert('Error', err.message || 'Could not send message. Please try again.');
+      Alert.alert(t('common.error'), err.message || t('casaMatch.chat_send_failed'));
     } finally {
       setSending(false);
     }
@@ -535,7 +574,7 @@ function ChatScreen({
           </View>
           <View>
             <Text style={s.chatHeaderTitle} numberOfLines={1}>{title}</Text>
-            <Text style={s.chatHeaderSub}>CasaMatch AI • SweetCasa</Text>
+            <Text style={s.chatHeaderSub}>{t('casaMatch.chat_header_sub')}</Text>
           </View>
         </View>
         <View style={{ width: 40 }} />
@@ -544,7 +583,7 @@ function ChatScreen({
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         {/* Messages */}
         {loading ? (
@@ -558,20 +597,22 @@ function ChatScreen({
             keyExtractor={m => String(m.id)}
             renderItem={({ item }) => <MessageBubble msg={item} colors={colors} s={s} />}
             contentContainerStyle={s.messagesList}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             ListEmptyComponent={
               <View style={s.emptyChat}>
                 <View style={s.emptyChatIcon}>
                   <Ionicons name="sparkles" size={32} color={colors.primary} />
                 </View>
-                <Text style={s.emptyChatTitle}>Hi! I'm CasaMatch</Text>
+                <Text style={s.emptyChatTitle}>{t('casaMatch.chat_greeting')}</Text>
                 <Text style={s.emptyChatSub}>
-                  Tell me what kind of home you're looking for in Cameroon — budget, city, type — and I'll find your perfect match.
+                  {t('casaMatch.chat_intro')}
                 </Text>
                 <View style={s.suggestionRow}>
                   {[
-                    "I'm looking for a 2-bedroom apartment in Douala",
-                    "Je cherche une villa à Yaoundé à louer",
-                    "Show me studios under 100k XAF",
+                    t('casaMatch.chat_suggestion_1'),
+                    t('casaMatch.chat_suggestion_2'),
+                    t('casaMatch.chat_suggestion_3'),
                   ].map(sugg => (
                     <TouchableOpacity key={sugg} style={s.suggestionChip} onPress={() => sendMessage(sugg)}>
                       <Text style={s.suggestionTxt}>{sugg}</Text>
@@ -599,7 +640,7 @@ function ChatScreen({
         {pendingImg && (
           <View style={s.pendingImgBar}>
             <Image source={{ uri: pendingImg.uri }} style={s.pendingImgThumb} />
-            <Text style={s.pendingImgTxt}>Image attached</Text>
+            <Text style={s.pendingImgTxt}>{t('casaMatch.chat_image_attached')}</Text>
             <TouchableOpacity onPress={() => setPendingImg(null)}>
               <Feather name="x" size={16} color={colors.textMuted} />
             </TouchableOpacity>
@@ -610,7 +651,7 @@ function ChatScreen({
         {isRecording && (
           <View style={s.recordingBar}>
             <View style={s.recordingDot} />
-            <Text style={s.recordingTxt}>Recording… {fmtSec(recordingSec)}</Text>
+            <Text style={s.recordingTxt}>{t('casaMatch.chat_recording')} {fmtSec(recordingSec)}</Text>
             <TouchableOpacity style={s.cancelRecordBtn} onPress={cancelRecording}>
               <Feather name="x" size={16} color={colors.danger} />
             </TouchableOpacity>
@@ -622,20 +663,22 @@ function ChatScreen({
 
         {/* Input bar */}
         {!isRecording && (
-          <View style={s.inputBar}>
+          <View style={[s.inputBar, compact && s.inputBarCompact]}>
             <TouchableOpacity style={s.inputIcon} onPress={pickImage}>
               <Feather name="image" size={20} color={colors.textLight} />
             </TouchableOpacity>
 
             <TextInput
-              style={s.textInput}
-              placeholder="Message CasaMatch…"
+              style={[s.textInput, compact && s.textInputCompact]}
+              placeholder={t('casaMatch.chat_placeholder')}
               placeholderTextColor={colors.textLight}
               value={text}
               onChangeText={setText}
               multiline
               maxLength={1000}
               returnKeyType="default"
+              textAlignVertical="center"
+              blurOnSubmit={false}
             />
 
             {text.trim() || pendingImg ? (
@@ -671,7 +714,7 @@ function HistoryScreen({
   isDark: boolean;
   s: Styles;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [deleting,      setDeleting]      = useState<number | null>(null);
@@ -684,8 +727,8 @@ function HistoryScreen({
     } catch (err: any) {
       // If 401, the user isn't logged in — redirect
       if (err.message === 'Not authenticated') {
-        Alert.alert('Sign in required', 'Please sign in to use CasaMatch AI.', [
-          { text: 'OK', onPress: () => router.replace('/house_seekers_login_signup') },
+        Alert.alert(t('casaMatch.chat_signin_required'), t('casaMatch.chat_signin_required_desc'), [
+          { text: t('common.ok'), onPress: () => router.replace('/house_seekers_login_signup') },
         ]);
       }
     } finally {
@@ -700,26 +743,26 @@ function HistoryScreen({
       const data = await apiFetch('/conversations', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({}),
+        body:    JSON.stringify({ language: (i18n.resolvedLanguage || i18n.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en' }),
       });
       onNewChat(data.conversation.id);
     } catch (err: any) {
-      Alert.alert('Error', err.message);
+      Alert.alert(t('common.error'), err.message);
     }
   };
 
   const handleDelete = (id: number) => {
-    Alert.alert('Delete chat?', 'This conversation will be permanently deleted.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('casaMatch.chat_delete_title'), t('casaMatch.chat_delete_desc'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete', style: 'destructive',
+        text: t('common.delete'), style: 'destructive',
         onPress: async () => {
           setDeleting(id);
           try {
             await apiFetch(`/conversations/${id}`, { method: 'DELETE' });
             setConversations(prev => prev.filter(c => c.id !== id));
           } catch (err: any) {
-            Alert.alert('Error', err.message);
+            Alert.alert(t('common.error'), err.message);
           } finally {
             setDeleting(null);
           }
@@ -731,12 +774,12 @@ function HistoryScreen({
   const relativeTime = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 1)   return 'Just now';
-    if (mins < 60)  return `${mins}m ago`;
+    if (mins < 1)   return t('casaMatch.chat_just_now');
+    if (mins < 60)  return t('casaMatch.chat_minutes_ago', { count: mins });
     const hrs = Math.floor(mins / 60);
-    if (hrs < 24)   return `${hrs}h ago`;
+    if (hrs < 24)   return t('casaMatch.chat_hours_ago', { count: hrs });
     const days = Math.floor(hrs / 24);
-    if (days < 7)   return `${days}d ago`;
+    if (days < 7)   return t('casaMatch.chat_days_ago', { count: days });
     return new Date(iso).toLocaleDateString();
   };
 
@@ -751,7 +794,7 @@ function HistoryScreen({
         </TouchableOpacity>
         <View>
           <Text style={s.historyTitle}>CasaMatch AI</Text>
-          <Text style={s.historySubtitle}>Your property search assistant</Text>
+          <Text style={s.historySubtitle}>{t('casaMatch.chat_history_subtitle')}</Text>
         </View>
         <TouchableOpacity style={s.newChatBtn} onPress={handleNew}>
           <Feather name="plus" size={18} color={colors.primary} />
@@ -764,8 +807,8 @@ function HistoryScreen({
           <Ionicons name="sparkles" size={22} color={colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.newChatCardTitle}>Start new conversation</Text>
-          <Text style={s.newChatCardSub}>Find your perfect home in Cameroon</Text>
+          <Text style={s.newChatCardTitle}>{t('casaMatch.chat_new_conversation')}</Text>
+          <Text style={s.newChatCardSub}>{t('casaMatch.chat_new_conversation_sub')}</Text>
         </View>
         <Feather name="arrow-right" size={18} color={colors.primary} />
       </TouchableOpacity>
@@ -778,14 +821,14 @@ function HistoryScreen({
       ) : conversations.length === 0 ? (
         <View style={s.centered}>
           <Ionicons name="chatbubbles-outline" size={48} color={colors.textLight} style={{ marginBottom: 12 }} />
-          <Text style={s.emptyChatTitle}>No conversations yet</Text>
+          <Text style={s.emptyChatTitle}>{t('casaMatch.chat_no_conversations')}</Text>
           <Text style={[s.emptyChatSub, { textAlign: 'center' }]}>
-            Start a new chat to find your dream home.
+            {t('casaMatch.chat_no_conversations_sub')}
           </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 }}>
-          <Text style={s.sectionLabel}>Recent chats</Text>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 40 }}>
+          <Text style={s.sectionLabel}>{t('casaMatch.chat_recent')}</Text>
           {conversations.map(conv => {
             const lastMsg = (conv as any).messages?.[0];
             return (
@@ -802,7 +845,7 @@ function HistoryScreen({
                   <Text style={s.convTitle} numberOfLines={1}>{conv.title}</Text>
                   {lastMsg && (
                     <Text style={s.convPreview} numberOfLines={1}>
-                      {lastMsg.role === 'user' ? 'You: ' : ''}{lastMsg.content}
+                      {lastMsg.role === 'user' ? `${t('casaMatch.chat_you')}: ` : ''}{lastMsg.content}
                     </Text>
                   )}
                 </View>
@@ -911,10 +954,10 @@ function getStyles(colors: ThemeColors) {
     chatHeaderSub:   { fontSize: 11, color: colors.textLight, marginTop: 1 },
 
     // ── Messages ──
-    messagesList: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8 },
+    messagesList: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 16, flexGrow: 1 },
     bubbleRow:     { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 12, gap: 8 },
     bubbleRowUser: { flexDirection: 'row-reverse' },
-    bubbleOuter:   { maxWidth: '80%' },
+    bubbleOuter:   { maxWidth: '88%', minWidth: 0 },
     bubbleOuterUser: {},
     avatarWrap: {
       width: 28, height: 28, borderRadius: 14,
@@ -922,9 +965,18 @@ function getStyles(colors: ThemeColors) {
       marginBottom: 4,
     },
     bubble:      { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 2 },
-    bubbleAI:    { backgroundColor: colors.primaryTintAlt, borderBottomLeftRadius: 4 },
+    bubbleAI:    { backgroundColor: colors.card, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: colors.primaryBorder, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
     bubbleUser:  { backgroundColor: colors.primaryDark, borderBottomRightRadius: 4 },
     bubbleTxt:     { fontSize: 14.5, color: colors.text, lineHeight: 21 },
+    aiRichText: { width: '100%' },
+    aiLine: { fontSize: 14.5, color: colors.text, lineHeight: 22 },
+    aiBold: { fontWeight: '800', color: colors.text },
+    aiHeading: { fontSize: 15, fontWeight: '800', color: colors.primaryDarker, lineHeight: 22, marginTop: 4, marginBottom: 3 },
+    aiParagraphGap: { height: 7 },
+    aiListRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, marginVertical: 2 },
+    aiBullet: { width: 12, fontSize: 15, color: colors.primary, fontWeight: '800', lineHeight: 22 },
+    aiNumber: { minWidth: 20, fontSize: 14, color: colors.primary, fontWeight: '800', lineHeight: 22 },
+    aiDivider: { height: 1, backgroundColor: colors.borderLight, marginVertical: 8 },
     bubbleTxtUser: { color: WHITE },
     timeStamp:     { fontSize: 10, color: colors.textLight, marginTop: 2, textAlign: 'left' },
     timeStampUser: { textAlign: 'right' },
@@ -982,24 +1034,27 @@ function getStyles(colors: ThemeColors) {
     // ── Input bar ──
     inputBar: {
       flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-      paddingHorizontal: 12, paddingVertical: 10,
+      paddingHorizontal: 8, paddingTop: 7, paddingBottom: Platform.OS === 'android' ? 6 : 10,
+      minHeight: 56, maxWidth: '100%',
       borderTopWidth: 1, borderTopColor: colors.borderLight,
       backgroundColor: colors.card,
     },
-    inputIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+    inputBarCompact: { gap: 4, paddingHorizontal: 6 },
+    inputIcon: { width: 32, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
     textInput: {
-      flex: 1, maxHeight: 100, fontSize: 14.5, color: colors.text,
+      flex: 1, minWidth: 0, minHeight: 42, maxHeight: 96, fontSize: 14.5, color: colors.text,
       backgroundColor: colors.primaryTintAlt, borderRadius: 22,
-      paddingHorizontal: 16, paddingVertical: 10,
+      paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10,
       borderWidth: 1.5, borderColor: colors.primaryBorder,
     },
+    textInputCompact: { paddingHorizontal: 10, fontSize: 14 },
     sendBtn: {
-      width: 40, height: 40, borderRadius: 20,
+      width: 40, height: 40, borderRadius: 20, flexShrink: 0,
       backgroundColor: colors.primaryDark, alignItems: 'center', justifyContent: 'center',
       shadowColor: colors.primaryDark, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
     },
     recordBtn: {
-      width: 40, height: 40, borderRadius: 20,
+      width: 40, height: 40, borderRadius: 20, flexShrink: 0,
       backgroundColor: colors.primaryTintAlt, alignItems: 'center', justifyContent: 'center',
       borderWidth: 1.5, borderColor: colors.primaryBorder,
     },

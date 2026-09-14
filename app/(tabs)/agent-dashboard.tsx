@@ -1,7 +1,7 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -100,9 +100,15 @@ export default function AgentHubScreen() {
   const [statsReady,     setStatsReady]     = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem('profile').then((p) => { if (p) setProfile(JSON.parse(p)); });
+    // Render the screen immediately from local state/cache. Network data refreshes
+    // independently and must never block navigation or first paint.
+    AsyncStorage.getItem('profile').then((p) => {
+      if (p) {
+        try { setProfile(JSON.parse(p)); } catch { /* ignore stale cache */ }
+      }
+    });
     checkWelcome();
-    loadAll();
+    void loadAll();
   }, []);
 
   useFocusEffect(
@@ -122,46 +128,75 @@ export default function AgentHubScreen() {
   };
 
   const loadAll = async () => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      const authHeader = { Authorization: `Bearer ${token}` };
+    // Each dashboard section loads independently. A slow wallet/messages request
+    // no longer holds listings or the rest of the Agent Hub hostage.
+    const tokenPromise = AsyncStorage.getItem('token');
 
-      const [listingsRes, convsRes, walletRes] = await Promise.allSettled([
-        api.get('/listings/mine'),
-        fetch(`${API_BASE}/messages/conversations`, { headers: authHeader }).then((r) =>
-          r.ok ? r.json() : Promise.reject(r.status),
-        ),
-        api.get('/wallet/me'),
-      ]);
-
-      let mappedListings: any[] = [];
-      if (listingsRes.status === 'fulfilled') {
-        mappedListings = (listingsRes.value.data?.listings || []).map((l: any) => ({
-          id:       String(l.id),
-          title:    l.title,
-          price:    `${Number(l.price).toLocaleString()} XAF`,
-          status:   l.status === 'Available' ? 'Available' : l.status,
-          views:    l.views ?? 0,
+    const listingsTask = (async () => {
+      try {
+        const listingsRes = await api.get('/listings/mine');
+        const mappedListings = (listingsRes.data?.listings || []).map((l: any) => ({
+          id: String(l.id),
+          title: l.title,
+          price: `${Number(l.price).toLocaleString()} XAF`,
+          status: l.status === 'Available' ? 'Available' : l.status,
+          views: l.views ?? 0,
           messages: l.messageCount ?? 0,
         }));
         setListings(mappedListings);
+        await AsyncStorage.setItem('agentHub_listings_cache', JSON.stringify(mappedListings));
+        return mappedListings;
+      } catch {
+        return null;
       }
+    })();
 
-      if (convsRes.status === 'fulfilled') {
-        const conversations: any[] = (convsRes.value as any).conversations ?? [];
-
+    const conversationsTask = (async () => {
+      try {
+        const token = await tokenPromise;
+        if (!token) return null;
+        const res = await fetch(`${API_BASE.replace(/\/$/, '')}/messages/conversations`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const conversations: any[] = data.conversations ?? [];
         const totalUnread = conversations.reduce(
           (sum: number, c: any) => sum + (c.unreadCount ?? 0),
           0,
         );
         setUnreadMessages(totalUnread);
+        return conversations;
+      } catch {
+        return null;
+      }
+    })();
 
+    const walletTask = (async () => {
+      try {
+        const walletRes = await api.get('/wallet/me');
+        const nextWallet = walletRes.data?.wallet ?? null;
+        setWallet(nextWallet);
+        setWalletReady(true);
+        if (nextWallet) {
+          await AsyncStorage.setItem('agentHub_wallet_cache', JSON.stringify(nextWallet));
+        }
+        return nextWallet;
+      } catch {
+        setWalletReady(true);
+        return null;
+      }
+    })();
+
+    // Listings and conversations are only combined for the lead-conversion stat.
+    void Promise.all([listingsTask, conversationsTask]).then(([mappedListings, conversations]) => {
+      if (mappedListings && conversations) {
         const total = mappedListings.length;
         if (total > 0) {
           const listingIdsWithConvs = new Set(
             conversations.map((c: any) => c.listing?.id).filter(Boolean),
           );
-          const withLeads = mappedListings.filter((l) =>
+          const withLeads = mappedListings.filter((l: any) =>
             listingIdsWithConvs.has(Number(l.id)),
           ).length;
           setLeadConversion(((withLeads / total) * 100).toFixed(1) + '%');
@@ -169,16 +204,33 @@ export default function AgentHubScreen() {
           setLeadConversion('0%');
         }
       }
-      if (walletRes.status === 'fulfilled') {
-        setWallet((walletRes.value as any).data?.wallet ?? null);
-      }
-    } catch {
-      // Stats stay at defaults (0 / 0%)
-    } finally {
       setStatsReady(true);
-      setWalletReady(true);
-    }
+    });
+
+    void walletTask;
   };
+
+  // Hydrate dashboard cards from local cache immediately. This makes repeat visits
+  // feel instant while loadAll silently refreshes the values in the background.
+  useEffect(() => {
+    void Promise.all([
+      AsyncStorage.getItem('agentHub_listings_cache'),
+      AsyncStorage.getItem('agentHub_wallet_cache'),
+    ]).then(([cachedListings, cachedWallet]) => {
+      if (cachedListings) {
+        try {
+          const parsed = JSON.parse(cachedListings);
+          if (Array.isArray(parsed)) setListings(parsed);
+        } catch { /* ignore invalid cache */ }
+      }
+      if (cachedWallet) {
+        try {
+          setWallet(JSON.parse(cachedWallet));
+          setWalletReady(true);
+        } catch { /* ignore invalid cache */ }
+      }
+    });
+  }, []);
 
   const latestListings = listings.slice(0, 3);
 
@@ -238,19 +290,17 @@ export default function AgentHubScreen() {
             <MaterialCommunityIcons name="currency-usd" size={16} color={colors.primary} />
             <Text style={styles.walletLabel}>{t('agentHub.escrowBalance')}</Text>
           </View>
-          {walletReady ? (
-            <Text style={styles.walletAmount}>{formatXAF(totalBalance)}</Text>
-          ) : (
-            <View style={[styles.skeleton, { height: 34, width: 140, marginBottom: 6 }]} />
-          )}
+          <Text style={styles.walletAmount}>{formatXAF(totalBalance)}</Text>
           <Text style={styles.walletPending}>
-            {walletReady ? formatXAF(pendingPayout) : '—'} {t('agentHub.pendingPayout')}
+            {formatXAF(pendingPayout)} {t('agentHub.pendingPayout')}
           </Text>
-          <Link href="/wallet">
-            <TouchableOpacity style={styles.walletBtn} activeOpacity={0.85}>
-              <Text style={styles.walletBtnTxt}>{t('agentHub.manageWallet')}</Text>
-            </TouchableOpacity>
-          </Link>
+          <TouchableOpacity
+            style={styles.walletBtn}
+            activeOpacity={0.85}
+            onPress={() => router.push('/wallet')}
+          >
+            <Text style={styles.walletBtnTxt}>{t('agentHub.manageWallet')}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Stats Row ── */}
@@ -260,11 +310,7 @@ export default function AgentHubScreen() {
             <View style={styles.statIconWrap}>
               <Feather name="trending-up" size={18} color={colors.primary} />
             </View>
-            {statsReady ? (
-              <Text style={styles.statNum}>{leadConversion}</Text>
-            ) : (
-              <View style={styles.skeleton} />
-            )}
+            <Text style={styles.statNum}>{leadConversion}</Text>
             <Text style={styles.statLabel}>{t('agentHub.leadConversion')}</Text>
             <Text style={styles.statHint}>Listings w/ enquiries</Text>
           </View>
@@ -277,13 +323,9 @@ export default function AgentHubScreen() {
             <View style={styles.statIconWrap}>
               <Feather name="message-circle" size={18} color={colors.primary} />
             </View>
-            {statsReady ? (
-              <Text style={[styles.statNum, unreadMessages > 0 && styles.statNumAlert]}>
-                {unreadMessages}
-              </Text>
-            ) : (
-              <View style={styles.skeleton} />
-            )}
+            <Text style={[styles.statNum, unreadMessages > 0 && styles.statNumAlert]}>
+              {unreadMessages}
+            </Text>
             <Text style={styles.statLabel}>{t('agentHub.unreadMessages')}</Text>
             <Text style={styles.statHint}>Tap to view inbox</Text>
           </TouchableOpacity>

@@ -94,6 +94,8 @@ LANGUAGE: Always respond in ${lang}. Never switch languages mid-conversation.
 PERSONA: Friendly, professional, like a trusted local real estate advisor who knows Cameroon well.
 Natural conversation — NOT a form or checklist. Ask one or two questions at a time, not everything at once.
 
+RESPONSE DESIGN: Keep replies clean and easy to scan on a phone. Use short paragraphs. For property results, use a short introduction followed by clearly separated numbered picks. Use **bold** only for property names, prices, and very important labels. Use simple bullet points for key features. Never output raw JSON, HTML, tables, or unnecessary horizontal rules to the user. Do not repeat every database field when a shorter useful summary is enough.
+
 YOUR GOAL: Gather the user's housing preferences naturally through chat, then search and present the best matching properties.
 
 INFORMATION TO GATHER (conversationally, not as a list — you don't need all of it before searching):
@@ -127,6 +129,10 @@ IMPORTANT RULES:
 }
 
 // ─── Detect language from text ────────────────────────────────────────────────
+function normalizeLanguage(value) {
+  return String(value || '').toLowerCase().startsWith('fr') ? 'fr' : 'en'
+}
+
 function detectLanguage(text) {
   // Simple heuristic: look for common French markers
   const frenchMarkers = /\b(je|tu|il|elle|nous|vous|ils|elles|bonjour|merci|oui|non|est|les|des|une|cherche|appartement|louer|acheter|chambre|maison|ville|région|budget|mois|année)\b/i
@@ -186,7 +192,7 @@ router.post('/conversations', express.json(), async (req, res) => {
   try {
     const prisma = getPrisma()
     const conv = await prisma.aiConversation.create({
-      data: { userId: req.user.id, title: 'New Chat', language: 'en' },
+      data: { userId: req.user.id, title: req.body?.language === 'fr' ? 'Nouvelle conversation' : 'New Chat', language: normalizeLanguage(req.body?.language) },
     })
     res.status(201).json({ conversation: conv })
   } catch (err) {
@@ -248,6 +254,7 @@ router.post(
     const userText  = (req.body?.content || '').trim()
     const imageFile = req.files?.image?.[0]
     const audioFile = req.files?.audio?.[0]
+    const appLanguage = req.body?.language ? normalizeLanguage(req.body.language) : null
 
     if (!userText && !imageFile && !audioFile) {
       return res.status(400).json({ error: 'Message must contain text, an image, or an audio file.' })
@@ -268,8 +275,11 @@ router.post(
       if (!conv) return res.status(404).json({ error: 'Conversation not found.' })
 
       // ── 2. Detect language (from first user message) ─────────────────────
-      let language = conv.language
-      if (conv.messages.length === 0 && userText) {
+      // The SweetCasa app language is authoritative. This lets CasaMatch greet and
+      // answer in French/English before trying to infer anything from the message.
+      // Text detection remains only as a backward-compatible fallback for old clients.
+      let language = appLanguage || conv.language
+      if (!appLanguage && conv.messages.length === 0 && userText) {
         language = detectLanguage(userText)
       }
 

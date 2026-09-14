@@ -112,7 +112,7 @@ export default function ProfileScreen() {
   const handleSupport = async () => {
     try {
       await Linking.openURL(
-        "mailto:support@sweetcasa.cm?subject=SweetCasa%20Support",
+        "mailto:sweetcasa.h@gmail.com?subject=SweetCasa%20Support",
       );
     } catch {
       // Keep the footer functional even if the mail client is unavailable.

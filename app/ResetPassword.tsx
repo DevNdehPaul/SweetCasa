@@ -19,6 +19,7 @@ import {
 import api from "../constants/api";
 import { ThemeColors } from "../constants/theme";
 import { useAppTheme } from "../hooks/use-app-theme"; // adjust relative path if needed
+import { useTranslation } from 'react-i18next';
 
 const H_PAD = 20;
 
@@ -134,6 +135,7 @@ function WebAlertHost() {
 }
 
 export default function ResetPasswordScreen() {
+  const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
 
@@ -225,16 +227,15 @@ export default function ResetPasswordScreen() {
                   color={colors.warning}
                 />
               </View>
-              <Text style={styles.centerTitle}>Invalid Reset Link</Text>
+              <Text style={styles.centerTitle}>{t('passwordRecovery.invalidLink')}</Text>
               <Text style={styles.centerDesc}>
-                This password reset link is invalid or incomplete. Please
-                request a new one from the login screen.
+                {t('passwordRecovery.invalidLinkDesc')}
               </Text>
               <TouchableOpacity
                 style={styles.primaryBtn}
                 onPress={() => router.replace("/ForgotPassword")}
               >
-                <Text style={styles.primaryBtnTxt}>Request New Link</Text>
+                <Text style={styles.primaryBtnTxt}>{t('passwordRecovery.requestNew')}</Text>
                 <Feather name="arrow-right" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
@@ -250,16 +251,15 @@ export default function ResetPasswordScreen() {
                   color={colors.success}
                 />
               </View>
-              <Text style={styles.centerTitle}>Password Updated</Text>
+              <Text style={styles.centerTitle}>{t('passwordRecovery.updated')}</Text>
               <Text style={styles.centerDesc}>
-                Your password has been reset successfully. You can now log in
-                with your new password.
+                {t('passwordRecovery.updatedDesc')}
               </Text>
               <TouchableOpacity
                 style={styles.primaryBtn}
                 onPress={() => router.replace(`/portal`)}
               >
-                <Text style={styles.primaryBtnTxt}>Back to Login</Text>
+                <Text style={styles.primaryBtnTxt}>{t('passwordRecovery.backLogin')}</Text>
                 <Feather name="arrow-right" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
@@ -274,7 +274,7 @@ export default function ResetPasswordScreen() {
                     color={colors.primary}
                   />
                 </View>
-                <Text style={styles.heroTitle}>Set a New Password</Text>
+                <Text style={styles.heroTitle}>{t('passwordRecovery.setNewPassword')}</Text>
                 <Text style={styles.heroDesc}>
                   {email ? (
                     <>
@@ -291,12 +291,12 @@ export default function ResetPasswordScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>New Password</Text>
+                <Text style={styles.fieldLabel}>{t('passwordRecovery.newPassword')}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="lock" size={15} color={colors.textLight} />
                   <TextInput
                     style={styles.fieldInput}
-                    placeholder="Min. 8 characters"
+                    placeholder={t('passwordRecovery.min8')}
                     placeholderTextColor={colors.textLight}
                     value={password}
                     onChangeText={setPassword}
@@ -315,12 +315,12 @@ export default function ResetPasswordScreen() {
               </View>
 
               <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Confirm New Password</Text>
+                <Text style={styles.fieldLabel}>{t('passwordRecovery.confirmNewPassword')}</Text>
                 <View style={styles.inputWrap}>
                   <Feather name="lock" size={15} color={colors.textLight} />
                   <TextInput
                     style={styles.fieldInput}
-                    placeholder="Repeat your new password"
+                    placeholder={t('passwordRecovery.repeatNew')}
                     placeholderTextColor={colors.textLight}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
@@ -347,8 +347,7 @@ export default function ResetPasswordScreen() {
                   style={{ marginTop: 2 }}
                 />
                 <Text style={styles.strengthTxt}>
-                  Use at least 8 characters with a mix of letters, numbers, and
-                  symbols.
+                  {t('passwordRecovery.passwordHint')}
                 </Text>
               </View>
 
@@ -365,7 +364,7 @@ export default function ResetPasswordScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <Text style={styles.primaryBtnTxt}>Reset Password</Text>
+                    <Text style={styles.primaryBtnTxt}>{t('passwordRecovery.resetPassword')}</Text>
                     <Feather name="arrow-right" size={17} color="#fff" />
                   </>
                 )}

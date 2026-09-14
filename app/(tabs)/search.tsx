@@ -347,7 +347,7 @@ export default function SearchFiltersScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
+      <ScrollView keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.scroll}
         keyboardShouldPersistTaps="handled"

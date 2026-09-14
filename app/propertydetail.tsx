@@ -9,13 +9,16 @@ import {
   Alert,
   Dimensions,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -275,7 +278,7 @@ function PhotoCarousel({
 
   return (
     <View style={styles.heroWrap}>
-      <ScrollView
+      <ScrollView keyboardShouldPersistTaps="handled"
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -359,7 +362,7 @@ function FullscreenGallery({
         <Text style={styles.fsCounter}>
           {activeIndex + 1} / {sorted.length}
         </Text>
-        <ScrollView
+        <ScrollView keyboardShouldPersistTaps="handled"
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -380,7 +383,7 @@ function FullscreenGallery({
             />
           ))}
         </ScrollView>
-        <ScrollView
+        <ScrollView keyboardShouldPersistTaps="handled"
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.fsThumbs}
@@ -616,6 +619,7 @@ export default function PropertyDetailScreen() {
   const { colors } = useAppTheme();
   const styles = useMemo(() => getStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { id, listingData } = useLocalSearchParams<{
     id: string;
     listingData?: string;
@@ -738,11 +742,11 @@ export default function PropertyDetailScreen() {
   const handleContact = async () => {
     if (contacting) return;
 
-    // Guard: agent must be linked to this listing
+    // Guard: the landlord/owner must be linked to this listing
     if (!listing?.agent?.id) {
       Alert.alert(
-        "Agent not available",
-        "This listing does not have a contact agent yet. Please try again later.",
+        t("propertyDetail.landlordUnavailable"),
+        t("propertyDetail.landlordUnavailableDesc"),
       );
       return;
     }
@@ -888,8 +892,8 @@ export default function PropertyDetailScreen() {
       setViewingTime("");
       setViewingNote("");
       Alert.alert(
-        "Viewing request sent",
-        "Your preferred date and time have been sent to the property agent. You will be notified when they respond.",
+        t("propertyDetail.viewingRequestSent"),
+        t("propertyDetail.viewingRequestSentDesc"),
       );
     } catch (err: any) {
       Alert.alert(
@@ -1000,47 +1004,113 @@ export default function PropertyDetailScreen() {
         visible={bookingVisible}
         transparent
         animationType="slide"
+        statusBarTranslucent
         onRequestClose={() => !booking && setBookingVisible(false)}
       >
-        <View style={styles.bookingBackdrop}>
-          <View style={[styles.bookingSheet, { paddingBottom: 24 + insets.bottom }]}>
-            <View style={styles.bookingHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.bookingTitle}>Book a Viewing</Text>
-                <Text style={styles.bookingSubtitle} numberOfLines={1}>{listing.title}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.bookingClose}
-                onPress={() => setBookingVisible(false)}
-                disabled={booking}
+        <KeyboardAvoidingView
+          style={styles.bookingKeyboardView}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
+          <View style={styles.bookingBackdrop}>
+            <View
+              style={[
+                styles.bookingSheet,
+                {
+                  width: Math.min(screenWidth, 620),
+                  maxHeight: screenHeight * 0.9,
+                },
+              ]}
+            >
+              <ScrollView
+                style={styles.bookingScroll}
+                contentContainerStyle={[
+                  styles.bookingScrollContent,
+                  { paddingBottom: Math.max(24, insets.bottom + 16) },
+                ]}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               >
-                <Ionicons name="close" size={20} color={colors.text} />
-              </TouchableOpacity>
+                <View style={styles.bookingHeader}>
+                  <View style={styles.bookingHeaderText}>
+                    <Text style={styles.bookingTitle}>{t("propertyDetail.bookViewing")}</Text>
+                    <Text style={styles.bookingSubtitle} numberOfLines={1}>{listing.title}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.bookingClose}
+                    onPress={() => setBookingVisible(false)}
+                    disabled={booking}
+                  >
+                    <Ionicons name="close" size={20} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.bookingLabel}>{t("propertyDetail.preferredDate")}</Text>
+                <TextInput
+                  style={styles.bookingInput}
+                  value={viewingDate}
+                  onChangeText={setViewingDate}
+                  placeholder={t("propertyDetail.datePlaceholder")}
+                  placeholderTextColor={colors.textLight}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric"}
+                  returnKeyType="next"
+                />
+
+                <Text style={styles.bookingLabel}>{t("propertyDetail.preferredTime")}</Text>
+                <TextInput
+                  style={styles.bookingInput}
+                  value={viewingTime}
+                  onChangeText={setViewingTime}
+                  placeholder={t("propertyDetail.timePlaceholder")}
+                  placeholderTextColor={colors.textLight}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric"}
+                  returnKeyType="next"
+                />
+
+                <Text style={styles.bookingLabel}>{t("propertyDetail.noteToLandlord")}</Text>
+                <TextInput
+                  style={[styles.bookingInput, styles.bookingNote]}
+                  value={viewingNote}
+                  onChangeText={setViewingNote}
+                  placeholder={t("propertyDetail.noteToLandlordPlaceholder")}
+                  placeholderTextColor={colors.textLight}
+                  multiline
+                  maxLength={1000}
+                  textAlignVertical="top"
+                  scrollEnabled
+                />
+
+                <TouchableOpacity
+                  style={[styles.bookingSubmit, booking && { opacity: 0.65 }]}
+                  onPress={handleBookViewing}
+                  disabled={booking}
+                  activeOpacity={0.88}
+                >
+                  {booking ? (
+                    <ActivityIndicator size="small" color={colors.textInverse} />
+                  ) : (
+                    <Ionicons name="calendar-outline" size={17} color={colors.textInverse} />
+                  )}
+                  <Text style={styles.bookingSubmitTxt}>
+                    {booking ? t("propertyDetail.sendingViewingRequest") : t("propertyDetail.requestViewing")}
+                  </Text>
+                </TouchableOpacity>
+
+                <Text style={styles.bookingHint}>
+                  {t("propertyDetail.viewingRequestHint")}
+                </Text>
+              </ScrollView>
             </View>
-            <Text style={styles.bookingLabel}>Preferred date</Text>
-            <TextInput style={styles.bookingInput} value={viewingDate} onChangeText={setViewingDate}
-              placeholder="YYYY-MM-DD" placeholderTextColor={colors.textLight} autoCapitalize="none" />
-            <Text style={styles.bookingLabel}>Preferred time</Text>
-            <TextInput style={styles.bookingInput} value={viewingTime} onChangeText={setViewingTime}
-              placeholder="HH:MM, e.g. 14:30" placeholderTextColor={colors.textLight} autoCapitalize="none" />
-            <Text style={styles.bookingLabel}>Note to agent (optional)</Text>
-            <TextInput style={[styles.bookingInput, styles.bookingNote]} value={viewingNote}
-              onChangeText={setViewingNote} placeholder="Anything the agent should know before the viewing?"
-              placeholderTextColor={colors.textLight} multiline maxLength={1000} textAlignVertical="top" />
-            <TouchableOpacity style={[styles.bookingSubmit, booking && { opacity: 0.65 }]}
-              onPress={handleBookViewing} disabled={booking} activeOpacity={0.88}>
-              {booking ? <ActivityIndicator size="small" color={colors.textInverse} /> :
-                <Ionicons name="calendar-outline" size={17} color={colors.textInverse} />}
-              <Text style={styles.bookingSubmitTxt}>{booking ? "Sending request..." : "Request Viewing"}</Text>
-            </TouchableOpacity>
-            <Text style={styles.bookingHint}>
-              This is a request. The viewing is only booked after the property agent confirms it.
-            </Text>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
-      <ScrollView
+      <ScrollView keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 110 + insets.bottom }}
       >
@@ -1251,7 +1321,7 @@ export default function PropertyDetailScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView
+              <ScrollView keyboardShouldPersistTaps="handled"
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ gap: 10 }}
@@ -1525,7 +1595,9 @@ export default function PropertyDetailScreen() {
           onPress={() => setBookingVisible(true)}
         >
           <Ionicons name="calendar-outline" size={16} color={colors.textInverse} />
-          <Text style={styles.bookBtnTxt}>Book a Viewing</Text>
+          <Text style={styles.bookBtnTxt} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
+            {t("propertyDetail.bookViewing")}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -2060,18 +2132,22 @@ function getStyles(colors: ThemeColors) {
       borderTopColor: colors.borderLight,
     },
     contactBtn: {
+      flex: 0.8,
+      minWidth: 0,
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      justifyContent: "center",
+      gap: 7,
       borderWidth: 1.5,
       borderColor: colors.primary,
       borderRadius: 14,
-      paddingHorizontal: 20,
+      paddingHorizontal: 12,
       paddingVertical: 14,
     },
-    contactBtnTxt: { fontSize: 13.5, fontWeight: "700", color: colors.primary },
+    contactBtnTxt: { flexShrink: 1, fontSize: 13.5, fontWeight: "700", color: colors.primary },
     bookBtn: {
-      flex: 1,
+      flex: 1.2,
+      minWidth: 0,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -2085,21 +2161,39 @@ function getStyles(colors: ThemeColors) {
       shadowOffset: { width: 0, height: 5 },
       elevation: 6,
     },
-    bookBtnTxt: { fontSize: 14, fontWeight: "700", color: colors.textInverse },
+    bookBtnTxt: { flexShrink: 1, textAlign: "center", fontSize: 14, fontWeight: "700", color: colors.textInverse },
 
+    bookingKeyboardView: { flex: 1 },
     bookingBackdrop: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.48)",
       justifyContent: "flex-end",
     },
     bookingSheet: {
+      alignSelf: "center",
       backgroundColor: colors.card,
       borderTopLeftRadius: 26,
       borderTopRightRadius: 26,
+      borderBottomLeftRadius: Platform.OS === "web" ? 22 : 0,
+      borderBottomRightRadius: Platform.OS === "web" ? 22 : 0,
+      borderWidth: Platform.OS === "web" ? 1 : 0,
+      borderColor: colors.borderLight,
+      overflow: "hidden",
+    },
+    bookingScroll: { width: "100%" },
+    bookingScrollContent: {
+      width: "100%",
       paddingHorizontal: 20,
       paddingTop: 20,
     },
-    bookingHeader: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+    bookingHeader: {
+      width: "100%",
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 20,
+      gap: 10,
+    },
+    bookingHeaderText: { flex: 1, minWidth: 0 },
     bookingTitle: { fontSize: 20, fontWeight: "800", color: colors.text },
     bookingSubtitle: { fontSize: 12.5, color: colors.textLight, marginTop: 3 },
     bookingClose: {
@@ -2108,12 +2202,25 @@ function getStyles(colors: ThemeColors) {
     },
     bookingLabel: { fontSize: 12, fontWeight: "700", color: colors.text, marginBottom: 7, marginTop: 4 },
     bookingInput: {
-      borderWidth: 1, borderColor: colors.borderLight, backgroundColor: colors.background,
-      color: colors.text, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12,
-      fontSize: 14, marginBottom: 13,
+      width: "100%",
+      minWidth: 0,
+      alignSelf: "stretch",
+      minHeight: 48,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      backgroundColor: colors.background,
+      color: colors.text,
+      borderRadius: 13,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 14,
+      marginBottom: 13,
     },
-    bookingNote: { minHeight: 88 },
+    bookingNote: { minHeight: 96, maxHeight: 160 },
     bookingSubmit: {
+      width: "100%",
+      minWidth: 0,
+      alignSelf: "stretch",
       minHeight: 50, borderRadius: 15, backgroundColor: colors.primary,
       flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 5,
     },

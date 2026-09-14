@@ -9,6 +9,7 @@ require('dotenv').config()
 const { getPrisma } = require('../lib/prisma')
 const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
 const { sendMail } = require('../lib/email')
+const { compareIdentityFaces, sha256 } = require('../services/identityVerification.service')
 
 const ALLOWED_ROLES = ['BUYER', 'SELLER']
 
@@ -61,6 +62,8 @@ function toProfile(user) {
     city: user.city || '',
     street: user.street || '',
     nationalIdUrl: user.nationalIdUrl || '',
+    identityVerified: Boolean(user.identityVerified),
+    identityVerifiedAt: user.identityVerifiedAt || null,
     avatarUrl: user.avatarUrl || '',
     createdAt: user.createdAt,
   }
@@ -115,6 +118,42 @@ function uploadToCloudinary(buffer, options = {}) {
   })
 }
 
+
+const IDENTITY_TOKEN_TTL = '10m'
+function signIdentityVerification(payload) {
+  return jwt.sign({ type: 'IDENTITY_VERIFICATION', ...payload }, process.env.IDENTITY_VERIFICATION_SECRET || process.env.JWT_SECRET, { expiresIn: IDENTITY_TOKEN_TTL })
+}
+function verifyIdentityVerificationToken(token) {
+  const payload = jwt.verify(token, process.env.IDENTITY_VERIFICATION_SECRET || process.env.JWT_SECRET)
+  if (payload?.type !== 'IDENTITY_VERIFICATION') throw new Error('Invalid identity verification token.')
+  return payload
+}
+
+exports.verifyIdentity = async (req, res) => {
+  try {
+    const nationalId = req.files?.nationalId?.[0]
+    const verificationPhoto = req.files?.verificationPhoto?.[0]
+    if (!nationalId || !verificationPhoto) return res.status(400).json({ error: 'National ID and verification photo are both required.' })
+
+    const result = await compareIdentityFaces(nationalId, verificationPhoto)
+    if (!result.verified) {
+      return res.status(422).json({ error: 'Identity verification failed. Your face could not be confidently matched to the photo on the ID.', verified: false, similarity: result.similarity })
+    }
+
+    return res.json({
+      verified: true,
+      similarity: result.similarity,
+      verificationToken: signIdentityVerification({ nationalIdHash: result.nationalIdHash, verificationPhotoHash: result.verificationPhotoHash, similarity: result.similarity }),
+      expiresIn: 600,
+    })
+  } catch (err) {
+    console.error('Identity verification error:', err)
+    const msg = String(err?.message || '')
+    if (msg.includes('required') || msg.includes('must be') || msg.includes('No face') || msg.includes('clear enough')) return res.status(400).json({ error: msg })
+    return res.status(500).json({ error: 'Identity verification could not be completed. Please try again.' })
+  }
+}
+
 // ─── Register ─────────────────────────────────────────────────────────────────
 // The frontend must send role: 'BUYER'  from the House Seeker signup page
 //                          role: 'SELLER' from the House Owner signup page
@@ -137,8 +176,12 @@ exports.register = async (req, res) => {
       street,
     } = req.body
 
-    // ── Validate National ID file ──────────────────────────────────────────────
-    if (!req.file) {
+    // ── Validate National ID + server-issued identity proof ───────────────────
+    const nationalIdFile = req.files?.nationalId?.[0]
+    const verificationPhotoFile = req.files?.verificationPhoto?.[0]
+    const verificationToken = String(req.body.verificationToken || '')
+
+    if (!nationalIdFile) {
       return res.status(400).json({
         error: 'National ID card is required. Please upload a photo or PDF of your ID.',
       })
@@ -151,7 +194,7 @@ exports.register = async (req, res) => {
       'image/webp',
       'application/pdf',
     ]
-    if (!allowedMimeTypes.includes(req.file.mimetype)) {
+    if (!allowedMimeTypes.includes(nationalIdFile.mimetype)) {
       return res.status(400).json({
         error: 'Invalid file type. Only JPG, PNG, WEBP images and PDF documents are accepted.',
       })
@@ -159,10 +202,23 @@ exports.register = async (req, res) => {
 
     // 5 MB limit guard (belt-and-suspenders alongside multer limits)
     const MAX_BYTES = 5 * 1024 * 1024
-    if (req.file.size > MAX_BYTES) {
+    if (nationalIdFile.size > MAX_BYTES) {
       return res.status(400).json({
         error: 'National ID file is too large. Maximum allowed size is 5 MB.',
       })
+    }
+
+    if (!verificationPhotoFile || !verificationToken) {
+      return res.status(403).json({ error: 'Identity verification is required before an account can be created.' })
+    }
+    let identityProof
+    try {
+      identityProof = verifyIdentityVerificationToken(verificationToken)
+    } catch {
+      return res.status(403).json({ error: 'Your identity verification has expired or is invalid. Please verify again.' })
+    }
+    if (identityProof.nationalIdHash !== sha256(nationalIdFile.buffer) || identityProof.verificationPhotoHash !== sha256(verificationPhotoFile.buffer)) {
+      return res.status(403).json({ error: 'The submitted identity files do not match the verified files. Please verify again.' })
     }
 
     const normalizedEmail = normalizeEmail(email)
@@ -188,8 +244,8 @@ exports.register = async (req, res) => {
     }
 
     // ── Upload National ID to Cloudinary ──────────────────────────────────────
-    const isPdf = req.file.mimetype === 'application/pdf'
-    const uploadResult = await uploadToCloudinary(req.file.buffer, {
+    const isPdf = nationalIdFile.mimetype === 'application/pdf'
+    const uploadResult = await uploadToCloudinary(nationalIdFile.buffer, {
       folder: 'sweetcasa/national_ids',
       resource_type: isPdf ? 'raw' : 'image',
       // Keep originals; no destructive transforms on identity documents
@@ -215,6 +271,9 @@ exports.register = async (req, res) => {
         street: String(street || '').trim() || null,
         nationalIdUrl: uploadResult.secure_url,
         nationalIdPublicId: uploadResult.public_id,
+        identityVerified: true,
+        identityVerifiedAt: new Date(),
+        identityMatchScore: Number(identityProof.similarity || 0),
       },
     })
 

@@ -706,7 +706,7 @@ export default function NewListing() {
         <Text style={s.headerTitle}>{t('listing.newListing')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={s.scrollContent}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.scrollContent}>
 
         {/* 1. Basic Info */}
         <View style={s.section}>

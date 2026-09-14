@@ -22,6 +22,7 @@ import api from '../constants/api';
 import { routeForRole } from '../constants/auth';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
+import { useTranslation } from 'react-i18next';
 
 const H_PAD = 20;
 const WHITE = '#FFFFFF';
@@ -220,7 +221,7 @@ function NationalIdUpload({
         <View style={s.fieldLabelRow}>
           <RegLabel s={s}>NATIONAL ID</RegLabel>
           <View style={s.requiredBadge}>
-            <Text style={s.requiredBadgeTxt}>ON FILE</Text>
+            <Text style={s.requiredBadgeTxt}>{t('finishProfile.onFile')}</Text>
           </View>
         </View>
         <View style={s.idSelectedWrap}>
@@ -228,11 +229,11 @@ function NationalIdUpload({
             <Feather name="check-circle" size={22} color={colors.success} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={s.idSelectedName}>ID already on file</Text>
+            <Text style={s.idSelectedName}>{t('finishProfile.idOnFile')}</Text>
           </View>
           <TouchableOpacity onPress={showPicker} style={s.idChangeBtn}>
             <Feather name="refresh-cw" size={14} color={colors.primary} />
-            <Text style={s.idChangeBtnTxt}>Replace</Text>
+            <Text style={s.idChangeBtnTxt}>{t('finishProfile.replace')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -244,7 +245,7 @@ function NationalIdUpload({
       <View style={s.fieldLabelRow}>
         <RegLabel s={s}>NATIONAL ID</RegLabel>
         <View style={s.requiredBadge}>
-          <Text style={s.requiredBadgeTxt}>REQUIRED</Text>
+          <Text style={s.requiredBadgeTxt}>{t('finishProfile.required')}</Text>
         </View>
       </View>
 
@@ -266,7 +267,7 @@ function NationalIdUpload({
           </View>
           <TouchableOpacity onPress={showPicker} style={s.idChangeBtn}>
             <Feather name="refresh-cw" size={14} color={colors.primary} />
-            <Text style={s.idChangeBtnTxt}>Change</Text>
+            <Text style={s.idChangeBtnTxt}>{t('finishProfile.change')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -274,8 +275,8 @@ function NationalIdUpload({
           <View style={s.idUploadIconWrap}>
             <Feather name="upload" size={20} color={colors.primary} />
           </View>
-          <Text style={s.idUploadTitle}>Upload National ID</Text>
-          <Text style={s.idUploadSub}>JPG, PNG or PDF accepted</Text>
+          <Text style={s.idUploadTitle}>{t('finishProfile.uploadId')}</Text>
+          <Text style={s.idUploadSub}>{t('finishProfile.idFormats')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -284,6 +285,7 @@ function NationalIdUpload({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function FinishProfile() {
+  const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const s = useMemo(() => getStyles(colors), [colors]);
 
@@ -410,13 +412,13 @@ export default function FinishProfile() {
       <WebAlertHost />
 
       <View style={s.formHeader}>
-        <Text style={s.formHeaderTitle}>Finish Setting Up</Text>
+        <Text style={s.formHeaderTitle}>{t('finishProfile.title')}</Text>
         <Text style={s.formHeaderSub}>
-          {isSeller ? 'House Owners Portal' : 'House Seekers Portal'}
+          {isSeller ? t('finishProfile.ownerPortal') : t('finishProfile.seekerPortal')}
         </Text>
       </View>
 
-      <ScrollView
+      <ScrollView keyboardDismissMode="on-drag"
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.tabScroll}
@@ -425,8 +427,7 @@ export default function FinishProfile() {
         <View style={s.introCard}>
           <Feather name="info" size={14} color={colors.primary} style={{ marginTop: 1 }} />
           <Text style={s.introText}>
-            You signed in with Google — just a few more details before you can{' '}
-            {isSeller ? 'list a property' : 'message an owner'}.
+            {isSeller ? t('finishProfile.googleIntroOwner') : t('finishProfile.googleIntroSeeker')}
           </Text>
         </View>
 
@@ -465,7 +466,7 @@ export default function FinishProfile() {
                   onChangeText={setCompanyName}
                 />
               </View>
-              <Text style={s.fieldHint}>Use your registered business name or your own name if self-employed.</Text>
+              <Text style={s.fieldHint}>{t('finishProfile.businessHint')}</Text>
             </View>
           )}
 
@@ -569,7 +570,7 @@ export default function FinishProfile() {
           >
             {submitting ? <ActivityIndicator color={WHITE} /> : (
               <>
-                <Text style={s.nextBtnTxt}>Complete Profile</Text>
+                <Text style={s.nextBtnTxt}>{t('finishProfile.complete')}</Text>
                 <Feather name="arrow-right" size={15} color={WHITE} />
               </>
             )}

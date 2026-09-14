@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { BASE_URL } from "../constants/api";
+import { useTranslation } from 'react-i18next';
 
 type Message = { id: string; text: string; fromMe: boolean; seen: boolean; time: string };
 type Conversation = {
@@ -26,6 +27,7 @@ type Conversation = {
 };
 
 export default function MessagesScreen() {
+  const { t } = useTranslation();
   const { conversationId } = useLocalSearchParams<{ conversationId?: string }>();
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,7 +99,7 @@ export default function MessagesScreen() {
       <SafeAreaView style={s.center}>
         <Text style={s.error}>{error || "Conversation not found."}</Text>
         <TouchableOpacity style={s.retry} onPress={() => { setLoading(true); loadConversation(); }}>
-          <Text style={s.retryText}>Retry</Text>
+          <Text style={s.retryText}>{t('chat.retry')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -133,7 +135,7 @@ export default function MessagesScreen() {
             style={s.input}
             value={text}
             onChangeText={setText}
-            placeholder="Type a message..."
+            placeholder={t('chat.typeMessage')}
             placeholderTextColor="#9CA3AF"
             multiline
             maxLength={3000}

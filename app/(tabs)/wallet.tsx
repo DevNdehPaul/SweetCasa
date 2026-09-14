@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { BASE_URL } from '../../constants/api';
 import { ThemeColors } from '../../constants/theme';
@@ -242,8 +243,10 @@ function DepositModal({
   const modalStyles = useMemo(() => getModalStyles(colors), [colors]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ListingOption[]>([]);
+  const [likedProperties, setLikedProperties] = useState<ListingOption[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [selected, setSelected] = useState<ListingOption | null>(null);
-   const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState('');
   const feePreview = useMemo(() => {
     const amt = Number.parseInt(amount.replace(/[^0-9]/g, ''), 10);
     if (!Number.isFinite(amt) || amt < 100) return null;
@@ -261,23 +264,66 @@ function DepositModal({
   // once one of the two race paths in waitForOutcome resolves.
   const socketCleanupRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    if (!visible) {
-      setQuery(''); setResults([]); setSelected(null); setAmount('');
-      setPhone(''); setMedium('mobile money'); setError(null); setWaitingForApproval(false);
-    }
-  }, [visible]);
+  const normalizeLikedListings = (data: any): ListingOption[] => {
+    const raw = data?.listings ?? data?.favourites ?? data?.favorites ?? data?.data ?? [];
+    if (!Array.isArray(raw)) return [];
 
-  const handleSearch = async (text: string) => {
-    setQuery(text);
-    if (text.trim().length < 2) { setResults([]); return; }
+    const normalized = raw
+      .map((entry: any) => entry?.listing ?? entry?.property ?? entry)
+      .filter((item: any) => item?.id && item?.title)
+      .map((item: any) => ({
+        id: Number(item.id),
+        title: String(item.title),
+        price: String(item.price ?? item.amount ?? '0'),
+        city: String(item.city ?? item.location?.city ?? ''),
+      }));
+
+    return Array.from(new Map(normalized.map((item: ListingOption) => [item.id, item])).values());
+  };
+
+  const loadLikedProperties = useCallback(async () => {
+    setSuggestionsLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/listings?search=${encodeURIComponent(text.trim())}&limit=10`);
-      const data = await res.json();
-      if (res.ok) setResults(data.listings || []);
+      const data = await authedFetch('/favourites');
+      const liked = normalizeLikedListings(data);
+      setLikedProperties(liked);
+      setResults(liked);
     } catch {
-      // search is a convenience — fail silently
+      setLikedProperties([]);
+      setResults([]);
+    } finally {
+      setSuggestionsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (visible) {
+      void loadLikedProperties();
+      return;
+    }
+    setQuery('');
+    setResults([]);
+    setLikedProperties([]);
+    setSelected(null);
+    setAmount('');
+    setPhone('');
+    setMedium('mobile money');
+    setError(null);
+    setWaitingForApproval(false);
+  }, [visible, loadLikedProperties]);
+
+  const handleSearch = (text: string) => {
+    setQuery(text);
+    const needle = text.trim().toLowerCase();
+    if (!needle) {
+      setResults(likedProperties);
+      return;
+    }
+    setResults(
+      likedProperties.filter((item) =>
+        `${item.title} ${item.city}`.toLowerCase().includes(needle),
+      ),
+    );
   };
 
   // Waits for a terminal deposit status two ways at once:
@@ -415,31 +461,74 @@ function DepositModal({
               {!selected ? (
                 <>
                   <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
+                  <Text style={modalStyles.hint}>
+                    {t('escrow.likedPropertyHint', {
+                      defaultValue: 'Choose from properties you have liked. Like a property first and it will appear here as a suggestion.',
+                    })}
+                  </Text>
                   <TextInput
                     style={modalStyles.input}
-                    placeholder={t('escrow.searchProperties')}
+                    placeholder={t('escrow.searchLikedProperties', { defaultValue: 'Search your liked properties…' })}
                     placeholderTextColor={colors.textLight}
                     value={query}
                     onChangeText={handleSearch}
                   />
-                  <ScrollView style={{ maxHeight: 200 }}>
-                    {results.map((r) => (
-                      <TouchableOpacity key={r.id} style={modalStyles.resultRow} onPress={() => setSelected(r)}>
-                        <Text style={modalStyles.resultTitle} numberOfLines={1}>{r.title}</Text>
-                        <Text style={modalStyles.resultMeta}>{r.city} · {formatXAF(r.price)}</Text>
-                      </TouchableOpacity>
-                    ))}
-                    {query.length >= 2 && results.length === 0 && (
-                      <Text style={modalStyles.hint}>{t('common.noResults')}</Text>
+                  <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled">
+                    {suggestionsLoading ? (
+                      <View style={{ paddingVertical: 20, alignItems: 'center', gap: 8 }}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                        <Text style={modalStyles.hint}>
+                          {t('escrow.loadingLikedProperties', { defaultValue: 'Loading your liked properties…' })}
+                        </Text>
+                      </View>
+                    ) : results.length > 0 ? (
+                      results.map((r) => (
+                        <TouchableOpacity
+                          key={r.id}
+                          style={modalStyles.resultRow}
+                          onPress={() => setSelected(r)}
+                        >
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={modalStyles.resultTitle} numberOfLines={1}>{r.title}</Text>
+                            <Text style={modalStyles.resultMeta} numberOfLines={1}>
+                              {[r.city, formatXAF(r.price)].filter(Boolean).join(' · ')}
+                            </Text>
+                          </View>
+                          <Feather name="chevron-right" size={17} color={colors.primary} />
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <View style={{ paddingVertical: 16, gap: 10 }}>
+                        <Text style={[modalStyles.hint, { textAlign: 'center' }]}>
+                          {query.trim()
+                            ? t('escrow.noLikedPropertyMatch', { defaultValue: 'None of your liked properties match this search.' })
+                            : t('escrow.noLikedProperties', { defaultValue: 'You have not liked any properties yet. Tap the heart on a property first, then it will appear here.' })}
+                        </Text>
+                        <TouchableOpacity
+                          style={modalStyles.confirmBtn}
+                          onPress={() => {
+                            onClose();
+                            router.push('/search' as any);
+                          }}
+                        >
+                          <Feather name="heart" size={16} color="#fff" />
+                          <Text style={modalStyles.confirmTxt}>
+                            {t('escrow.browsePropertiesToLike', { defaultValue: 'Browse properties to like' })}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     )}
                   </ScrollView>
-                </>
-              ) : (
+                </>              ) : (
                 <>
                   <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
                   <View style={modalStyles.selectedRow}>
                     <Text style={modalStyles.selectedTxt} numberOfLines={1}>{selected.title}</Text>
-                    <TouchableOpacity onPress={() => setSelected(null)}>
+                    <TouchableOpacity onPress={() => {
+                      setSelected(null);
+                      setQuery('');
+                      setResults(likedProperties);
+                    }}>
                       <Text style={modalStyles.changeTxt}>{t('common.edit')}</Text>
                     </TouchableOpacity>
                   </View>
@@ -665,7 +754,7 @@ function HowItWorksModal({ visible, onClose }: { visible: boolean; onClose: () =
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {HOW_IT_WORKS_STEPS.map((step, index) => (
             <View key={step.step} style={styles.stepCard}>
               {index < HOW_IT_WORKS_STEPS.length - 1 && (
@@ -801,7 +890,7 @@ function OwnerGuideModal({ visible, onClose }: { visible: boolean; onClose: () =
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Text style={styles.guideSectionTitle}>{g('overviewTitle')}</Text>
           <Text style={styles.guideBody}>{g('overviewBody')}</Text>
 
@@ -926,7 +1015,7 @@ function AllActivityModal({
           <Text style={{ color: colors.textLight, fontSize: 13, paddingBottom: 24 }}>{t('escrow.noActivity')}</Text>
         ) : (
           <>
-            <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }}>
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }}>
               <View style={styles.activityList}>
                 {pageItems.map((item, index) => (
                   <View key={item.id}>
@@ -1068,16 +1157,8 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
   const totalBalance = wallet ? Number(wallet.heldBalance) + Number(wallet.availableBalance) : 0;
   const recentActivity = transactions.slice(0, 4);
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={{ color: colors.textLight, fontSize: 13 }}>{t('escrow.loadingWallet')}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // Render immediately. Wallet values update in place when /wallet/me finishes.
+
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -1093,7 +1174,7 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
         </View>
       </View>
 
-      <ScrollView
+      <ScrollView keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}>
@@ -1143,15 +1224,17 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
         </View>
 
         <View style={styles.primaryActions}>
+          {!isOwner && (
+            <TouchableOpacity
+              style={[styles.primaryActionBtn, styles.depositBtn]}
+              activeOpacity={0.85}
+              onPress={() => setDepositVisible(true)}>
+              <Feather name="arrow-up-circle" size={18} color={colors.primary} />
+              <Text style={[styles.primaryActionTxt, styles.primaryActionTxtDeposit]}>{t('escrow.deposit')}</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
-            style={[styles.primaryActionBtn, styles.depositBtn]}
-            activeOpacity={0.85}
-            onPress={() => setDepositVisible(true)}>
-            <Feather name="arrow-up-circle" size={18} color={colors.primary} />
-            <Text style={[styles.primaryActionTxt, styles.primaryActionTxtDeposit]}>{t('escrow.deposit')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.primaryActionBtn, styles.withdrawBtn]}
+            style={[styles.primaryActionBtn, styles.withdrawBtn, isOwner && { flex: 1 }]}
             activeOpacity={0.85}
             onPress={() => setWithdrawVisible(true)}>
             <Feather name="arrow-down-circle" size={18} color="#fff" />
@@ -1224,7 +1307,9 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
       ) : (
         <HowItWorksModal visible={infoVisible} onClose={() => setInfoVisible(false)} />
       )}
-      <DepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} onDeposited={load} />
+      {!isOwner && (
+        <DepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} onDeposited={load} />
+      )}
       <WithdrawModal
         visible={withdrawVisible}
         availableBalance={wallet?.availableBalance || '0'}

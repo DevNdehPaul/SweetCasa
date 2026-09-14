@@ -262,31 +262,79 @@ export default function SearchResultsScreen() {
 
   const fetchOtherOptions = async (strictListings: Listing[]) => {
     setOtherOptionsLoading(true);
+
     try {
       const p = paramsRef.current;
-      const query = new URLSearchParams();
-      if (p.region) query.set("region", p.region);
-      if (p.city) query.set("city", p.city);
-      if (p.maxBudget) {
-        const relaxedBudget = Math.max(
-          30_000,
-          Math.round(Number(p.maxBudget) * 1.25),
-        );
-        query.set("maxBudget", String(relaxedBudget));
-      }
-      query.set("state", "Available");
-      query.set("page", "1");
-      query.set("limit", "8");
-
-      const res = await fetch(`${BASE_URL}/listings?${query.toString()}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t("errors.serverError"));
-
       const strictIds = new Set(strictListings.map((item) => item.id));
-      const relaxed = (data.listings as Listing[]).filter(
-        (item) => item.status !== "Unavailable" && !strictIds.has(item.id),
-      );
-      setOtherOptions(relaxed);
+
+      // Try alternatives from closest to broadest. We intentionally relax
+      // neighbourhood, facilities, property type and eventually location so a
+      // zero-result search does not become a dead end.
+      const attempts: Array<{
+        region?: string;
+        city?: string;
+        maxBudget?: string;
+      }> = [];
+
+      const relaxedBudget = p.maxBudget
+        ? String(
+            Math.max(
+              30_000,
+              Math.round(Number(p.maxBudget) * 1.25),
+            ),
+          )
+        : undefined;
+
+      // 1. Same city/region, with a little more budget room.
+      if (p.region || p.city) {
+        attempts.push({
+          region: p.region,
+          city: p.city,
+          maxBudget: relaxedBudget,
+        });
+      }
+
+      // 2. Same region, any city.
+      if (p.region) {
+        attempts.push({
+          region: p.region,
+          maxBudget: relaxedBudget,
+        });
+      }
+
+      // 3. Anywhere in Cameroon, still close to the user's budget.
+      attempts.push({ maxBudget: relaxedBudget });
+
+      // 4. Final safety net: any currently available listing.
+      attempts.push({});
+
+      for (const attempt of attempts) {
+        const query = new URLSearchParams();
+        if (attempt.region) query.set("region", attempt.region);
+        if (attempt.city) query.set("city", attempt.city);
+        if (attempt.maxBudget) query.set("maxBudget", attempt.maxBudget);
+
+        query.set("state", "Available");
+        query.set("page", "1");
+        query.set("limit", "8");
+
+        const res = await fetch(`${BASE_URL}/listings?${query.toString()}`);
+        const data = await res.json();
+        if (!res.ok) continue;
+
+        const relaxed = ((data.listings ?? []) as Listing[]).filter(
+          (item) =>
+            item.status !== "Unavailable" &&
+            !strictIds.has(item.id),
+        );
+
+        if (relaxed.length > 0) {
+          setOtherOptions(relaxed.slice(0, 8));
+          return;
+        }
+      }
+
+      setOtherOptions([]);
     } catch {
       setOtherOptions([]);
     } finally {
@@ -416,14 +464,33 @@ export default function SearchResultsScreen() {
           <Text style={styles.emptyDesc}>
             {t("searchResults.noPropertiesDesc")}
           </Text>
-          <TouchableOpacity
-            style={styles.adjustBtn}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.adjustTxt}>
-              {t("searchResults.adjustFilters")}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.emptyActions}>
+            <TouchableOpacity
+              style={styles.adjustBtn}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.adjustTxt}>
+                {t("searchResults.adjustFilters")}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.browseBtn}
+              onPress={() =>
+                router.push({
+                  pathname: "/searchresults",
+                  params: { state: "Available" },
+                })
+              }
+            >
+              <Feather name="home" size={16} color={colors.primary} />
+              <Text style={styles.browseTxt}>
+                {t("searchResults.browseAllListings", {
+                  defaultValue: "Browse all listings",
+                })}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : noExactMatches && otherOptionsLoading ? (
         <View style={styles.centered}>
@@ -686,6 +753,25 @@ function getStyles(colors: ThemeColors) {
       borderRadius: 14,
     },
     adjustTxt: { color: "#fff", fontWeight: "700", fontSize: 14 },
+    emptyActions: {
+      width: "100%",
+      maxWidth: 320,
+      gap: 10,
+      alignItems: "stretch",
+    },
+    browseBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      paddingHorizontal: 22,
+      paddingVertical: 13,
+      borderRadius: 14,
+      backgroundColor: colors.card,
+    },
+    browseTxt: { color: colors.primary, fontWeight: "700", fontSize: 14 },
 
     seeMoreBtn: {
       flexDirection: "row",

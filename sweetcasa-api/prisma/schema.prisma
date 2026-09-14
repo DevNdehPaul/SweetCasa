@@ -30,6 +30,9 @@ model User {
   street              String?
   nationalIdUrl       String?            @map("national_id_url")
   nationalIdPublicId  String?            @map("national_id_public_id") @db.VarChar(255)
+  identityVerified    Boolean            @default(false) @map("identity_verified")
+  identityVerifiedAt  DateTime?          @map("identity_verified_at")
+  identityMatchScore  Float?             @map("identity_match_score")
   avatarUrl           String?            @map("avatar_url")
   avatarPublicId      String?            @map("avatar_public_id") @db.VarChar(255)
   passwordResetToken  String?            @map("password_reset_token")

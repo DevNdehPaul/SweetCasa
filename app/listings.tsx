@@ -565,7 +565,7 @@ function EditModal({
             </View>
           )}
 
-          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+          <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
 
             {/* 1 · Basic Info */}
             <SectionLabel title={t('myListings.section1')} />
@@ -965,7 +965,7 @@ export default function MyListings() {
           </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView
+        <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -984,7 +984,7 @@ export default function MyListings() {
           </View>
 
           {/* Filter tabs */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+          <ScrollView keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
             {FILTERS.map((f) => (
               <TouchableOpacity
                 key={f}
