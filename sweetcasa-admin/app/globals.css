@@ -2,36 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light;
-}
+:root { color-scheme: light; }
+
+html, body { height: 100%; }
 
 body {
-  background-color: #F7F6F3;
-  color: #14181C;
+  margin: 0;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(109, 59, 231, 0.08), transparent 26rem),
+    #F8F7FC;
+  color: #201A2B;
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #C6C1B4 transparent;
-}
+* { box-sizing: border-box; }
 
-/* visible keyboard focus everywhere */
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid #16324F;
+/* Scrollable without exposing browser scrollbars. */
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hidden::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+::selection { background: rgba(109, 59, 231, 0.18); }
+
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid #6D3BE7;
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

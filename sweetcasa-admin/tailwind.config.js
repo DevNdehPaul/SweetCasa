@@ -4,21 +4,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        paper: '#F7F6F3',
-        ink: '#14181C',
+        paper: '#F8F7FC',
+        ink: '#201A2B',
         navy: {
-          DEFAULT: '#16324F',
-          light: '#22456D',
-          dark: '#0E2036',
+          DEFAULT: '#6D3BE7',
+          light: '#8055EA',
+          dark: '#4D24B8',
         },
         gold: {
-          DEFAULT: '#C98A2C',
-          light: '#E4A84F',
+          DEFAULT: '#A78BFA',
+          light: '#C4B5FD',
         },
         success: '#2F7A4D',
         danger: '#B3432B',
         pending: '#8A6D1F',
-        line: '#E4E1D8',
+        line: '#E9E4F2',
       },
       fontFamily: {
         display: ['var(--font-fraunces)', 'Georgia', 'serif'],
@@ -26,7 +26,7 @@ module.exports = {
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
-        card: '10px',
+        card: '16px',
       },
     },
   },
