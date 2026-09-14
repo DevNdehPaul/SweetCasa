@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, FormEvent } from 'react'
 import { UserPlus, Mail, XCircle } from 'lucide-react'
 import api, { apiErrorMessage } from '@/lib/api'
+import { readCache, writeCache } from '@/lib/fast-cache'
 import { useAuth } from '@/lib/auth'
 import type { StaffInvite } from '@/lib/types'
 import { PageHeader, CenteredSpinner, EmptyState, ErrorBanner, useConfirm } from '@/components/ui'
@@ -12,7 +13,7 @@ export default function InvitesPage() {
   const { isAdmin, loading: authLoading } = useAuth()
   const { confirm, dialog } = useConfirm()
 
-  const [invites, setInvites] = useState<StaffInvite[] | null>(null)
+  const [invites, setInvites] = useState<StaffInvite[] | null>(() => readCache<StaffInvite[]>('invites'))
   const [error, setError] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [sending, setSending] = useState(false)
@@ -20,11 +21,12 @@ export default function InvitesPage() {
   const [sendSuccess, setSendSuccess] = useState<string | null>(null)
 
   const load = useCallback(() => {
-    setInvites(null)
+    const cached = readCache<StaffInvite[]>('invites')
+    if (cached) setInvites(cached)
     setError(null)
     api
       .get('/admin/invites')
-      .then((res) => setInvites(res.data.invites))
+      .then((res) => { setInvites(res.data.invites); writeCache('invites', res.data.invites) })
       .catch((err) => setError(apiErrorMessage(err, 'Could not load invites.')))
   }, [])
 
@@ -82,7 +84,7 @@ export default function InvitesPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="colleague@sweetcasa.com"
-              className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none focus:border-navy"
+              className="w-full rounded-xl border border-line/80 bg-white px-3 py-2 text-sm outline-none focus:border-navy"
             />
           </label>
         </div>
@@ -109,11 +111,11 @@ export default function InvitesPage() {
       )}
 
       {invites && invites.length > 0 && (
-        <div className="overflow-hidden rounded-card border border-line bg-white">
+        <div className="overflow-hidden rounded-[22px] border border-line/80 bg-white shadow-[0_10px_32px_rgba(56,31,96,0.055)]">
           <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink/45">
+              <tr className="border-b border-line/80 bg-[#FAF8FD] text-left text-[11px] uppercase tracking-[0.09em] text-ink/40">
                 <th className="px-5 py-3 font-medium">Email</th>
                 <th className="px-5 py-3 font-medium">Status</th>
                 <th className="px-5 py-3 font-medium">Sent</th>

@@ -4,6 +4,7 @@ import StatusBadge from '@/components/StatusBadge'
 import SuspendModal from '@/components/SuspendModal'
 import { CenteredSpinner, EmptyState, ErrorBanner, useConfirm } from '@/components/ui'
 import api, { apiErrorMessage } from '@/lib/api'
+import { readCache, writeCache } from '@/lib/fast-cache'
 import { useAuth } from '@/lib/auth'
 import type { AdminUser } from '@/lib/types'
 import { ArrowLeft, BadgeAlert, BadgeCheck, Building2, MapPin, ShieldCheck, ShieldOff } from 'lucide-react'
@@ -17,7 +18,7 @@ export default function UserDetailPage() {
   const { isAdmin } = useAuth()
   const { confirm, dialog } = useConfirm()
 
-  const [user, setUser] = useState<AdminUser | null>(null)
+  const [user, setUser] = useState<AdminUser | null>(() => readCache<AdminUser>(`user:${id}`))
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -26,7 +27,7 @@ export default function UserDetailPage() {
   const load = useCallback(() => {
     api
       .get(`/admin/users/${id}`)
-      .then((res) => setUser(res.data.user))
+      .then((res) => { setUser(res.data.user); writeCache(`user:${id}`, res.data.user) })
       .catch((err) => setError(apiErrorMessage(err, 'Could not load this user.')))
   }, [id])
 
@@ -136,7 +137,7 @@ export default function UserDetailPage() {
                 <Link
                   key={listing.id}
                   href={`/listings/${listing.id}`}
-                  className="flex items-center justify-between rounded-lg border border-line bg-white px-4 py-3 hover:bg-paper/60"
+                  className="flex items-center justify-between rounded-xl border border-line/80 bg-white px-4 py-3 transition hover:border-navy/20 hover:bg-[#F8F5FF] hover:shadow-[0_10px_25px_rgba(76,39,135,0.07)]"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-line/40 text-ink/40">
@@ -158,7 +159,7 @@ export default function UserDetailPage() {
 
         <div>
           <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-ink/45">Profile</h2>
-          <div className="space-y-3 rounded-card border border-line bg-white p-4 text-sm">
+          <div className="space-y-3 rounded-[22px] border border-line/80 bg-white shadow-[0_10px_32px_rgba(56,31,96,0.055)] p-4 text-sm">
             <Row label="Location" value={[user.city, user.region, user.country].filter(Boolean).join(', ') || '—'} />
             <Row label="Listings submitted" value={String(user.listingCount)} />
             <Row label="Joined" value={user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'} />

@@ -30,17 +30,17 @@ function LoginPageInner() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-navy px-4">
-      <div className="w-full max-w-sm">
+    <div className="flex min-h-screen items-center justify-center bg-[#4C1D95] px-4">
+      <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-gold/15">
             <ShieldCheck className="text-gold" size={22} strokeWidth={2} />
           </div>
-          <div className="font-display text-3xl text-white">SweetCasa</div>
+          <div className="font-display font-extrabold tracking-[-0.035em] text-3xl text-white">SweetCasa</div>
           <div className="mt-1 text-xs uppercase tracking-[0.16em] text-gold">Trust Desk</div>
         </div>
 
-        <form onSubmit={handleSubmit} className="rounded-card bg-white p-6 shadow-xl">
+        <form onSubmit={handleSubmit} className="rounded-[28px] bg-white p-6 shadow-xl">
           <h1 className="mb-1 font-display text-xl text-ink">Admin sign in</h1>
           <p className="mb-5 text-sm text-ink/55">Verify listings, documents, and reports.</p>
 

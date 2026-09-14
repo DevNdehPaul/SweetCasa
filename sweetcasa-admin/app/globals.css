@@ -34,3 +34,15 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Premium admin surfaces */
+body { font-feature-settings: "ss01" 1, "cv02" 1, "cv03" 1; letter-spacing: -0.005em; }
+main table { border-collapse: separate; border-spacing: 0; }
+main tbody tr { transition: background-color .16s ease, box-shadow .16s ease; }
+main th { white-space: nowrap; }
+main td { vertical-align: middle; }
+main input, main select, main textarea { font: inherit; }
+main button { -webkit-tap-highlight-color: transparent; }
+main .overflow-x-auto { -ms-overflow-style: none; scrollbar-width: none; }
+main .overflow-x-auto::-webkit-scrollbar { display: none; width: 0; height: 0; }

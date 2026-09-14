@@ -6,15 +6,16 @@ import { Building2, FileCheck2, Flag, Users, ArrowUpRight, ShieldCheck, Sparkles
 import api, { apiErrorMessage } from '@/lib/api'
 import type { Stats } from '@/lib/types'
 import { PageHeader, CenteredSpinner, ErrorBanner } from '@/components/ui'
+import { readCache, writeCache } from '@/lib/fast-cache'
 
 export default function OverviewPage() {
-  const [stats, setStats] = useState<Stats | null>(null)
+  const [stats, setStats] = useState<Stats | null>(() => readCache<Stats>('stats'))
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     api
       .get('/admin/stats')
-      .then((res) => setStats(res.data))
+      .then((res) => { setStats(res.data); writeCache('stats', res.data) })
       .catch((err) => setError(apiErrorMessage(err, 'Could not load dashboard stats.')))
   }, [])
 

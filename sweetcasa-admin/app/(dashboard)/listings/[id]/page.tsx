@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, FileText, Check, X, MapPin, BedDouble, Bath } from 'lucide-react'
 import api, { apiErrorMessage } from '@/lib/api'
+import { readCache, writeCache } from '@/lib/fast-cache'
 import type { Listing } from '@/lib/types'
 import { CenteredSpinner, ErrorBanner, useConfirm } from '@/components/ui'
 import StatusBadge from '@/components/StatusBadge'
@@ -14,7 +15,7 @@ export default function ListingDetailPage() {
   const router = useRouter()
   const { confirm, dialog } = useConfirm()
 
-  const [listing, setListing] = useState<Listing | null>(null)
+  const [listing, setListing] = useState<Listing | null>(() => readCache<Listing>(`listing:${id}`))
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -24,7 +25,7 @@ export default function ListingDetailPage() {
   const load = useCallback(() => {
     api
       .get(`/listings/admin/${id}`)
-      .then((res) => setListing(res.data.listing))
+      .then((res) => { setListing(res.data.listing); writeCache(`listing:${id}`, res.data.listing) })
       .catch((err) => setError(apiErrorMessage(err, 'Could not load this listing.')))
   }, [id])
 

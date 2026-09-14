@@ -39,7 +39,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-paper">
       <Sidebar open={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
-      <div className="flex h-screen min-w-0 flex-1 flex-col md:ml-64">
+      <div className="flex h-screen min-w-0 flex-1 flex-col md:ml-[272px]">
         {/* Mobile-only top bar */}
         <header className="z-30 flex shrink-0 items-center justify-between border-b border-line bg-white/90 px-4 py-3.5 shadow-sm backdrop-blur md:hidden">
           <button
@@ -53,7 +53,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="w-8" />
         </header>
 
-        <main className="scrollbar-hidden min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6 md:px-8 md:py-8 lg:px-10 lg:py-10">
+        <main className="scrollbar-hidden min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6 md:px-8 md:py-8 lg:px-10 lg:py-9 xl:px-12">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
       </div>

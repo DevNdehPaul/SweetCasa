@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { ScrollText, Building2, FileCheck2, Flag, Users, UserPlus } from 'lucide-react'
 import api, { apiErrorMessage } from '@/lib/api'
+import { readCache, writeCache } from '@/lib/fast-cache'
 import type { AuditLogEntry } from '@/lib/types'
 import { PageHeader, CenteredSpinner, EmptyState, ErrorBanner } from '@/components/ui'
 
@@ -47,11 +48,13 @@ export default function AuditLogsPage() {
   const [entityType, setEntityType] = useState('')
 
   const load = useCallback((type: string) => {
-    setLogs(null)
+    const cacheKey = `audit:${type || 'All'}`
+    const cached = readCache<AuditLogEntry[]>(cacheKey)
+    setLogs(cached)
     setError(null)
     api
       .get('/admin/audit-logs', { params: type ? { entityType: type } : {} })
-      .then((res) => setLogs(res.data.logs))
+      .then((res) => { setLogs(res.data.logs); writeCache(cacheKey, res.data.logs) })
       .catch((err) => setError(apiErrorMessage(err, 'Could not load the audit log.')))
   }, [])
 
@@ -96,7 +99,7 @@ export default function AuditLogsPage() {
                 : null
 
             return (
-              <div key={entry.id} className="flex items-start gap-3 rounded-card border border-line bg-white px-5 py-3.5">
+              <div key={entry.id} className="flex items-start gap-3 rounded-[22px] border border-line/80 bg-white shadow-[0_10px_32px_rgba(56,31,96,0.055)] px-5 py-3.5">
                 <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-navy/10 text-navy">
                   <Icon size={15} />
                 </div>

@@ -4,10 +4,10 @@ import StatusBadge from '@/components/StatusBadge'
 import SuspendModal from '@/components/SuspendModal'
 import { CenteredSpinner, EmptyState, ErrorBanner, PageHeader, useConfirm } from '@/components/ui'
 import api, { apiErrorMessage } from '@/lib/api'
+import { readCache, writeCache } from '@/lib/fast-cache'
 import { useAuth } from '@/lib/auth'
 import type { AdminUser, UserRole } from '@/lib/types'
 import { BadgeAlert, BadgeCheck, Search, ShieldCheck, ShieldOff } from 'lucide-react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 
@@ -33,19 +33,21 @@ function UsersPageInner() {
   const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null)
 
   const load = useCallback((r: string, q: string) => {
-    setUsers(null)
+    const cacheKey = `users:${r}:${q.trim().toLowerCase()}`
+    const cached = readCache<AdminUser[]>(cacheKey, 2 * 60_000)
+    setUsers(cached)
     setError(null)
     const query: Record<string, string> = {}
     if (r !== 'All') query.role = r
     if (q.trim()) query.search = q.trim()
     api
       .get('/admin/users', { params: query })
-      .then((res) => setUsers(res.data.users))
+      .then((res) => { setUsers(res.data.users); writeCache(cacheKey, res.data.users) })
       .catch((err) => setError(apiErrorMessage(err, 'Could not load users.')))
   }, [])
 
   useEffect(() => {
-    const timeout = setTimeout(() => load(role, search), 250)
+    const timeout = setTimeout(() => load(role, search), 120)
     return () => clearTimeout(timeout)
   }, [role, search, load])
 
@@ -105,7 +107,7 @@ function UsersPageInner() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name or email…"
-            className="w-full rounded-lg border border-line bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-navy sm:w-64"
+            className="w-full rounded-xl border border-line bg-white py-2.5 pl-9 pr-3 text-sm shadow-sm outline-none transition focus:border-navy/50 focus:ring-4 focus:ring-navy/5 sm:w-72"
           />
         </div>
       </div>
@@ -116,11 +118,11 @@ function UsersPageInner() {
       {users && users.length === 0 && <EmptyState title="No users found" description="Try a different search or filter." />}
 
       {users && users.length > 0 && (
-        <div className="overflow-hidden rounded-card border border-line bg-white">
+        <div className="overflow-hidden rounded-[22px] border border-line/80 bg-white shadow-[0_12px_35px_rgba(56,31,96,0.06)]">
           <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-sm">
             <thead>
-              <tr className="border-b border-line bg-paper text-left text-xs uppercase tracking-wide text-ink/45">
+              <tr className="border-b border-line/80 bg-[#FAF8FD] text-left text-[11px] uppercase tracking-[0.09em] text-ink/40">
                 <th className="px-5 py-3 font-medium">ID</th>
                 <th className="px-5 py-3 font-medium">Name</th>
                 <th className="px-5 py-3 font-medium">Email</th>
@@ -137,12 +139,9 @@ function UsersPageInner() {
               {users.map((u) => {
                 const suspendable = u.role !== 'ADMIN'
                 return (
-                  <tr key={u.id} className="border-b border-line last:border-0">
-                    <td className="px-5 py-3">
-                      <Link href={`/users/${u.id}`} className="font-mono text-xs text-navy hover:underline">
-                        #{u.id}
-                      </Link>
-                    </td>
+                  <tr key={u.id} onClick={() => router.push(`/users/${u.id}`)}
+                  onMouseEnter={() => { router.prefetch(`/users/${u.id}`); if (!readCache<AdminUser>(`user:${u.id}`)) api.get(`/admin/users/${u.id}`).then((r) => writeCache(`user:${u.id}`, r.data.user)).catch(() => {}) }} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(`/users/${u.id}`) }} className="group cursor-pointer border-b border-line/70 transition-colors last:border-0 hover:bg-[#F7F3FF] focus:bg-[#F7F3FF] focus:outline-none">
+                    <td className="px-5 py-4"><span className="font-mono text-xs font-medium text-navy">#{u.id}</span></td>
                     <td className="px-5 py-3 font-medium text-ink">{u.companyName || u.name || '—'}</td>
                     <td className="px-5 py-3 text-ink/65">{u.email}</td>
                     <td className="px-5 py-3">
@@ -172,7 +171,8 @@ function UsersPageInner() {
                         ) : u.status === 'Suspended' ? (
                           <button
                             disabled={busyId === u.id}
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation()
                               confirm({
                                 title: 'Reactivate this account?',
                                 description: `${labelFor(u)} will immediately be able to log in again.`,
@@ -180,7 +180,7 @@ function UsersPageInner() {
                                 tone: 'success',
                                 onConfirm: () => reactivate(u),
                               })
-                            }
+                            }}
                             className="flex items-center gap-1.5 rounded-lg border border-success/30 px-3 py-1.5 text-xs font-medium text-success hover:bg-success/10 disabled:opacity-50"
                           >
                             <ShieldCheck size={13} /> Reactivate
@@ -188,7 +188,7 @@ function UsersPageInner() {
                         ) : (
                           <button
                             disabled={busyId === u.id}
-                            onClick={() => setSuspendTarget(u)}
+                            onClick={(e) => { e.stopPropagation(); setSuspendTarget(u) }}
                             className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/10 disabled:opacity-50"
                           >
                             <ShieldOff size={13} /> Suspend

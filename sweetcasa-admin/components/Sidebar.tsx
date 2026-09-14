@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import { LayoutGrid, Building2, FileCheck2, Flag, Users, UserPlus, ScrollText, LogOut, X } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 
@@ -17,8 +18,15 @@ const NAV = [
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { admin, isAdmin, logout } = useAuth()
   const items = NAV.filter((item) => !item.adminOnly || isAdmin)
+
+  // Warm every dashboard route as soon as the shell is ready. This makes
+  // sidebar navigation feel immediate instead of waiting for the next page chunk.
+  useEffect(() => {
+    items.forEach((item) => router.prefetch(item.href))
+  }, [router, isAdmin])
 
   return (
     <>
@@ -32,7 +40,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 shrink-0 flex-col border-r border-white/10 bg-gradient-to-b from-navy-dark via-[#582BC7] to-[#3F1B93] text-white/90 shadow-[18px_0_45px_rgba(64,32,125,0.10)] transition-transform duration-200 ease-out md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[272px] shrink-0 flex-col border-r border-white/10 bg-gradient-to-b from-[#24113F] via-[#3B1768] to-[#5520A1] text-white/90 shadow-[18px_0_45px_rgba(64,32,125,0.10)] transition-transform duration-200 ease-out md:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -56,9 +64,12 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
               <Link
                 key={href}
                 href={href}
+                prefetch={true}
+                onMouseEnter={() => router.prefetch(href)}
+                onFocus={() => router.prefetch(href)}
                 onClick={onClose}
-                className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition-all ${
-                  active ? 'bg-white text-navy shadow-[0_8px_24px_rgba(29,12,70,0.16)]' : 'text-white/70 hover:bg-white/10 hover:text-white'
+                className={`flex items-center gap-3 rounded-xl px-3.5 py-3.5 text-sm font-medium transition-all ${
+                  active ? 'bg-white/95 text-[#5520A1] shadow-[0_10px_28px_rgba(18,7,39,0.22)]' : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 <Icon size={17} strokeWidth={2} />

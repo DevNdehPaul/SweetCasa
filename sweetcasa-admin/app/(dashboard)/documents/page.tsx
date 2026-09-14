@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { FileText, Check, X } from 'lucide-react'
 import api, { apiErrorMessage } from '@/lib/api'
+import { readCache, writeCache } from '@/lib/fast-cache'
 import type { DocumentRecord, DocumentStatus } from '@/lib/types'
 import { PageHeader, CenteredSpinner, EmptyState, ErrorBanner } from '@/components/ui'
 import StatusBadge from '@/components/StatusBadge'
@@ -28,11 +29,13 @@ function DocumentsPageInner() {
   const [rejectId, setRejectId] = useState<number | null>(null)
 
   const load = useCallback((s: string) => {
-    setDocuments(null)
+    const cacheKey = `documents:${s}`
+    const cached = readCache<DocumentRecord[]>(cacheKey)
+    setDocuments(cached)
     setError(null)
     api
       .get('/documents', { params: s === 'All' ? {} : { status: s } })
-      .then((res) => setDocuments(res.data.documents))
+      .then((res) => { setDocuments(res.data.documents); writeCache(cacheKey, res.data.documents) })
       .catch((err) => setError(apiErrorMessage(err, 'Could not load documents.')))
   }, [])
 
@@ -100,7 +103,7 @@ function DocumentsPageInner() {
       {documents && documents.length > 0 && (
         <div className="space-y-2">
           {documents.map((doc) => (
-            <div key={doc.id} className="flex flex-col gap-3 rounded-card border border-line bg-white px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+            <div key={doc.id} className="flex flex-col gap-3 rounded-[22px] border border-line/80 bg-white shadow-[0_10px_32px_rgba(56,31,96,0.055)] px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-line/40 text-ink/40">
                   <FileText size={16} />

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Flag } from 'lucide-react'
 import api, { apiErrorMessage } from '@/lib/api'
+import { readCache, writeCache } from '@/lib/fast-cache'
 import type { Report, ReportStatus } from '@/lib/types'
 import { PageHeader, CenteredSpinner, EmptyState, ErrorBanner } from '@/components/ui'
 import StatusBadge from '@/components/StatusBadge'
@@ -32,11 +33,13 @@ function ReportsPageInner() {
   const [lightbox, setLightbox] = useState<string | null>(null)
 
   const load = useCallback((s: string) => {
-    setReports(null)
+    const cacheKey = `reports:${s}`
+    const cached = readCache<Report[]>(cacheKey)
+    setReports(cached)
     setError(null)
     api
       .get('/reports', { params: s === 'All' ? {} : { status: s } })
-      .then((res) => setReports(res.data.reports))
+      .then((res) => { setReports(res.data.reports); writeCache(cacheKey, res.data.reports) })
       .catch((err) => setError(apiErrorMessage(err, 'Could not load reports.')))
   }, [])
 
@@ -96,7 +99,7 @@ function ReportsPageInner() {
       {reports && reports.length > 0 && (
         <div className="space-y-3">
           {reports.map((report) => (
-            <div key={report.id} className="rounded-card border border-line bg-white p-5">
+            <div key={report.id} className="rounded-[22px] border border-line/80 bg-white shadow-[0_10px_32px_rgba(56,31,96,0.055)] p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex min-w-0 items-start gap-3">
                   <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-danger/10 text-danger">

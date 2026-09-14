@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
-import { Fraunces, Inter, IBM_Plex_Mono } from 'next/font/google'
+import { Manrope, IBM_Plex_Mono } from 'next/font/google'
 import { AuthProvider } from '@/lib/auth'
 import './globals.css'
 
-const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-fraunces', weight: ['500', '600'] })
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', weight: ['400', '500', '600', '700', '800'] })
 const mono = IBM_Plex_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400', '500'] })
 
 export const metadata: Metadata = {
@@ -14,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${fraunces.variable} ${inter.variable} ${mono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${mono.variable}`}>
       <body className="font-body antialiased">
         <AuthProvider>{children}</AuthProvider>
       </body>
