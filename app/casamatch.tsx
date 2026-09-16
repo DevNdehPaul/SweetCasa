@@ -10,12 +10,11 @@
  *
  * New dependencies needed (add to your package.json):
  *   expo-image-picker   — for image attachments
- *   expo-av             — for voice recording & audio playback
- *   expo-file-system    — used by expo-av
+ *   expo-audio          — for voice recording & audio playback
  */
 
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, {
@@ -40,6 +39,7 @@ import {
   useWindowDimensions,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
 
@@ -142,53 +142,36 @@ function TypingIndicator({ s }: { s: Styles }) {
 
 // ─── Audio Player (for voice messages) ───────────────────────────────────────
 function AudioPlayer({ uri, colors, s }: { uri: string; colors: ThemeColors; s: Styles }) {
-  const [sound,     setSound]     = useState<Audio.Sound | null>(null);
-  const [playing,   setPlaying]   = useState(false);
-  const [duration,  setDuration]  = useState(0);
-  const [position,  setPosition]  = useState(0);
-
-  useEffect(() => () => { sound?.unloadAsync(); }, [sound]);
+  const player = useAudioPlayer(uri, { updateInterval: 250 });
+  const status = useAudioPlayerStatus(player);
 
   const toggle = async () => {
-    if (!sound) {
-      const { sound: snd } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true },
-        (status: AVPlaybackStatus) => {
-          if (status.isLoaded) {
-            setPosition(status.positionMillis ?? 0);
-            setDuration(status.durationMillis ?? 0);
-            if (status.didJustFinish) { setPlaying(false); setPosition(0); }
-          }
-        }
-      );
-      setSound(snd);
-      setPlaying(true);
-    } else if (playing) {
-      await sound.pauseAsync();
-      setPlaying(false);
-    } else {
-      await sound.playAsync();
-      setPlaying(true);
+    if (status.playing) {
+      player.pause();
+      return;
     }
+    if (status.duration > 0 && status.currentTime >= status.duration - 0.05) {
+      await player.seekTo(0);
+    }
+    player.play();
   };
 
-  const progress = duration > 0 ? position / duration : 0;
-  const elapsed  = Math.floor(position / 1000);
-  const total    = Math.floor(duration / 1000);
+  const progress = status.duration > 0 ? Math.min(status.currentTime / status.duration, 1) : 0;
+  const elapsed  = Math.floor(status.currentTime || 0);
+  const total    = Math.floor(status.duration || 0);
   const fmt = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
   return (
     <View style={s.audioPlayer}>
       <TouchableOpacity onPress={toggle} style={s.audioPlayBtn}>
-        <Feather name={playing ? 'pause' : 'play'} size={16} color={colors.primary} />
+        <Feather name={status.playing ? 'pause' : 'play'} size={16} color={colors.primary} />
       </TouchableOpacity>
       <View style={s.audioTrack}>
         <View style={s.audioTrackBg}>
           <View style={[s.audioTrackFill, { width: `${progress * 100}%` as any }]} />
         </View>
       </View>
-      <Text style={s.audioTime}>{fmt(elapsed)}/{fmt(total || 0)}</Text>
+      <Text style={s.audioTime}>{fmt(elapsed)}/{fmt(total)}</Text>
     </View>
   );
 }
@@ -369,6 +352,7 @@ function ChatScreen({
   s: Styles;
 }) {
   const { t, i18n } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const compact = screenWidth < 380;
 
@@ -379,11 +363,11 @@ function ChatScreen({
   const [text,      setText]      = useState('');
   const [pendingImg,setPendingImg] = useState<{ uri: string; base64?: string; mimeType: string } | null>(null);
 
-  // Voice recording state
-  const [recording,    setRecording]    = useState<Audio.Recording | null>(null);
-  const [isRecording,  setIsRecording]  = useState(false);
-  const [recordingSec, setRecordingSec] = useState(0);
-  const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Voice recording state (expo-audio)
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(audioRecorder, 250);
+  const isRecording = recorderState.isRecording;
+  const recordingSec = Math.floor((recorderState.durationMillis || 0) / 1000);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -429,35 +413,26 @@ function ChatScreen({
   // ── Voice recording ────────────────────────────────────────────────────────
   const startRecording = async () => {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') {
+      const permission = await AudioModule.requestRecordingPermissionsAsync();
+      if (!permission.granted) {
         Alert.alert(t('casaMatch.chat_permission_needed'), t('casaMatch.chat_microphone_permission'));
         return;
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const { recording: rec } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(rec);
-      setIsRecording(true);
-      setRecordingSec(0);
-      recordTimer.current = setInterval(() => setRecordingSec(sec => sec + 1), 1000);
+
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
     } catch (err: any) {
       Alert.alert(t('casaMatch.chat_recording_failed'), err.message);
     }
   };
 
   const stopAndSendRecording = async () => {
-    if (!recording) return;
-    if (recordTimer.current) { clearInterval(recordTimer.current); recordTimer.current = null; }
-    setIsRecording(false);
-    setRecordingSec(0);
-
+    if (!audioRecorder.isRecording) return;
     try {
-      await recording.stopAndUnloadAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-      const uri = recording.getURI();
-      setRecording(null);
+      await audioRecorder.stop();
+      const uri = audioRecorder.uri;
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
       if (uri) await sendMessage(undefined, undefined, uri);
     } catch (err: any) {
       Alert.alert(t('common.error'), t('casaMatch.chat_voice_failed'));
@@ -465,14 +440,11 @@ function ChatScreen({
   };
 
   const cancelRecording = async () => {
-    if (!recording) return;
-    if (recordTimer.current) { clearInterval(recordTimer.current); recordTimer.current = null; }
-    setIsRecording(false);
-    setRecordingSec(0);
+    if (!audioRecorder.isRecording) return;
     try {
-      await recording.stopAndUnloadAsync();
+      await audioRecorder.stop();
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     } catch { /* ignore */ }
-    setRecording(null);
   };
 
   // ── Send message ───────────────────────────────────────────────────────────
@@ -582,7 +554,7 @@ function ChatScreen({
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         {/* Messages */}
@@ -596,7 +568,7 @@ function ChatScreen({
             data={messages}
             keyExtractor={m => String(m.id)}
             renderItem={({ item }) => <MessageBubble msg={item} colors={colors} s={s} />}
-            contentContainerStyle={s.messagesList}
+            contentContainerStyle={[s.messagesList, { paddingBottom: 20 }]}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
             ListEmptyComponent={
@@ -649,7 +621,7 @@ function ChatScreen({
 
         {/* Recording bar */}
         {isRecording && (
-          <View style={s.recordingBar}>
+          <View style={[s.recordingBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <View style={s.recordingDot} />
             <Text style={s.recordingTxt}>{t('casaMatch.chat_recording')} {fmtSec(recordingSec)}</Text>
             <TouchableOpacity style={s.cancelRecordBtn} onPress={cancelRecording}>
@@ -663,7 +635,7 @@ function ChatScreen({
 
         {/* Input bar */}
         {!isRecording && (
-          <View style={[s.inputBar, compact && s.inputBarCompact]}>
+          <View style={[s.inputBar, compact && s.inputBarCompact, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 10 : 12) }]}>
             <TouchableOpacity style={s.inputIcon} onPress={pickImage}>
               <Feather name="image" size={20} color={colors.textLight} />
             </TouchableOpacity>
@@ -679,6 +651,9 @@ function ChatScreen({
               returnKeyType="default"
               textAlignVertical="center"
               blurOnSubmit={false}
+              onFocus={() => {
+                setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 250);
+              }}
             />
 
             {text.trim() || pendingImg ? (
@@ -1035,7 +1010,7 @@ function getStyles(colors: ThemeColors) {
     inputBar: {
       flexDirection: 'row', alignItems: 'flex-end', gap: 8,
       paddingHorizontal: 8, paddingTop: 7, paddingBottom: Platform.OS === 'android' ? 6 : 10,
-      minHeight: 56, maxWidth: '100%',
+      minHeight: 60, maxWidth: '100%',
       borderTopWidth: 1, borderTopColor: colors.borderLight,
       backgroundColor: colors.card,
     },

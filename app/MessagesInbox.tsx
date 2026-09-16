@@ -17,10 +17,10 @@ import {
   View,
 } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
 import { BASE_URL } from '../constants/api';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
-import { useTranslation } from 'react-i18next';
 
 type Tab = 'all' | 'unread';
 
@@ -179,6 +179,7 @@ function ConversationRow({
 }
 
 function MessagesInbox() {
+  const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const s = useMemo(() => getStyles(colors), [colors]);
 
@@ -347,6 +348,7 @@ function MessagesInbox() {
 }
 
 function ChatView({ conversationId }: { conversationId: number }) {
+  const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const s = useMemo(() => getStyles(colors), [colors]);
   const listRef = useRef<FlatList<ChatMessage>>(null);
@@ -619,7 +621,6 @@ function ChatView({ conversationId }: { conversationId: number }) {
 }
 
 export default function MessagesScreen() {
-  const { t } = useTranslation();
   const params = useLocalSearchParams<{ conversationId?: string | string[] }>();
   const rawId = Array.isArray(params.conversationId)
     ? params.conversationId[0]

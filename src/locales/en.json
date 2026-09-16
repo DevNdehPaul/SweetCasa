@@ -719,7 +719,27 @@
     "noPhotos": "No photos available",
     "main": "Main",
     "yearlyPeriod": "/ Year",
-    "monthlyPeriod": "/ Month"
+    "monthlyPeriod": "/ Month",
+    "bookViewing": "Book Viewing",
+    "preferredDate": "Preferred Date",
+    "datePlaceholder": "YYYY-MM-DD",
+    "preferredTime": "Preferred Time",
+    "timePlaceholder": "HH:MM, e.g. 14:30",
+    "noteToLandlord": "Note to Landlord",
+    "noteToLandlordPlaceholder": "Add a message for the landlord (optional)",
+    "requestViewing": "Request Viewing",
+    "sendingViewingRequest": "Sending Request...",
+    "viewingRequestHint": "The landlord will receive your preferred date and time.",
+    "viewingRequestSent": "Viewing Request Sent",
+    "viewingRequestSentDesc": "Your viewing request has been sent to the landlord.",
+    "landlordUnavailable": "Landlord Unavailable",
+    "landlordUnavailableDesc": "This property does not currently have a landlord available for viewing requests.",
+    "invalidDate": "Invalid date",
+    "invalidDateDesc": "Please enter the date as YYYY-MM-DD.",
+    "invalidTime": "Invalid time",
+    "invalidTimeDesc": "Please enter the time as HH:MM, for example 14:30.",
+    "couldNotBookViewing": "Could not book viewing",
+    "genericTryAgain": "Something went wrong. Please try again."
   },
   "neighborhoodMap": {
     "title": "Neighborhood",
@@ -1069,7 +1089,10 @@
     "writeMessage": "Write a message…",
     "typeMessage": "Type a message…",
     "noUnread": "No unread messages.",
-    "noConversations": "No conversations yet."
+    "noConversations": "No conversations yet.",
+    "safetyTitle": "Stay safe on SweetCasa",
+    "safetyMessage": "Keep conversations on SweetCasa. Do not share your phone number, email, payment details or other personal contact information in chat. Keeping communication on the platform helps protect both parties from scams.",
+    "send": "Send"
   },
   "finishProfile": {
     "onFile": "ON FILE",

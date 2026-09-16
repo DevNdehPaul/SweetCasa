@@ -19,7 +19,6 @@ import {
 import api from "../constants/api";
 import { ThemeColors } from "../constants/theme";
 import { useAppTheme } from "../hooks/use-app-theme";
-import { useTranslation } from 'react-i18next';
 
 const H_PAD = 20;
 
@@ -147,7 +146,6 @@ function WebAlertHost() {
 type Step = "email" | "code" | "password" | "done";
 
 export default function ForgotPasswordScreen() {
-  const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const s = useMemo(() => getStyles(colors), [colors]);
 
@@ -332,19 +330,20 @@ export default function ForgotPasswordScreen() {
                 <View style={s.shieldWrap}>
                   <Ionicons name="key-outline" size={30} color={colors.primary} />
                 </View>
-                <Text style={s.heroTitle}>{t('passwordRecovery.title')}</Text>
+                <Text style={s.heroTitle}>Forgot Password?</Text>
                 <Text style={s.heroDesc}>
-                  {t('passwordRecovery.intro')}
+                  Enter the email address you registered with and we'll send a
+                  verification code to reset your password.
                 </Text>
               </View>
 
               <View style={s.fieldGroup}>
-                <Text style={s.fieldLabel}>{t('passwordRecovery.email')}</Text>
+                <Text style={s.fieldLabel}>Email Address</Text>
                 <View style={s.inputWrap}>
                   <Feather name="mail" size={15} color={colors.textLight} />
                   <TextInput
                     style={s.fieldInput}
-                    placeholder={t('passwordRecovery.emailPlaceholder')}
+                    placeholder="e.g. john@example.com"
                     placeholderTextColor={colors.textLight}
                     value={email}
                     onChangeText={setEmail}
@@ -370,7 +369,7 @@ export default function ForgotPasswordScreen() {
                   <ActivityIndicator color={WHITE} />
                 ) : (
                   <>
-                    <Text style={s.primaryBtnTxt}>{t('passwordRecovery.sendCode')}</Text>
+                    <Text style={s.primaryBtnTxt}>Send Verification Code</Text>
                     <Feather name="arrow-right" size={17} color={WHITE} />
                   </>
                 )}
@@ -385,7 +384,7 @@ export default function ForgotPasswordScreen() {
                 />
                 <Text style={s.helpText}>
                   <Text style={{ fontWeight: "700", color: colors.primary }}>
-                    {t('passwordRecovery.tip')}{' '}
+                    Tip:{" "}
                   </Text>
                   The verification code is single-use and expires after 10
                   minutes for your security.
@@ -400,7 +399,7 @@ export default function ForgotPasswordScreen() {
                 <View style={s.shieldWrap}>
                   <Ionicons name="mail-open-outline" size={30} color={colors.primary} />
                 </View>
-                <Text style={s.heroTitle}>{t('passwordRecovery.checkInbox')}</Text>
+                <Text style={s.heroTitle}>Check your inbox</Text>
                 <Text style={s.heroDesc}>
                   We sent a 6-digit verification code to{" "}
                   <Text style={s.successEmail}>{email.trim()}</Text>. Enter it
@@ -409,12 +408,12 @@ export default function ForgotPasswordScreen() {
               </View>
 
               <View style={s.fieldGroup}>
-                <Text style={s.fieldLabel}>{t('passwordRecovery.verificationCode')}</Text>
+                <Text style={s.fieldLabel}>Verification Code</Text>
                 <View style={s.inputWrap}>
                   <Feather name="key" size={15} color={colors.textLight} />
                   <TextInput
                     style={s.fieldInput}
-                    placeholder={t('passwordRecovery.codePlaceholder')}
+                    placeholder="Enter 6-digit code"
                     placeholderTextColor={colors.textLight}
                     value={code}
                     onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))}
@@ -441,7 +440,7 @@ export default function ForgotPasswordScreen() {
                   <ActivityIndicator color={WHITE} />
                 ) : (
                   <>
-                    <Text style={s.primaryBtnTxt}>{t('passwordRecovery.verifyCode')}</Text>
+                    <Text style={s.primaryBtnTxt}>Verify Code</Text>
                     <Feather name="arrow-right" size={17} color={WHITE} />
                   </>
                 )}
@@ -455,7 +454,8 @@ export default function ForgotPasswordScreen() {
                   style={{ marginTop: 2 }}
                 />
                 <Text style={s.helpText}>
-                  {t('passwordRecovery.spamHint')}
+                  Don't see the email? Check your spam or junk folder. The code
+                  expires in 10 minutes.
                 </Text>
               </View>
             </>
@@ -467,7 +467,7 @@ export default function ForgotPasswordScreen() {
                 <View style={s.shieldWrap}>
                   <Ionicons name="lock-closed-outline" size={30} color={colors.primary} />
                 </View>
-                <Text style={s.heroTitle}>{t('passwordRecovery.setNewPassword')}</Text>
+                <Text style={s.heroTitle}>Set a New Password</Text>
                 <Text style={s.heroDesc}>
                   Creating a new password for{" "}
                   <Text style={s.successEmail}>{email.trim()}</Text>.
@@ -475,12 +475,12 @@ export default function ForgotPasswordScreen() {
               </View>
 
               <View style={s.fieldGroup}>
-                <Text style={s.fieldLabel}>{t('passwordRecovery.newPassword')}</Text>
+                <Text style={s.fieldLabel}>New Password</Text>
                 <View style={s.inputWrap}>
                   <Feather name="lock" size={15} color={colors.textLight} />
                   <TextInput
                     style={s.fieldInput}
-                    placeholder={t('passwordRecovery.min8')}
+                    placeholder="Min. 8 characters"
                     placeholderTextColor={colors.textLight}
                     value={password}
                     onChangeText={setPassword}
@@ -499,12 +499,12 @@ export default function ForgotPasswordScreen() {
               </View>
 
               <View style={s.fieldGroup}>
-                <Text style={s.fieldLabel}>{t('passwordRecovery.confirmNewPassword')}</Text>
+                <Text style={s.fieldLabel}>Confirm New Password</Text>
                 <View style={s.inputWrap}>
                   <Feather name="lock" size={15} color={colors.textLight} />
                   <TextInput
                     style={s.fieldInput}
-                    placeholder={t('passwordRecovery.repeatNew')}
+                    placeholder="Repeat your new password"
                     placeholderTextColor={colors.textLight}
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
@@ -531,7 +531,8 @@ export default function ForgotPasswordScreen() {
                   style={{ marginTop: 2 }}
                 />
                 <Text style={s.helpText}>
-                  {t('passwordRecovery.passwordHint')}
+                  Use at least 8 characters with a mix of letters, numbers, and
+                  symbols.
                 </Text>
               </View>
 
@@ -548,7 +549,7 @@ export default function ForgotPasswordScreen() {
                   <ActivityIndicator color={WHITE} />
                 ) : (
                   <>
-                    <Text style={s.primaryBtnTxt}>{t('passwordRecovery.resetPassword')}</Text>
+                    <Text style={s.primaryBtnTxt}>Reset Password</Text>
                     <Feather name="arrow-right" size={17} color={WHITE} />
                   </>
                 )}
@@ -561,16 +562,17 @@ export default function ForgotPasswordScreen() {
               <View style={s.successIcon}>
                 <Ionicons name="checkmark-circle-outline" size={40} color={colors.primary} />
               </View>
-              <Text style={s.successTitle}>{t('passwordRecovery.updated')}</Text>
+              <Text style={s.successTitle}>Password Updated</Text>
               <Text style={s.successDesc}>
-                {t('passwordRecovery.updatedDesc')}
+                Your password has been reset successfully. You can now log in
+                with your new password.
               </Text>
               <TouchableOpacity
                 style={s.primaryBtn}
                 onPress={() => router.replace("/portal")}
                 activeOpacity={0.88}
               >
-                <Text style={s.primaryBtnTxt}>{t('passwordRecovery.backLogin')}</Text>
+                <Text style={s.primaryBtnTxt}>Back to Login</Text>
                 <Feather name="arrow-right" size={16} color={WHITE} />
               </TouchableOpacity>
             </View>

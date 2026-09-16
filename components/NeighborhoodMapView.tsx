@@ -25,7 +25,7 @@ const GRAY_BORDER = '#E5E7EB';
 
 // Special color used only for the actual house.
 // Facility markers do not use this color.
-const HOUSE_COLOR = '#111827';
+const HOUSE_COLOR = '#6D28D9';
 
 export type Facility = {
   id?: number;
@@ -232,72 +232,6 @@ export default function NeighborhoodMapView({
         }}
       >
         {/* =====================================================
-            ACTUAL HOUSE MARKER
-            Completely different from nearby facility markers.
-        ====================================================== */}
-        <Marker
-          coordinate={houseCoord}
-          anchor={{ x: 0.5, y: 1 }}
-          tracksViewChanges={false}
-          zIndex={999}
-        >
-          <View style={s.houseMarkerWrapper}>
-            {/* Permanent label */}
-            <View style={s.houseMarkerLabel}>
-              <Ionicons
-                name="home"
-                size={13}
-                color="#FFFFFF"
-              />
-
-              <Text style={s.houseMarkerLabelText}>
-                THIS HOUSE
-              </Text>
-            </View>
-
-            {/* Main house marker */}
-            <View style={s.houseMarker}>
-              <Ionicons
-                name="home"
-                size={25}
-                color="#FFFFFF"
-              />
-            </View>
-
-            {/* Pointer */}
-            <View style={s.houseMarkerPointer} />
-          </View>
-
-          <Callout>
-            <View style={s.calloutBox}>
-              <View style={s.houseCalloutHeader}>
-                <Ionicons
-                  name="home"
-                  size={16}
-                  color={HOUSE_COLOR}
-                />
-
-                <Text style={s.houseCalloutTag}>
-                  THIS HOUSE
-                </Text>
-              </View>
-
-              <Text
-                style={s.calloutTitle}
-                numberOfLines={2}
-              >
-                {houseTitle ||
-                  t('neighborhoodMap.house')}
-              </Text>
-
-              <Text style={s.calloutSub}>
-                {t('neighborhoodMap.house')}
-              </Text>
-            </View>
-          </Callout>
-        </Marker>
-
-        {/* =====================================================
             NEARBY FACILITY MARKERS
         ====================================================== */}
         {facilities.map((facility, index) => {
@@ -345,6 +279,73 @@ export default function NeighborhoodMapView({
             </Marker>
           );
         })}
+
+        {/* =====================================================
+            ACTUAL HOUSE MARKER
+            Completely different from nearby facility markers.
+        ====================================================== */}
+        <Marker
+          coordinate={houseCoord}
+          anchor={{ x: 0.5, y: 1 }}
+          tracksViewChanges={true}
+          zIndex={99999}
+        >
+          <View style={s.houseMarkerWrapper}>
+            {/* Permanent label */}
+            <View style={s.houseMarkerLabel}>
+              <Ionicons
+                name="home"
+                size={15}
+                color="#FFFFFF"
+              />
+
+              <Text style={s.houseMarkerLabelText}>
+                THIS HOUSE
+              </Text>
+            </View>
+
+            {/* Main house marker */}
+            <View style={s.houseMarker}>
+              <Ionicons
+                name="home"
+                size={34}
+                color="#FFFFFF"
+              />
+            </View>
+
+            {/* Pointer */}
+            <View style={s.houseMarkerPointer} />
+          </View>
+
+          <Callout>
+            <View style={s.calloutBox}>
+              <View style={s.houseCalloutHeader}>
+                <Ionicons
+                  name="home"
+                  size={16}
+                  color={HOUSE_COLOR}
+                />
+
+                <Text style={s.houseCalloutTag}>
+                  THIS HOUSE
+                </Text>
+              </View>
+
+              <Text
+                style={s.calloutTitle}
+                numberOfLines={2}
+              >
+                {houseTitle ||
+                  t('neighborhoodMap.house')}
+              </Text>
+
+              <Text style={s.calloutSub}>
+                {t('neighborhoodMap.house')}
+              </Text>
+            </View>
+          </Callout>
+        </Marker>
+
       </MapView>
 
       {/* =====================================================
@@ -529,37 +530,37 @@ const s = StyleSheet.create({
 
     backgroundColor: HOUSE_COLOR,
 
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
 
-    borderRadius: 8,
+    borderRadius: 10,
 
     marginBottom: 4,
 
-    borderWidth: 2,
+    borderWidth: 5,
     borderColor: '#FFFFFF',
 
     shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
+    shadowOpacity: 0.38,
+    shadowRadius: 8,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    elevation: 7,
+    elevation: 20,
   },
 
   houseMarkerLabelText: {
     color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '900',
     letterSpacing: 0.4,
   },
 
   houseMarker: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
 
     backgroundColor: HOUSE_COLOR,
 
@@ -570,22 +571,22 @@ const s = StyleSheet.create({
     borderColor: '#FFFFFF',
 
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
     shadowOffset: {
       width: 0,
       height: 3,
     },
-    elevation: 10,
+    elevation: 30,
   },
 
   houseMarkerPointer: {
     width: 0,
     height: 0,
 
-    borderLeftWidth: 7,
-    borderRightWidth: 7,
-    borderTopWidth: 10,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderTopWidth: 14,
 
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',

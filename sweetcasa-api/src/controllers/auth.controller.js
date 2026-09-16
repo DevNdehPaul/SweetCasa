@@ -176,10 +176,9 @@ exports.register = async (req, res) => {
       street,
     } = req.body
 
-    // ── Validate National ID + server-issued identity proof ───────────────────
+    // ── Validate National ID ──────────────────────────────────────────────────
+    // Temporary signup flow: only the user's identification card is required.
     const nationalIdFile = req.files?.nationalId?.[0]
-    const verificationPhotoFile = req.files?.verificationPhoto?.[0]
-    const verificationToken = String(req.body.verificationToken || '')
 
     if (!nationalIdFile) {
       return res.status(400).json({
@@ -208,18 +207,6 @@ exports.register = async (req, res) => {
       })
     }
 
-    if (!verificationPhotoFile || !verificationToken) {
-      return res.status(403).json({ error: 'Identity verification is required before an account can be created.' })
-    }
-    let identityProof
-    try {
-      identityProof = verifyIdentityVerificationToken(verificationToken)
-    } catch {
-      return res.status(403).json({ error: 'Your identity verification has expired or is invalid. Please verify again.' })
-    }
-    if (identityProof.nationalIdHash !== sha256(nationalIdFile.buffer) || identityProof.verificationPhotoHash !== sha256(verificationPhotoFile.buffer)) {
-      return res.status(403).json({ error: 'The submitted identity files do not match the verified files. Please verify again.' })
-    }
 
     const normalizedEmail = normalizeEmail(email)
     const userRole = normalizeRole(role)
@@ -271,9 +258,9 @@ exports.register = async (req, res) => {
         street: String(street || '').trim() || null,
         nationalIdUrl: uploadResult.secure_url,
         nationalIdPublicId: uploadResult.public_id,
-        identityVerified: true,
-        identityVerifiedAt: new Date(),
-        identityMatchScore: Number(identityProof.similarity || 0),
+        identityVerified: false,
+        identityVerifiedAt: null,
+        identityMatchScore: null,
       },
     })
 

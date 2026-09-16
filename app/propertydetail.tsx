@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ResizeMode, Video } from "expo-av";
 import { router, useLocalSearchParams } from "expo-router";
+import { useVideoPlayer, VideoView } from "expo-video";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next"; // adjust path as needed
 import {
@@ -424,7 +424,18 @@ function VideoWalkthrough({
 }) {
   const thumb = thumbnailUrl || fallbackImage;
   const [playing, setPlaying] = useState(false);
-  const videoRef = React.useRef<any>(null);
+  const player = useVideoPlayer(videoUrl, (videoPlayer) => {
+    videoPlayer.loop = false;
+  });
+
+  useEffect(() => {
+    if (!videoUrl) return;
+    if (playing) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [playing, player, videoUrl]);
 
   if (!videoUrl) {
     return (
@@ -476,14 +487,12 @@ function VideoWalkthrough({
 
       <View style={styles.videoWrap}>
         {playing ? (
-          <Video
-            ref={videoRef}
-            source={{ uri: videoUrl }}
+          <VideoView
+            player={player}
             style={{ width: "100%", height: "100%" }}
-            resizeMode={ResizeMode.COVER}
-            useNativeControls
-            shouldPlay
-            onError={() => setPlaying(false)}
+            contentFit="cover"
+            nativeControls
+            allowsFullscreen
           />
         ) : (
           <TouchableOpacity
@@ -527,7 +536,10 @@ function VideoWalkthrough({
       {playing && (
         <TouchableOpacity
           style={styles.videoStopBtn}
-          onPress={() => setPlaying(false)}
+          onPress={async () => {
+            setPlaying(false);
+            await player.seekTo(0);
+          }}
         >
           <Ionicons name="stop-circle-outline" size={15} color={colors.primary} />
           <Text style={styles.videoStopBtnTxt}>
@@ -854,11 +866,11 @@ export default function PropertyDetailScreen() {
     const date = viewingDate.trim();
     const time = viewingTime.trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      Alert.alert("Invalid date", "Please enter the date as YYYY-MM-DD.");
+      Alert.alert(t("propertyDetail.invalidDate"), t("propertyDetail.invalidDateDesc"));
       return;
     }
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
-      Alert.alert("Invalid time", "Please enter the time as HH:MM, for example 14:30.");
+      Alert.alert(t("propertyDetail.invalidTime"), t("propertyDetail.invalidTimeDesc"));
       return;
     }
 
@@ -897,8 +909,8 @@ export default function PropertyDetailScreen() {
       );
     } catch (err: any) {
       Alert.alert(
-        "Could not book viewing",
-        err?.message || "Something went wrong. Please try again.",
+        t("propertyDetail.couldNotBookViewing"),
+        err?.message || t("propertyDetail.genericTryAgain"),
       );
     } finally {
       setBooking(false);
@@ -1161,9 +1173,7 @@ export default function PropertyDetailScreen() {
                 color={saved ? colors.danger : colors.text}
               />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.heroBtn}>
-              <Feather name="share-2" size={18} color={colors.text} />
-            </TouchableOpacity>
+            
           </View>
         </View>
 

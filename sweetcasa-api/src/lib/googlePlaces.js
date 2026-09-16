@@ -10,8 +10,8 @@ const NEARBY_CATEGORY_TYPES = {
   police: 'police',
 }
 
-// Cap nearby-facility results to a 1km radius around the listing's exact location.
-const DEFAULT_RADIUS_METERS = 1000
+// Cap nearby-facility results to a 500m radius around the listing's exact location.
+const DEFAULT_RADIUS_METERS = 500
 
 function ensureGooglePlacesConfigured() {
   if (!process.env.GOOGLE_PLACES_API_KEY) {

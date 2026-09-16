@@ -4,12 +4,12 @@ import {
   useResolvedTheme,
 } from "@/contexts/theme-preference";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Stack } from "expo-router";
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
-} from "@react-navigation/native";
-import { Stack } from "expo-router";
+} from "expo-router/react-navigation";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";

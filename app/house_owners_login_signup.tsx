@@ -27,7 +27,6 @@ import api from '../constants/api';
 import { persistAuthSession, routeForRole } from '../constants/auth';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
-import { useTranslation } from 'react-i18next';
 
 const H_PAD = 20;
 const GOOGLE_EMAIL_SIGNUP_URL =
@@ -382,7 +381,7 @@ function SocialAuthRow({
     <>
       <View style={s.orDivider}>
         <View style={s.dividerLine} />
-        <Text style={s.orTxt}>{t('auth.orContinueWith')}</Text>
+        <Text style={s.orTxt}>OR CONTINUE WITH</Text>
         <View style={s.dividerLine} />
       </View>
 
@@ -398,7 +397,7 @@ function SocialAuthRow({
           ) : (
             <>
               <Feather name="globe" size={17} color={colors.textSecondary} />
-              <Text style={s.socialBtnTxt}>{t('auth.google')}</Text>
+              <Text style={s.socialBtnTxt}>Google</Text>
             </>
           )}
         </TouchableOpacity>
@@ -415,7 +414,7 @@ function SocialAuthRow({
             ) : (
               <>
                 <Feather name="smartphone" size={17} color={colors.textSecondary} />
-                <Text style={s.socialBtnTxt}>{t('auth.apple')}</Text>
+                <Text style={s.socialBtnTxt}>Apple</Text>
               </>
             )}
           </TouchableOpacity>
@@ -619,7 +618,7 @@ function NationalIdUpload({
       <View style={s.fieldLabelRow}>
         <RegLabel s={s}>NATIONAL ID</RegLabel>
         <View style={s.requiredBadge}>
-          <Text style={s.requiredBadgeTxt}>{t('auth.required')}</Text>
+          <Text style={s.requiredBadgeTxt}>REQUIRED</Text>
         </View>
       </View>
 
@@ -641,7 +640,7 @@ function NationalIdUpload({
           </View>
           <TouchableOpacity onPress={showPicker} style={s.idChangeBtn}>
             <Feather name="refresh-cw" size={14} color={colors.primary} />
-            <Text style={s.idChangeBtnTxt}>{t('auth.change')}</Text>
+            <Text style={s.idChangeBtnTxt}>Change</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -649,70 +648,14 @@ function NationalIdUpload({
           <View style={s.idUploadIconWrap}>
             <Feather name="upload" size={20} color={colors.primary} />
           </View>
-          <Text style={s.idUploadTitle}>{t('auth.uploadNationalId')}</Text>
-          <Text style={s.idUploadSub}>{t('auth.idFormatsShort')}</Text>
+          <Text style={s.idUploadTitle}>Upload National ID</Text>
+          <Text style={s.idUploadSub}>JPG, PNG or PDF accepted</Text>
         </TouchableOpacity>
       )}
     </View>
   );
 }
 
-
-// ─── Face + ID verification photo ─────────────────────────────────────────────
-function IdentityPhotoCapture({ file, onFileSelected, colors, s }: {
-  file: NationalIdFile;
-  onFileSelected: (f: NationalIdFile) => void;
-  colors: ThemeColors;
-  s: Styles;
-}) {
-  const takePhoto = async () => {
-    if (Platform.OS === 'web') {
-      crossAlert('Use a phone camera', 'For identity security, this verification photo must be taken live with your phone camera.');
-      return;
-    }
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      crossAlert('Permission Required', 'Please allow camera access to verify your identity.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: false,
-      quality: 0.9,
-      cameraType: ImagePicker.CameraType.front,
-    });
-    if (!result.canceled && result.assets.length > 0) {
-      const asset = result.assets[0];
-      onFileSelected({
-        uri: asset.uri,
-        name: asset.fileName ?? `identity_verification_${Date.now()}.jpg`,
-        mimeType: asset.mimeType ?? 'image/jpeg',
-        size: asset.fileSize,
-      });
-    }
-  };
-
-  return (
-    <View style={s.fieldGroup}>
-      <View style={s.fieldLabelRow}>
-        <RegLabel s={s}>LIVE IDENTITY PHOTO</RegLabel>
-        <View style={s.requiredBadge}><Text style={s.requiredBadgeTxt}>{t('auth.required')}</Text></View>
-      </View>
-      <View style={s.idInfoCard}>
-        <Feather name="camera" size={13} color={colors.primary} style={{ marginTop: 1 }} />
-        <Text style={s.idInfoText}>
-          Hold the same ID beside your face. Keep your face and the portrait on the ID visible, then take a fresh photo.
-        </Text>
-      </View>
-      <TouchableOpacity style={s.idUploadBtn} onPress={takePhoto} activeOpacity={0.7}>
-        <View style={s.idUploadIconWrap}>
-          <Feather name={file ? 'check-circle' : 'camera'} size={20} color={colors.primary} />
-        </View>
-        <Text style={s.idUploadTitle}>{file ? 'Verification photo captured' : 'Take Verification Photo'}</Text>
-        <Text style={s.idUploadSub}>{file ? 'Tap to retake the photo' : 'Camera only • hold your ID beside your face'}</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 // ─── Login Tab ────────────────────────────────────────────────────────────────
 function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
@@ -770,7 +713,7 @@ function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
         <View style={s.shieldWrap}>
           <Ionicons name="shield-checkmark-outline" size={30} color={colors.primary} />
         </View>
-        <Text style={s.authHeroTitle}>{t('auth.ownerAccess')}</Text>
+        <Text style={s.authHeroTitle}>Owner Access</Text>
         <Text style={s.authHeroDesc}>
           Sign in to manage your properties, track earnings, and connect with tenants.
         </Text>
@@ -801,7 +744,7 @@ function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
         s={s}
         topRight={
           <TouchableOpacity onPress={() => router.push('/ForgotPassword')}>
-            <Text style={s.forgotLink}>{t('auth.forgotPasswordLong')}</Text>
+            <Text style={s.forgotLink}>Forgot password?</Text>
           </TouchableOpacity>
         }
         rightEl={
@@ -818,7 +761,7 @@ function LoginTab({ email, setEmail, password, setPassword, colors, s }: {
       >
         {loading ? <ActivityIndicator color={WHITE} /> : (
           <>
-            <Text style={s.primaryBtnTxt}>{t('auth.secureLogin')}</Text>
+            <Text style={s.primaryBtnTxt}>Secure Login</Text>
             <Feather name="arrow-right" size={17} color={WHITE} />
           </>
         )}
@@ -859,8 +802,6 @@ function SignupTab({
 }) {
   const [loading, setLoading] = useState(false);
   const [nationalIdFile, setNationalIdFile] = useState<NationalIdFile>(null);
-  const [verificationPhoto, setVerificationPhoto] = useState<NationalIdFile>(null);
-  const [identityVerified, setIdentityVerified] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -917,42 +858,9 @@ function SignupTab({
       crossAlert('Missing Fields', 'Please upload your national ID to verify your identity.');
       return;
     }
-    if (nationalIdFile.mimeType === 'application/pdf') {
-      crossAlert('Photo ID Required', 'Automatic face verification requires a clear JPG or PNG photo of your ID. Please photograph the ID instead of uploading a PDF.');
-      return;
-    }
-    if (!verificationPhoto) {
-      crossAlert('Verification Photo Required', 'Please take a fresh photo while holding the same ID beside your face.');
-      return;
-    }
 
     setLoading(true);
     try {
-      // Step 1: server-side face match. Registration cannot proceed without
-      // the short-lived proof returned by this endpoint.
-      const verificationData = new FormData();
-      verificationData.append('nationalId', {
-        uri: nationalIdFile.uri,
-        name: nationalIdFile.name,
-        type: nationalIdFile.mimeType,
-      } as any);
-      verificationData.append('verificationPhoto', {
-        uri: verificationPhoto.uri,
-        name: verificationPhoto.name,
-        type: verificationPhoto.mimeType,
-      } as any);
-
-      const verificationRes = await api.post('/auth/verify-identity', verificationData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      if (!verificationRes.data?.verified || !verificationRes.data?.verificationToken) {
-        throw new Error('Identity verification was not completed.');
-      }
-      setIdentityVerified(true);
-      const verificationToken = verificationRes.data.verificationToken;
-
-      // Step 2: submit the exact same files with the signed proof. The backend
-      // hashes both files, so the verification cannot be bypassed or swapped.
       const formData = new FormData();
       formData.append('email',       form.email.trim());
       formData.append('password',    form.password);
@@ -969,12 +877,6 @@ function SignupTab({
         name: nationalIdFile.name,
         type: nationalIdFile.mimeType,
       } as any);
-      formData.append('verificationPhoto', {
-        uri: verificationPhoto.uri,
-        name: verificationPhoto.name,
-        type: verificationPhoto.mimeType,
-      } as any);
-      formData.append('verificationToken', verificationToken);
 
       const res = await api.post('/auth/register', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -990,8 +892,6 @@ function SignupTab({
       // Registration succeeded — safe to clear the local form state now.
       setForm(EMPTY_OWNER_FORM);
       setNationalIdFile(null);
-      setVerificationPhoto(null);
-      setIdentityVerified(false);
       setShowPassword(false);
       setShowConfirmPassword(false);
 
@@ -1013,7 +913,7 @@ function SignupTab({
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
     >
-      <Text style={s.stepTitle}>{t('auth.listYourProperty')}</Text>
+      <Text style={s.stepTitle}>List Your Property</Text>
 
       <SocialAuthRow
         socialLoading={socialLoading}
@@ -1025,7 +925,7 @@ function SignupTab({
 
       <View style={s.orDivider}>
         <View style={s.dividerLine} />
-        <Text style={s.orTxt}>{t('auth.orSignupEmail')}</Text>
+        <Text style={s.orTxt}>OR SIGN UP WITH EMAIL</Text>
         <View style={s.dividerLine} />
       </View>
 
@@ -1057,7 +957,7 @@ function SignupTab({
             <TextInput style={s.fieldInput} placeholder="e.g. BlueSky Estates Ltd"
               placeholderTextColor={colors.textLight} value={form.companyName} onChangeText={set('companyName')} />
           </View>
-          <Text style={s.fieldHint}>{t('auth.businessNameHint')}</Text>
+          <Text style={s.fieldHint}>Use your registered business name or your own name if self-employed.</Text>
         </View>
 
         <View style={s.fieldGroup}>
@@ -1183,26 +1083,10 @@ function SignupTab({
           file={nationalIdFile}
           onFileSelected={(file) => {
             setNationalIdFile(file);
-            setIdentityVerified(false);
-          }}
+                }}
           colors={colors}
           s={s}
         />
-        <IdentityPhotoCapture
-          file={verificationPhoto}
-          onFileSelected={(file) => {
-            setVerificationPhoto(file);
-            setIdentityVerified(false);
-          }}
-          colors={colors}
-          s={s}
-        />
-        {identityVerified && (
-          <View style={s.termsSuccess}>
-            <Feather name="shield" size={13} color={colors.success} />
-            <Text style={s.termsSuccessTxt}>Identity matched successfully.</Text>
-          </View>
-        )}
       </SectionCard>
 
       {/* ── Terms Checkbox ── */}
@@ -1256,7 +1140,6 @@ function SignupTab({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function HouseOwnersLoginSignup() {
-  const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const s = useMemo(() => getStyles(colors), [colors]);
 

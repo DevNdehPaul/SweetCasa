@@ -719,7 +719,27 @@
     "noPhotos": "Aucune photo disponible",
     "main": "Principal",
     "yearlyPeriod": "/ An",
-    "monthlyPeriod": "/ Mois"
+    "monthlyPeriod": "/ Mois",
+    "bookViewing": "Réserver une visite",
+    "preferredDate": "Date souhaitée",
+    "datePlaceholder": "AAAA-MM-JJ",
+    "preferredTime": "Heure souhaitée",
+    "timePlaceholder": "HH:MM, ex. 14:30",
+    "noteToLandlord": "Message au propriétaire",
+    "noteToLandlordPlaceholder": "Ajoutez un message au propriétaire (facultatif)",
+    "requestViewing": "Demander une visite",
+    "sendingViewingRequest": "Envoi de la demande...",
+    "viewingRequestHint": "Le propriétaire recevra la date et l'heure que vous préférez.",
+    "viewingRequestSent": "Demande de visite envoyée",
+    "viewingRequestSentDesc": "Votre demande de visite a été envoyée au propriétaire.",
+    "landlordUnavailable": "Propriétaire indisponible",
+    "landlordUnavailableDesc": "Aucun propriétaire n'est actuellement disponible pour recevoir une demande de visite pour ce bien.",
+    "invalidDate": "Date invalide",
+    "invalidDateDesc": "Veuillez saisir la date au format AAAA-MM-JJ.",
+    "invalidTime": "Heure invalide",
+    "invalidTimeDesc": "Veuillez saisir l'heure au format HH:MM, par exemple 14:30.",
+    "couldNotBookViewing": "Impossible de réserver la visite",
+    "genericTryAgain": "Une erreur est survenue. Veuillez réessayer."
   },
   "neighborhoodMap": {
     "title": "Quartier",
@@ -1069,7 +1089,10 @@
     "writeMessage": "Écrire un message…",
     "typeMessage": "Saisissez un message…",
     "noUnread": "Aucun message non lu.",
-    "noConversations": "Aucune conversation pour le moment."
+    "noConversations": "Aucune conversation pour le moment.",
+    "safetyTitle": "Restez en sécurité sur SweetCasa",
+    "safetyMessage": "Gardez vos échanges sur SweetCasa. Ne partagez pas votre numéro de téléphone, votre e-mail, vos informations de paiement ou d'autres coordonnées personnelles dans le chat. Communiquer sur la plateforme aide à protéger les deux parties contre les arnaques.",
+    "send": "Envoyer"
   },
   "finishProfile": {
     "onFile": "DÉJÀ FOURNIE",
