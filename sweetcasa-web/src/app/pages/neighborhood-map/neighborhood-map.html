@@ -1,0 +1,14 @@
+<div class="map-page">
+ <div class="map-head">
+   <div><a [href]="backRoute()">← Property details</a><span>NEIGHBOURHOOD MAP</span><h1>{{property()?.title||'Property location'}}</h1><p>Explore the area around this SweetCasa property.</p></div>
+   @if(property()){<div class="mini"><small>{{property()?.propertyType||'PROPERTY'}}</small><b>{{priceText()}} XAF</b><span>⌖ {{property()?.neighborhood||property()?.city}}</span></div>}
+ </div>
+ @if(loading()){<div class="state">Loading neighbourhood…</div>}
+ @else if(error()){<div class="state error"><span>⌖</span><h2>Map location unavailable</h2><p>{{error()}}</p><a [href]="backRoute()">Return to property</a></div>}
+ @else if(mapUrl()){
+   <div class="map-wrap">
+     <iframe [src]="mapUrl()" title="SweetCasa property neighbourhood map" loading="eager" referrerpolicy="no-referrer-when-downgrade"></iframe>
+     <div class="map-note"><span>⌂</span><div><b>SweetCasa property</b><small>The marker shows this listing's saved coordinates.</small></div><a [href]="externalMap()" target="_blank" rel="noopener">Open full map ↗</a></div>
+   </div>
+ }
+</div>

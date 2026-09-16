@@ -1,0 +1,66 @@
+@if(loading()){
+  <div class="state"><span class="spinner"></span><b>Loading property…</b></div>
+}@else if(error()){
+  <div class="state error"><span>!</span><h2>{{error()}}</h2><button routerLink="/seeker/search">Back to properties</button></div>
+}@else if(property(); as p){
+<div class="detail-shell">
+  <div class="crumbs"><a routerLink="/">SweetCasa</a><span>›</span><a [routerLink]="auth.role()==='SELLER'?'/owner/listings':'/seeker/search'">Properties</a><span>›</span><b>{{p.title}}</b></div>
+
+  <section class="gallery">
+    <div class="hero-photo">
+      @if(images().length){<img [src]="images()[imageIndex()]" [alt]="p.title">}
+      @else{<div class="no-photo">⌂<small>Property photo</small></div>}
+      @if(auth.role()==='BUYER'){
+        <button class="heart" [class.active]="favourite()" (click)="toggleFavourite($event)" aria-label="Save property">{{favourite()?'♥':'♡'}}</button>
+      }
+      <div class="photo-count">{{imageIndex()+1}} / {{images().length||1}}</div>
+    </div>
+    <div class="thumbs">
+      @for(img of images().slice(0,5);track img;let i=$index){
+        <button [class.active]="imageIndex()===i" (click)="setImage(i)"><img [src]="img" alt=""></button>
+      }
+    </div>
+  </section>
+
+  <div class="content-grid">
+    <main>
+      <div class="title-row">
+        <div><span class="type">{{p.propertyType||p.type||'PROPERTY'}}</span><h1>{{p.title}}</h1><p class="location">⌖ {{p.neighborhood||p.address||p.city}}{{p.city&&p.neighborhood?', '+p.city:''}}</p></div>
+        <div class="price"><small>{{p.listingType==='SALE'?'PRICE':'MONTHLY RENT'}}</small><strong>{{p.price|number:'1.0-0'}} <i>XAF</i></strong></div>
+      </div>
+
+      <div class="facts">
+        <article><span>▣</span><div><b>{{p.bedrooms??'—'}}</b><small>Bedrooms</small></div></article>
+        <article><span>▤</span><div><b>{{p.bathrooms??'—'}}</b><small>Bathrooms</small></div></article>
+        <article><span>□</span><div><b>{{p.area||p.size||'—'}}</b><small>{{p.area||p.size?'m²':'Area'}}</small></div></article>
+        <article><span>✓</span><div><b>{{p.status||'Available'}}</b><small>Status</small></div></article>
+      </div>
+
+      <section class="panel"><span class="eyebrow">ABOUT THIS HOME</span><h2>Property description</h2><p class="description">{{p.description||'No description has been added for this property yet.'}}</p></section>
+
+      @if(p.amenities?.length){
+      <section class="panel"><span class="eyebrow">WHAT THIS HOME OFFERS</span><h2>Amenities</h2><div class="amenities">@for(a of p.amenities;track a){<span>✓ {{a.name||a}}</span>}</div></section>
+      }
+
+      <section class="map-preview">
+        <div><span class="eyebrow">NEIGHBOURHOOD</span><h2>Explore the area around this property</h2><p>Open the interactive map to understand the property's surroundings and nearby area.</p><a [routerLink]="mapRoute()">Explore neighbourhood →</a></div>
+        <div class="map-art"><span>⌖</span><b>{{p.neighborhood||p.city||'Property location'}}</b><small>Interactive OpenStreetMap</small></div>
+      </section>
+    </main>
+
+    <aside>
+      <div class="action-card">
+        <span class="safe">✓ SWEETCASA PROPERTY</span>
+        <h3>Interested in this home?</h3>
+        <p>Contact the property owner through SweetCasa and keep your conversation on the platform.</p>
+        @if(auth.role()==='BUYER'){
+          <button class="primary" (click)="messageOwner()">Message landlord →</button>
+          <button class="secondary" (click)="toggleFavourite()">{{favourite()?'♥ Saved to favourites':'♡ Save property'}}</button>
+        }
+        <a class="map-link" [routerLink]="mapRoute()">⌖ View neighbourhood map</a>
+        <div class="safety"><span>♢</span><div><b>Stay protected</b><small>Keep communication and escrow activity inside SweetCasa.</small></div></div>
+      </div>
+    </aside>
+  </div>
+</div>
+}

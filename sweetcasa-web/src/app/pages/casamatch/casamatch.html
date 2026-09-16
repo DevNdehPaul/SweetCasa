@@ -1,1 +1,26 @@
-<div class="page-head"><div><span class="kicker">SWEETCASA</span><h1>Tell me what kind of home you're looking for</h1><p>Describe your budget, city and property type. CasaMatch will help narrow your options.</p></div><button class="btn primary">＋ Quick action</button></div><section><div class="section-title"><h2>Start with a suggestion</h2><a>View all</a></div><div class="cards"><article><div class="card-icon">✦</div><h3>2-bedroom in Douala</h3><p>Open and manage this SweetCasa feature from your desktop workspace.</p><button>Open →</button></article><article><div class="card-icon">⌂</div><h3>Villa in Yaoundé</h3><p>Open and manage this SweetCasa feature from your desktop workspace.</p><button>Open →</button></article><article><div class="card-icon">◫</div><h3>Studios under 100k XAF</h3><p>Open and manage this SweetCasa feature from your desktop workspace.</p><button>Open →</button></article></div></section><section class="workspace"><div><span class="kicker">DESKTOP WORKSPACE</span><h2>CasaMatch AI</h2><p>This screen is structured for the full desktop SweetCasa experience and is ready to connect to the matching backend endpoint.</p></div><div class="mock-chart"><i></i><i></i><i></i><i></i><i></i><i></i></div></section>
+<div class="cm">
+<aside>
+ <div class="cm-brand"><span>✦</span><div><small>SWEETCASA AI</small><b>CasaMatch</b></div><button (click)="newChat()">＋</button></div>
+ <button class="new" (click)="newChat()">＋ New conversation</button>
+ <div class="history-title">RECENT CHATS</div>
+ @if(loading()&&!active()){<div class="mini-load">Loading chats…</div>}
+ @for(c of conversations();track c.id){<button class="history" [class.active]="active()?.id===c.id" (click)="open(c.id)"><span>✦</span><div><b>{{c.title}}</b><small>{{c.messages?.[0]?.content||'CasaMatch conversation'}}</small></div><i (click)="remove(c.id,$event)">×</i></button>}
+</aside>
+<section class="chat">
+ @if(active()){
+  <header><div class="ai-avatar">✦</div><div><b>{{active().title||'CasaMatch AI'}}</b><small>SweetCasa property search assistant</small></div><span>● Online</span></header>
+  <div class="messages">
+   @if(loading()){<div class="center-load"><i></i>Loading conversation…</div>}
+   @for(m of messages();track m.id){
+    <div class="row" [class.mine]="m.role==='user'"><div class="bubble"><p>{{m.content}}</p>@if(m.imageUrl){<img [src]="m.imageUrl">}<small>{{m.createdAt|date:'shortTime'}}</small></div></div>
+    @if(m.listingResults?.length){<div class="matches"><div class="matches-title">{{m.listingResults.length}} property matches</div><div class="match-grid">@for(l of m.listingResults;track l.id){<article>@if(firstImage(l)){<img [src]="firstImage(l)">}<div><span>{{l.score}}% MATCH</span><h4>{{l.name}}</h4><p>{{l.location}}</p><b>{{l.price}}</b><small>{{l.matchReason}}</small></div></article>}</div></div>}
+   }
+   @if(sending()){<div class="typing"><span></span><span></span><span></span> CasaMatch is thinking…</div>}
+   @if(messages().length===0&&!loading()){<div class="welcome"><div class="orb">✦</div><h1>What kind of home are you looking for?</h1><p>Tell CasaMatch naturally. Include your city, budget, property type or anything important to you.</p><div class="suggestions"><button (click)="send('I am looking for a 2-bedroom apartment in Douala')">2-bedroom in Douala</button><button (click)="send('Je cherche une villa à Yaoundé à louer')">Villa in Yaoundé</button><button (click)="send('Show me studios under 100k XAF')">Studios under 100k</button></div></div>}
+  </div>
+  @if(image){<div class="attachment">▧ {{image.name}} <button (click)="image=null">×</button></div>}
+  <form (ngSubmit)="send()"><label class="attach">＋<input type="file" accept="image/*" (change)="chooseImage($event)"></label><textarea [(ngModel)]="text" name="message" placeholder="Message CasaMatch…" rows="1"></textarea><button [disabled]="sending()">Send →</button></form>
+ }@else{
+  <div class="empty"><div class="orb">✦</div><span>CASAMATCH AI</span><h1>Your property search can start with a conversation.</h1><p>CasaMatch uses the same SweetCasa AI conversations as the app, including your previous chats and matched property results.</p><button (click)="newChat()">Start new conversation →</button></div>
+ }
+</section></div>
