@@ -22,7 +22,12 @@ const app = express()
 
 const allowedOrigins = [
   'http://localhost:8081',
+  'http://localhost:4200',
   'https://sweetcasa-admin-dashboard.up.railway.app',
+  ...(process.env.WEB_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 ]
 
 app.use(cors({

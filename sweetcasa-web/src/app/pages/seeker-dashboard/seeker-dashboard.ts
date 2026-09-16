@@ -1,0 +1,2 @@
+import { Component } from '@angular/core'; import { RouterLink } from '@angular/router'; import { AuthService } from '../../core/services/auth.service';
+@Component({selector:'sc-seeker-dashboard',imports:[RouterLink],templateUrl:'./seeker-dashboard.html',styleUrl:'./seeker-dashboard.css'}) export class SeekerDashboard{constructor(public auth:AuthService){}}

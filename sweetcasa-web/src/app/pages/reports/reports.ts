@@ -1,0 +1,2 @@
+import { Component } from '@angular/core'; import { FormsModule } from '@angular/forms';
+@Component({selector:'sc-reports',imports:[FormsModule],templateUrl:'./reports.html',styleUrl:'./reports.css'}) export class Reports {query='';}

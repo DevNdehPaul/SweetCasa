@@ -1,0 +1,10 @@
+<div class="hero-row"><div><span class="kicker">PROPERTY DISCOVERY</span><h1>Find a place that feels right.</h1><p>Search approved SweetCasa listings and save the homes you want to revisit.</p></div><div class="result-pill">{{listings().length}} homes</div></div>
+<div class="finder"><label><small>KEYWORD</small><input [(ngModel)]="q" placeholder="Apartment, villa, studio..."></label><label><small>CITY</small><input [(ngModel)]="city" placeholder="Douala"></label><label><small>TYPE</small><select [(ngModel)]="type"><option value="">Any property</option><option>Apartment</option><option>Studio</option><option>Villa</option><option>Duplex</option><option>Room</option><option>Office</option></select></label><label><small>MAX BUDGET</small><input [(ngModel)]="maxBudget" type="number" placeholder="300000"></label><button (click)="load()">⌕ Search</button></div>
+@if(error()){<div class="error">{{error()}}</div>}
+@if(loading()){<div class="loading"><i></i><span>Finding SweetCasa homes…</span></div>}@else{
+<div class="listing-grid">
+@for(l of listings();track l.id){<article>
+  <div class="photo"><img [src]="image(l)" [alt]="l.title"><span class="verified">✓ Verified</span><button class="heart" (click)="save(l)">{{l._saved?'♥':'♡'}}</button></div>
+  <div class="body"><div class="location">{{l.neighborhood || l.city || 'Cameroon'}} · {{l.city}}</div><h3>{{l.title}}</h3><div class="meta"><span>⌂ {{l.type}}</span><span>▦ {{l.bedrooms || 0}} beds</span><span>◫ {{l.bathrooms || 0}} baths</span></div><div class="price"><b>{{l.price | number:'1.0-0'}} XAF</b><small>/ {{l.paymentFrequency || 'month'}}</small></div></div>
+</article>}@empty{<div class="empty"><span>⌕</span><h2>No exact homes found</h2><p>Try removing a filter or increasing your budget.</p></div>}
+</div>}

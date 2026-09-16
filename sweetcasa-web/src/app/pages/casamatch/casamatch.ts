@@ -1,0 +1,2 @@
+import { Component } from '@angular/core'; import { FormsModule } from '@angular/forms';
+@Component({selector:'sc-casamatch',imports:[FormsModule],templateUrl:'./casamatch.html',styleUrl:'./casamatch.css'}) export class Casamatch {query='';}

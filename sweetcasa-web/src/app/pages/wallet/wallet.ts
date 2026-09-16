@@ -1,0 +1,3 @@
+import { Component, OnInit, signal } from '@angular/core'; import { DecimalPipe, DatePipe } from '@angular/common'; import { ApiService } from '../../core/services/api.service';
+@Component({selector:'sc-wallet',imports:[DecimalPipe,DatePipe],templateUrl:'./wallet.html',styleUrl:'./wallet.css'})
+export class Wallet implements OnInit{wallet=signal<any>(null);tx=signal<any[]>([]);loading=signal(true);error=signal('');constructor(private api:ApiService){}ngOnInit(){this.api.get<any>('/wallet/me').subscribe({next:r=>{this.wallet.set(r.wallet);this.tx.set(r.transactions||[]);this.loading.set(false)},error:e=>{this.error.set(e.error?.error||'Could not load wallet.');this.loading.set(false)}})}}

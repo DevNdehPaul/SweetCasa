@@ -1,0 +1,2 @@
+import { Component } from '@angular/core'; import { RouterLink } from '@angular/router'; import { AuthService } from '../../core/services/auth.service';
+@Component({selector:'sc-owner-dashboard',imports:[RouterLink],templateUrl:'./owner-dashboard.html',styleUrl:'./owner-dashboard.css'}) export class OwnerDashboard{constructor(public auth:AuthService){}}

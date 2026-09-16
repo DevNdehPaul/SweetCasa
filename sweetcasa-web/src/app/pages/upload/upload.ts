@@ -1,0 +1,2 @@
+import { Component } from '@angular/core'; import { FormsModule } from '@angular/forms';
+@Component({selector:'sc-upload',imports:[FormsModule],templateUrl:'./upload.html',styleUrl:'./upload.css'}) export class Upload {query='';}

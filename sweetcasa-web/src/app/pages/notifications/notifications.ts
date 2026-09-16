@@ -1,0 +1,2 @@
+import { Component } from '@angular/core'; import { FormsModule } from '@angular/forms';
+@Component({selector:'sc-notifications',imports:[FormsModule],templateUrl:'./notifications.html',styleUrl:'./notifications.css'}) export class Notifications {query='';}

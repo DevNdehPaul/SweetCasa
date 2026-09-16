@@ -1,0 +1,2 @@
+import { Component } from '@angular/core'; import { RouterLink } from '@angular/router'; import { I18nService } from '../../core/services/i18n.service'; import { TopbarComponent } from '../../shared/components/topbar.component';
+@Component({selector:'sc-download',imports:[RouterLink,TopbarComponent],templateUrl:'./download-app.html',styleUrl:'./download-app.css'}) export class DownloadApp{constructor(public i18n:I18nService){}}

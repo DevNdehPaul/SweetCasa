@@ -1,0 +1,2 @@
+import { Component } from '@angular/core'; import { RouterLink } from '@angular/router'; import { TopbarComponent } from '../../shared/components/topbar.component'; import { I18nService } from '../../core/services/i18n.service';
+@Component({selector:'sc-landing',imports:[RouterLink,TopbarComponent],templateUrl:'./landing.html',styleUrl:'./landing.css'}) export class Landing{constructor(public i18n:I18nService){}}

@@ -1,0 +1,53 @@
+<sc-topbar/>
+<main>
+  <section class="auth-visual">
+    <div class="glow g1"></div><div class="glow g2"></div>
+    <a routerLink="/" class="visual-brand"><span>S</span><b>SweetCasa</b></a>
+    <div class="visual-copy">
+      <span class="eyebrow">FIND HOME. FEEL AT HOME.</span>
+      <h1>Property discovery built around <em>trust.</em></h1>
+      <p>Find verified homes, talk directly with property owners and keep your property journey organised in one place.</p>
+      <div class="proof"><span>✓ Verified listings</span><span>✦ CasaMatch AI</span><span>♢ Safer conversations</span></div>
+    </div>
+    <div class="visual-card"><span class="icon">✦</span><div><small>CASAMATCH AI</small><b>“Show me a 2-bedroom in Bonapriso under 300k.”</b></div><span class="match">92% match</span></div>
+  </section>
+
+  <section class="auth-panel">
+    <form (ngSubmit)="submit()">
+      <div class="tabs"><button type="button" [class.active]="mode()==='login'" (click)="mode.set('login');error.set('')">Sign in</button><button type="button" [class.active]="mode()==='signup'" (click)="mode.set('signup');error.set('')">Create account</button></div>
+      <div class="heading"><span>{{mode()==='login'?'WELCOME BACK':'JOIN SWEETCASA'}}</span><h2>{{mode()==='login'?'Continue your property journey':'Create your account'}}</h2><p>{{mode()==='login'?'Choose your portal and enter your details.':'Start as a house seeker or property owner.'}}</p></div>
+
+      <div class="role-picker">
+        <button type="button" [class.active]="role()==='BUYER'" (click)="role.set('BUYER')"><span>⌕</span><div><b>House Seeker</b><small>Find and save homes</small></div><i>✓</i></button>
+        <button type="button" [class.active]="role()==='SELLER'" (click)="role.set('SELLER')"><span>⌂</span><div><b>House Owner</b><small>List and manage property</small></div><i>✓</i></button>
+      </div>
+
+      @if(error()){<div class="error">! <span>{{error()}}</span></div>}
+
+      @if(mode()==='signup'){
+        <div class="grid2">
+          <label><span>Full name *</span><input [(ngModel)]="fullName" name="fullName" placeholder="Your full name"></label>
+          @if(role()==='SELLER'){<label><span>Company name</span><input [(ngModel)]="companyName" name="companyName" placeholder="Optional"></label>}
+          <label><span>Phone</span><input [(ngModel)]="phone" name="phone" placeholder="+237 6..."></label>
+          <label><span>City</span><input [(ngModel)]="city" name="city" placeholder="Douala"></label>
+          <label><span>Region</span><input [(ngModel)]="region" name="region" placeholder="Littoral"></label>
+          <label><span>Street / area</span><input [(ngModel)]="street" name="street" placeholder="Bonapriso"></label>
+        </div>
+      }
+
+      <label><span>Email address *</span><input [(ngModel)]="email" name="email" type="email" placeholder="you@example.com"></label>
+      <div class="grid2">
+        <label><span>Password *</span><input [(ngModel)]="password" name="password" type="password" placeholder="••••••••"></label>
+        @if(mode()==='signup'){<label><span>Confirm password *</span><input [(ngModel)]="confirmPassword" name="confirmPassword" type="password" placeholder="••••••••"></label>}
+      </div>
+
+      @if(mode()==='signup'){
+        <label class="upload"><span>National ID *</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="chooseFile($event)"><div class="upload-box"><span>⇧</span><div><b>{{nationalId?.name || 'Upload your identification card'}}</b><small>JPG, PNG, WEBP or PDF • max 5 MB</small></div></div></label>
+        <label class="check"><input type="checkbox" [(ngModel)]="acceptedTerms" name="terms"><span>I have read and agree to the SweetCasa Terms & Agreement and Privacy Policy.</span></label>
+      }
+
+      <button class="submit" [disabled]="loading()">{{loading()?'Please wait…':(mode()==='login'?'Sign in to SweetCasa':'Create my account')}} <span>→</span></button>
+      <p class="secure">♢ Your account information is protected by SweetCasa.</p>
+    </form>
+  </section>
+</main>
