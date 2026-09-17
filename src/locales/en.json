@@ -268,7 +268,10 @@
     "perYear": "yr",
     "cautionFee": "Caution Fee (Security Deposit)",
     "cautionFeePlaceholder": "0",
-    "cautionFeeHint": "One-time refundable security deposit paid before move-in. It is separate from rent and may be used by the landlord only for qualifying damage or unpaid utility obligations under the lease."
+    "cautionFeeHint": "One-time refundable security deposit paid before move-in. It is separate from rent and may be used by the landlord only for qualifying damage or unpaid utility obligations under the lease.",
+    "rentalDuration": "Rental Duration",
+    "rentalDurationRequired": "Rental duration required",
+    "rentalDurationRequiredDesc": "Please select a rental duration range."
   },
   "messages": {
     "title": "Messages",

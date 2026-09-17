@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { BASE_URL } from '../constants/api';
@@ -305,7 +305,7 @@ SweetCasa Technologies processes and validates the
 digital booking authorization.`;
 
 export default function LeaseAgreementScreen() {
-  const p = useLocalSearchParams<{listingId:string;title:string;price:string;paymentFrequency:string;cautionFee:string;requiredAmount:string}>();
+  const p = useLocalSearchParams<{listingId:string;title:string;price:string;paymentFrequency:string;cautionFee:string;requiredAmount:string;availableBalance:string}>();
   const { t, i18n } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const s = useMemo(()=>styles(colors),[colors]);
@@ -315,6 +315,41 @@ export default function LeaseAgreementScreen() {
   const [accepted,setAccepted]=useState(false);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
+  const [listing,setListing]=useState<any>(null);
+  const [tenantName,setTenantName]=useState('');
+  const [loadingDetails,setLoadingDetails]=useState(true);
+  const [agreementUrl,setAgreementUrl]=useState<string|null>(null);
+  const [transactionId,setTransactionId]=useState<number|null>(null);
+
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      setLoadingDetails(true);
+      try {
+        const token=await AsyncStorage.getItem('token');
+        const [listingRes,userRaw]=await Promise.all([
+          fetch(`${BASE_URL}/listings/${Number(p.listingId)}`,{headers:{...(token?{Authorization:`Bearer ${token}`}:{})}}),
+          AsyncStorage.getItem('user'),
+        ]);
+        const listingData=await listingRes.json().catch(()=>({}));
+        if(!listingRes.ok) throw new Error(listingData?.error||'Could not load property details.');
+        if(cancelled) return;
+        setListing(listingData?.listing||null);
+        try {
+          const u=userRaw?JSON.parse(userRaw):null;
+          setTenantName(String(u?.name||u?.fullName||u?.email||''));
+        } catch {}
+      } catch(e:any){ if(!cancelled) setError(e.message||'Could not load agreement details.'); }
+      finally { if(!cancelled) setLoadingDetails(false); }
+    })();
+    return()=>{cancelled=true};
+  },[p.listingId]);
+
+  const available=Number(p.availableBalance||0);
+  const required=Number(p.requiredAmount||0);
+  const balanceAfter=Math.max(0,available-required);
+  const propertyLocation=[listing?.neighborhood,listing?.city,listing?.region].filter(Boolean).join(', ');
+  const landlordName=listing?.agent?.name||'SweetCasa verified house owner';
 
   const submit = async () => {
     setError(null);
@@ -327,17 +362,41 @@ export default function LeaseAgreementScreen() {
       const res=await fetch(`${BASE_URL}/wallet/purchase`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify({listingId:Number(p.listingId),signatureName:signatureName.trim(),moveInDate:isSale?undefined:moveInDate})});
       const data=await res.json().catch(()=>({}));
       if(!res.ok) throw new Error(data?.error||'Could not complete purchase.');
-      if(data?.agreement?.url) {
-        try { await Linking.openURL(data.agreement.url); } catch {}
-      }
-      Alert.alert(i18n.language.startsWith('fr')?'Accord signé':'Agreement signed',i18n.language.startsWith('fr')?'Votre accord a été signé et les fonds requis sont maintenant bloqués par SweetCasa pendant la période de protection de 7 jours.':'Your agreement has been signed and the required funds are now held by SweetCasa for the 7-day protection period.',[{text:'OK',onPress:()=>router.replace('/(tabs)/wallet' as any)}]);
+      setAgreementUrl(data?.agreement?.url||null);
+      setTransactionId(data?.transaction?.id||null);
     } catch(e:any){setError(e.message||t('common.error'));} finally {setBusy(false);}
   };
 
   return <SafeAreaView style={s.safe}><StatusBar barStyle={isDark?'light-content':'dark-content'} backgroundColor={colors.card}/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={Platform.OS==='ios'?8:0}>
     <View style={s.header}><TouchableOpacity onPress={()=>router.back()} style={s.icon}><Feather name="arrow-left" size={20} color={colors.text}/></TouchableOpacity><Text style={s.headerTitle}>{isSale?(i18n.language.startsWith('fr')?'Accord d’achat':'Property Agreement'):(i18n.language.startsWith('fr')?'Contrat de bail':'Lease Agreement')}</Text><View style={s.icon}/></View>
     <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
-      <View style={s.card}><Text style={s.title}>{p.title}</Text><Text style={s.row}>{isSale?(i18n.language.startsWith('fr')?'Engagement minimum (25 %)':'Minimum commitment (25%)'):(i18n.language.startsWith('fr')?'Loyer initial + caution':'Initial rent + caution fee')}: <Text style={s.bold}>{xaf(p.requiredAmount)}</Text></Text>{!isSale&&<><Text style={s.row}>{i18n.language.startsWith('fr')?'Loyer initial':'Initial rent'}: {xaf(p.price)}</Text><Text style={s.row}>{i18n.language.startsWith('fr')?'Caution':'Caution fee'}: {xaf(p.cautionFee)}</Text></>}</View>
+      {agreementUrl ? <View style={s.card}>
+        <View style={s.successIcon}><Feather name="check" size={24} color="#fff"/></View>
+        <Text style={[s.title,{textAlign:'center'}]}>{i18n.language.startsWith('fr')?'Accord signé avec succès':'Agreement signed successfully'}</Text>
+        <Text style={[s.row,{textAlign:'center'}]}>{i18n.language.startsWith('fr')?'Les fonds requis, y compris la caution, ont été déplacés vers le solde bloqué SweetCasa.':'The required funds, including the caution fee, have been moved into your SweetCasa held balance.'}</Text>
+        {transactionId&&<Text style={[s.row,{textAlign:'center'}]}>Transaction: E{transactionId}</Text>}
+        <TouchableOpacity style={s.button} onPress={()=>Linking.openURL(agreementUrl)}><Text style={s.buttonText}>{i18n.language.startsWith('fr')?'Télécharger l’accord signé':'Download Signed Agreement'}</Text></TouchableOpacity>
+        <TouchableOpacity style={s.secondaryButton} onPress={()=>router.replace('/(tabs)/wallet' as any)}><Text style={s.secondaryButtonText}>{i18n.language.startsWith('fr')?'Retour au portefeuille':'Back to Wallet'}</Text></TouchableOpacity>
+      </View> : <>
+      <View style={s.card}>
+        <Text style={s.section}>{i18n.language.startsWith('fr')?'Détails de l’accord':'Agreement Details'}</Text>
+        {loadingDetails?<ActivityIndicator color={colors.primary}/>:<>
+          <Text style={s.dataLabel}>{i18n.language.startsWith('fr')?'Propriété':'Property'}</Text><Text style={s.dataValue}>{listing?.title||p.title}</Text>
+          {!!propertyLocation&&<><Text style={s.dataLabel}>{i18n.language.startsWith('fr')?'Emplacement':'Location'}</Text><Text style={s.dataValue}>{propertyLocation}</Text></>}
+          <Text style={s.dataLabel}>{i18n.language.startsWith('fr')?'Propriétaire':'Landlord'}</Text><Text style={s.dataValue}>{landlordName}</Text>
+          {!!tenantName&&<><Text style={s.dataLabel}>{i18n.language.startsWith('fr')?'Locataire':'Tenant'}</Text><Text style={s.dataValue}>{tenantName}</Text></>}
+          <Text style={s.dataLabel}>{i18n.language.startsWith('fr')?'Type de paiement':'Payment type'}</Text><Text style={s.dataValue}>{p.paymentFrequency}</Text>
+        </>}
+      </View>
+      <View style={s.card}>
+        <Text style={s.section}>{i18n.language.startsWith('fr')?'Résumé financier avant signature':'Financial Summary Before Signing'}</Text>
+        {!isSale&&<><View style={s.moneyRow}><Text style={s.row}>{i18n.language.startsWith('fr')?'Loyer initial':'Initial rent'}</Text><Text style={s.bold}>{xaf(p.price)}</Text></View><View style={s.moneyRow}><Text style={s.row}>{i18n.language.startsWith('fr')?'Caution':'Caution fee'}</Text><Text style={s.bold}>{xaf(p.cautionFee)}</Text></View></>}
+        {isSale&&<View style={s.moneyRow}><Text style={s.row}>{i18n.language.startsWith('fr')?'Engagement minimum (25 %)':'Minimum commitment (25%)'}</Text><Text style={s.bold}>{xaf(required)}</Text></View>}
+        <View style={s.divider}/><View style={s.moneyRow}><Text style={s.lockLabel}>{i18n.language.startsWith('fr')?'TOTAL À BLOQUER':'TOTAL TO BE LOCKED'}</Text><Text style={s.lockAmount}>{xaf(required)}</Text></View>
+        <View style={s.moneyRow}><Text style={s.row}>{i18n.language.startsWith('fr')?'Solde disponible':'Available escrow balance'}</Text><Text style={s.bold}>{xaf(available)}</Text></View>
+        <View style={s.moneyRow}><Text style={s.row}>{i18n.language.startsWith('fr')?'Solde après signature':'Balance after signing'}</Text><Text style={s.bold}>{xaf(balanceAfter)}</Text></View>
+        {!isSale&&<Text style={s.notice}>{i18n.language.startsWith('fr')?'Le loyer et la caution seront bloqués ensemble après votre signature. La fenêtre de vérification de 7 jours commence à la date réelle d’emménagement/remise des clés.':'The rent and caution fee will be locked together only after you sign. The 7-day verification window starts on the actual move-in/key-handover date.'}</Text>}
+      </View>
       {!isSale ? <>
         <Text style={s.section}>Residential Lease and Platform Facilitation Agreement</Text>
         <Text style={s.body}>{RESIDENTIAL_LEASE_TEXT}</Text>
@@ -348,8 +407,9 @@ export default function LeaseAgreementScreen() {
       {!isSale&&<><Text style={s.label}>{i18n.language.startsWith('fr')?'Date d’emménagement':'Move-in date'}</Text><TextInput style={s.input} value={moveInDate} onChangeText={setMoveInDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.textLight} keyboardType="numbers-and-punctuation"/></>}
       <Text style={s.label}>{i18n.language.startsWith('fr')?'Signature électronique (nom complet)':'Electronic signature (full name)'}</Text><TextInput style={s.input} value={signatureName} onChangeText={setSignatureName} placeholder={i18n.language.startsWith('fr')?'Saisissez votre nom complet':'Type your full name'} placeholderTextColor={colors.textLight} autoCapitalize="words" returnKeyType="done"/>
       <TouchableOpacity style={s.accept} onPress={()=>setAccepted(v=>!v)}><View style={[s.check,accepted&&{backgroundColor:colors.primary,borderColor:colors.primary}]}>{accepted&&<Feather name="check" size={14} color="#fff"/>}</View><Text style={s.acceptText}>{i18n.language.startsWith('fr')?'Je confirme avoir lu et accepté cet accord et j’adopte le nom saisi comme ma signature électronique.':'I confirm that I have read and accepted this agreement and adopt the name entered above as my electronic signature.'}</Text></TouchableOpacity>
-      {error&&<Text style={s.error}>{error}</Text>}<TouchableOpacity style={[s.button,(!accepted||busy)&&{opacity:.55}]} disabled={!accepted||busy} onPress={submit}>{busy?<ActivityIndicator color="#fff"/>:<Text style={s.buttonText}>{i18n.language.startsWith('fr')?'Signer et bloquer les fonds':'Sign & Hold Funds'}</Text>}</TouchableOpacity>
+      {error&&<Text style={s.error}>{error}</Text>}<TouchableOpacity style={[s.button,(!accepted||busy||loadingDetails)&&{opacity:.55}]} disabled={!accepted||busy||loadingDetails} onPress={submit}>{busy?<ActivityIndicator color="#fff"/>:<Text style={s.buttonText}>{i18n.language.startsWith('fr')?'Signer et bloquer les fonds':'Sign & Hold Funds'}</Text>}</TouchableOpacity>
+      </>}
     </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
 
-const styles=(c:any)=>StyleSheet.create({safe:{flex:1,backgroundColor:c.background},header:{height:56,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,backgroundColor:c.card,borderBottomWidth:1,borderBottomColor:c.borderLight},icon:{width:40,height:40,alignItems:'center',justifyContent:'center'},headerTitle:{fontSize:16,fontWeight:'800',color:c.text},content:{padding:20,paddingBottom:60},card:{backgroundColor:c.card,borderRadius:18,padding:18,borderWidth:1,borderColor:c.borderLight,marginBottom:22},title:{fontSize:18,fontWeight:'800',color:c.text,marginBottom:10},row:{fontSize:13.5,color:c.textSecondary,marginTop:5},bold:{fontWeight:'800',color:c.text},section:{fontSize:15,fontWeight:'800',color:c.text,marginTop:18,marginBottom:8},body:{fontSize:13.5,lineHeight:21,color:c.textSecondary,marginBottom:10},label:{fontSize:13,fontWeight:'700',color:c.text,marginTop:16,marginBottom:7},input:{minHeight:50,borderWidth:1,borderColor:c.border,borderRadius:13,paddingHorizontal:14,color:c.text,backgroundColor:c.card,fontSize:14},accept:{flexDirection:'row',gap:11,alignItems:'flex-start',marginTop:22},check:{width:22,height:22,borderRadius:6,borderWidth:1.5,borderColor:c.border,alignItems:'center',justifyContent:'center',marginTop:1},acceptText:{flex:1,fontSize:13,lineHeight:19,color:c.textSecondary},error:{color:c.danger,fontSize:13,marginTop:14},button:{height:52,borderRadius:14,backgroundColor:c.primary,alignItems:'center',justifyContent:'center',marginTop:20},buttonText:{color:'#fff',fontWeight:'800',fontSize:14}});
+const styles=(c:any)=>StyleSheet.create({safe:{flex:1,backgroundColor:c.background},header:{height:56,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,backgroundColor:c.card,borderBottomWidth:1,borderBottomColor:c.borderLight},icon:{width:40,height:40,alignItems:'center',justifyContent:'center'},headerTitle:{fontSize:16,fontWeight:'800',color:c.text},content:{padding:20,paddingBottom:60},card:{backgroundColor:c.card,borderRadius:18,padding:18,borderWidth:1,borderColor:c.borderLight,marginBottom:22},title:{fontSize:18,fontWeight:'800',color:c.text,marginBottom:10},row:{fontSize:13.5,color:c.textSecondary,marginTop:5},bold:{fontWeight:'800',color:c.text},section:{fontSize:15,fontWeight:'800',color:c.text,marginTop:18,marginBottom:8},body:{fontSize:13.5,lineHeight:21,color:c.textSecondary,marginBottom:10},label:{fontSize:13,fontWeight:'700',color:c.text,marginTop:16,marginBottom:7},input:{minHeight:50,borderWidth:1,borderColor:c.border,borderRadius:13,paddingHorizontal:14,color:c.text,backgroundColor:c.card,fontSize:14},accept:{flexDirection:'row',gap:11,alignItems:'flex-start',marginTop:22},check:{width:22,height:22,borderRadius:6,borderWidth:1.5,borderColor:c.border,alignItems:'center',justifyContent:'center',marginTop:1},acceptText:{flex:1,fontSize:13,lineHeight:19,color:c.textSecondary},error:{color:c.danger,fontSize:13,marginTop:14},button:{height:52,borderRadius:14,backgroundColor:c.primary,alignItems:'center',justifyContent:'center',marginTop:20},buttonText:{color:'#fff',fontWeight:'800',fontSize:14},dataLabel:{fontSize:11,fontWeight:'700',color:c.textLight,textTransform:'uppercase',marginTop:10},dataValue:{fontSize:14,fontWeight:'700',color:c.text,marginTop:3},moneyRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:12,marginTop:8},divider:{height:1,backgroundColor:c.borderLight,marginVertical:12},lockLabel:{fontSize:12,fontWeight:'900',color:c.primary},lockAmount:{fontSize:17,fontWeight:'900',color:c.primary},notice:{fontSize:12.5,lineHeight:18,color:c.textSecondary,backgroundColor:c.primaryTint,borderRadius:12,padding:12,marginTop:14},successIcon:{width:48,height:48,borderRadius:24,backgroundColor:c.success,alignSelf:'center',alignItems:'center',justifyContent:'center',marginBottom:14},secondaryButton:{height:50,borderRadius:14,borderWidth:1,borderColor:c.border,alignItems:'center',justifyContent:'center',marginTop:10},secondaryButtonText:{color:c.text,fontWeight:'800',fontSize:14}});

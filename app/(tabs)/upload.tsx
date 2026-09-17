@@ -785,6 +785,7 @@ export default function NewListing() {
               <Text style={s.hint}>{t('listing.cautionFeeHint')}</Text>
             </>
           )}
+          <View style={s.pricingDivider} />
           <Text style={s.label}>{t('listing.paymentFrequency')}</Text>
           <View style={s.chipRow}>
             {PAYMENT_FREQ_IDS.map((f) => (
@@ -798,9 +799,7 @@ export default function NewListing() {
               not when payFreq === 'For Sale'. */}
           {isRental && (
             <>
-              <Text style={s.label}>
-                {t('listing.rentalDuration') ?? 'Rental Duration'}
-              </Text>
+              <Text style={s.label}>{t('listing.rentalDuration', { defaultValue: 'Rental Duration' })}</Text>
               <View style={s.chipRow}>
                 {RENTAL_DURATION_IDS.map((d) => (
                   <Chip
@@ -1039,7 +1038,8 @@ function getStyles(colors: ThemeColors) {
       padding: 12, fontSize: 14, color: colors.text, backgroundColor: colors.card,
     },
     multilineInput: { minHeight: 110, textAlignVertical: 'top' },
-    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    pricingDivider: { height: 1, backgroundColor: colors.borderLight, marginTop: 16, marginBottom: 4 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6, marginBottom: 4 },
     chip: {
       flexDirection: 'row', alignItems: 'center', gap: 5,
       paddingHorizontal: 13, paddingVertical: 7,

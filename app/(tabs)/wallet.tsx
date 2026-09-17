@@ -328,10 +328,36 @@ function DepositModal({
 function PurchaseModal({ visible, availableBalance, onClose }: { visible:boolean; availableBalance:string; onClose:()=>void }) {
   const { t } = useTranslation(); const { colors } = useAppTheme(); const ms = useMemo(()=>getModalStyles(colors),[colors]);
   const [items,setItems]=useState<ListingOption[]>([]); const [loading,setLoading]=useState(false); const [error,setError]=useState<string|null>(null); const keyboardHeight=useKeyboardHeight();
-  useEffect(()=>{ if(!visible)return; setLoading(true); setError(null); authedFetch('/favourites').then((data:any)=>{ const raw=data?.savedListings??data?.listings??data?.favourites??[]; setItems(raw.map((e:any)=>e?.listing??e).filter((x:any)=>x?.id).map((x:any)=>({id:Number(x.id),title:String(x.title),price:String(x.price||0),city:String(x.city||''),paymentFrequency:x.paymentFrequency,cautionFee:x.cautionFee==null?null:String(x.cautionFee)}))); }).catch((e:any)=>setError(e.message)).finally(()=>setLoading(false)); },[visible]);
+  useEffect(()=>{
+    if(!visible) return;
+    let cancelled=false;
+    setLoading(true); setError(null); setItems([]);
+    (async()=>{
+      try {
+        // Purchase must show the marketplace, not only the seeker's favourites.
+        // GET /listings returns Approved listings. Fetch every page so the chooser
+        // represents all currently available SweetCasa properties.
+        const first:any=await authedFetch('/listings?limit=50&page=1');
+        const all:any[]=[...(first?.listings||[])];
+        const pages=Math.max(1,Number(first?.pages||1));
+        for(let page=2;page<=pages;page++){
+          const next:any=await authedFetch(`/listings?limit=50&page=${page}`);
+          all.push(...(next?.listings||[]));
+        }
+        if(cancelled) return;
+        setItems(all.filter((x:any)=>x?.id).map((x:any)=>({
+          id:Number(x.id), title:String(x.title||'Property'), price:String(x.price||0),
+          city:String(x.city||''), paymentFrequency:x.paymentFrequency,
+          cautionFee:x.cautionFee==null?null:String(x.cautionFee),
+        })));
+      } catch(e:any){ if(!cancelled) setError(e.message||'Could not load available properties.'); }
+      finally { if(!cancelled) setLoading(false); }
+    })();
+    return()=>{cancelled=true};
+  },[visible]);
   const requirement=(x:ListingOption)=>x.paymentFrequency==='For Sale'?Math.ceil(Number(x.price)*.25):Number(x.price)+Number(x.cautionFee||0);
-  const choose=(x:ListingOption)=>{ const required=requirement(x); if(Number(availableBalance)<required){ setError(t('escrow.purchaseShortage',{defaultValue:`You need ${formatXAF(required)} available. Your available balance is ${formatXAF(availableBalance)}. Deposit the difference first.`})); return; } onClose(); router.push({pathname:'/lease-agreement' as any,params:{listingId:String(x.id),title:x.title,price:x.price,paymentFrequency:x.paymentFrequency||'',cautionFee:x.cautionFee||'0',requiredAmount:String(required)}} as any); };
-  return <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent><View style={ms.overlay}><View style={ms.sheet}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[ms.sheetScrollContent,{paddingBottom:keyboardHeight+32}]}><Text style={ms.title}>{t('escrow.purchase',{defaultValue:'Purchase'})}</Text><Text style={ms.desc}>{t('escrow.purchaseDesc',{defaultValue:'Choose a liked property. Rentals require one rental payment plus the caution fee. Properties for sale require at least 25% of the sale price.'})}</Text><Text style={ms.hint}>{t('escrow.availableNow',{defaultValue:'Available now'})}: {formatXAF(availableBalance)}</Text>{error&&<Text style={ms.error}>{error}</Text>}{loading?<ActivityIndicator color={colors.primary}/>:items.length?items.map(x=><TouchableOpacity key={x.id} style={ms.resultRow} onPress={()=>choose(x)}><View style={{flex:1}}><Text style={ms.resultTitle}>{x.title}</Text><Text style={ms.resultMeta}>{x.paymentFrequency==='For Sale'?'25% sale commitment':'Rent + caution fee'} · {formatXAF(requirement(x))}</Text></View><Feather name="chevron-right" size={17} color={colors.primary}/></TouchableOpacity>):<Text style={ms.hint}>{t('escrow.noLikedProperties',{defaultValue:'Like a property first so it appears here.'})}</Text>}<View style={ms.actions}><TouchableOpacity style={ms.cancelBtn} onPress={onClose}><Text style={ms.cancelTxt}>{t('common.cancel')}</Text></TouchableOpacity></View></ScrollView></View></View></Modal>;
+  const choose=(x:ListingOption)=>{ const required=requirement(x); if(Number(availableBalance)<required){ setError(t('escrow.purchaseShortage',{defaultValue:`You need ${formatXAF(required)} available. Your available balance is ${formatXAF(availableBalance)}. Deposit the difference first.`})); return; } onClose(); router.push({pathname:'/lease-agreement' as any,params:{listingId:String(x.id),title:x.title,price:x.price,paymentFrequency:x.paymentFrequency||'',cautionFee:x.cautionFee||'0',requiredAmount:String(required),availableBalance:String(availableBalance)}} as any); };
+  return <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent><View style={ms.overlay}><View style={ms.sheet}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[ms.sheetScrollContent,{paddingBottom:keyboardHeight+32}]}><Text style={ms.title}>{t('escrow.purchase',{defaultValue:'Purchase'})}</Text><Text style={ms.desc}>{t('escrow.purchaseDesc',{defaultValue:'Choose from all available SweetCasa properties. Rentals require one rental payment plus the caution fee. Properties for sale require at least 25% of the sale price.'})}</Text><Text style={ms.hint}>{t('escrow.availableNow',{defaultValue:'Available now'})}: {formatXAF(availableBalance)}</Text>{error&&<Text style={ms.error}>{error}</Text>}{loading?<ActivityIndicator color={colors.primary}/>:items.length?items.map(x=><TouchableOpacity key={x.id} style={ms.resultRow} onPress={()=>choose(x)}><View style={{flex:1}}><Text style={ms.resultTitle}>{x.title}</Text><Text style={ms.resultMeta}>{[x.city,x.paymentFrequency].filter(Boolean).join(' · ')}</Text><Text style={ms.resultMeta}>{x.paymentFrequency==='For Sale'?'25% sale commitment':'Rent + caution fee'} · {formatXAF(requirement(x))}</Text></View><Feather name="chevron-right" size={17} color={colors.primary}/></TouchableOpacity>):<Text style={ms.hint}>{t('escrow.noAvailableProperties',{defaultValue:'No approved properties are currently available.'})}</Text>}<View style={ms.actions}><TouchableOpacity style={ms.cancelBtn} onPress={onClose}><Text style={ms.cancelTxt}>{t('common.cancel')}</Text></TouchableOpacity></View></ScrollView></View></View></Modal>;
 }
 
 // ─── Withdraw Modal ───────────────────────────────────────────────────────────

@@ -268,7 +268,10 @@
     "perYear": "an",
     "cautionFee": "Caution (Dépôt de garantie)",
     "cautionFeePlaceholder": "0",
-    "cautionFeeHint": "Dépôt de garantie remboursable payé une seule fois avant l'emménagement. Il est distinct du loyer et ne peut être utilisé par le propriétaire que pour les dommages admissibles ou les factures de services impayées conformément au bail."
+    "cautionFeeHint": "Dépôt de garantie remboursable payé une seule fois avant l'emménagement. Il est distinct du loyer et ne peut être utilisé par le propriétaire que pour les dommages admissibles ou les factures de services impayées conformément au bail.",
+    "rentalDuration": "Durée de location",
+    "rentalDurationRequired": "Durée de location requise",
+    "rentalDurationRequiredDesc": "Veuillez sélectionner une durée de location."
   },
   "messages": {
     "title": "Messages",
