@@ -421,6 +421,7 @@ export default function NewListing() {
   const [city, setCity]             = useState('');
   const [neighborhood, setNeighborhood] = useState('');
   const [price, setPrice]           = useState('');
+  const [cautionFee, setCautionFee] = useState('');
   const [payFreq, setPayFreq]       = useState('Monthly');
   // Rental distribution timeframe — only relevant when payFreq is a rental
   // frequency (Monthly / Yearly), not when the property is 'For Sale'.
@@ -539,7 +540,7 @@ export default function NewListing() {
 
   const resetForm = () => {
     setTitle(''); setPropType('Apartment'); setCountry('Cameroon');
-    setRegion(''); setCity(''); setNeighborhood(''); setPrice('');
+    setRegion(''); setCity(''); setNeighborhood(''); setPrice(''); setCautionFee('');
     setPayFreq('Monthly'); setRentalDuration('');
     setBedrooms(2); setBathrooms(1);
     setToilets(2); setParlors(1); setKitchens(1); setArea('');
@@ -599,6 +600,7 @@ export default function NewListing() {
 
       // Contract allocation type (Monthly vs. Yearly), or 'For Sale'.
       formData.append('paymentFrequency', payFreq);
+      if (isRental && cautionFee.trim()) formData.append('cautionFee', String(Number(cautionFee.replace(/,/g, ''))));
       // Distribution timeframe segment — only sent for rentals.
       if (isRental && rentalDuration) {
         formData.append('rentalDurationRange', rentalDuration);
@@ -769,6 +771,20 @@ export default function NewListing() {
             <Text style={s.priceSuffix}>XAF</Text>
           </View>
           <Text style={s.hint}>{t('listing.priceMax')}</Text>
+          {isRental && (
+            <>
+              <Text style={s.label}>{t('listing.cautionFee')}</Text>
+              <View style={s.priceWrap}>
+                <TextInput
+                  style={[s.input, s.priceInput]} placeholderTextColor={colors.textLight}
+                  placeholder={t('listing.cautionFeePlaceholder')} keyboardType="numeric"
+                  value={cautionFee} onChangeText={(v) => setCautionFee(formatPrice(v))}
+                />
+                <Text style={s.priceSuffix}>XAF</Text>
+              </View>
+              <Text style={s.hint}>{t('listing.cautionFeeHint')}</Text>
+            </>
+          )}
           <Text style={s.label}>{t('listing.paymentFrequency')}</Text>
           <View style={s.chipRow}>
             {PAYMENT_FREQ_IDS.map((f) => (

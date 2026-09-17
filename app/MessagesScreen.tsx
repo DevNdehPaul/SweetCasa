@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
@@ -56,6 +56,12 @@ export default function MessagesScreen() {
   const [sending, setSending] = useState(false);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const flatListRef = useRef<FlatList<Message>>(null);
+
+  const scrollToBottom = useCallback((animated = true) => {
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated }), 120);
+  }, []);
 
   const loadConversation = useCallback(async () => {
     const id = Number(conversationId);
@@ -199,9 +205,8 @@ export default function MessagesScreen() {
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView
         style={s.safe}
-        behavior={
-          Platform.OS === "ios" ? "padding" : undefined
-        }
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
         {/* HEADER */}
         <View style={s.header}>
@@ -259,10 +264,12 @@ export default function MessagesScreen() {
 
         {/* MESSAGES */}
         <FlatList
+          ref={flatListRef}
           data={conversation.messages || []}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={s.messages}
           keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => scrollToBottom(false)}
           keyboardDismissMode={
             Platform.OS === "ios"
               ? "interactive"
@@ -316,6 +323,12 @@ export default function MessagesScreen() {
             placeholderTextColor="#9CA3AF"
             multiline
             maxLength={3000}
+            returnKeyType="default"
+            textAlignVertical="center"
+            blurOnSubmit={false}
+            onFocus={() => {
+              setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 250);
+            }}
           />
 
           <TouchableOpacity
@@ -512,6 +525,7 @@ const s = StyleSheet.create({
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",
+    flexShrink: 0,
 
     gap: 10,
 

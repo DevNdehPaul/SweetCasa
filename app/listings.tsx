@@ -45,6 +45,7 @@ interface Listing {
   status: Status;
   rejectionNote: string | null;
   paymentFrequency: string | null;
+  cautionFee: string | null;
   description: string | null;
   bedrooms: number | null;
   bathrooms: number | null;
@@ -417,6 +418,7 @@ function EditModal({
   const [city, setCity]                 = useState('');
   const [neighborhood, setNeighborhood] = useState('');
   const [price, setPrice]               = useState('');
+  const [cautionFee, setCautionFee]     = useState('');
   const [payFreq, setPayFreq]           = useState('Monthly');
   const [bedrooms, setBedrooms]         = useState(0);
   const [bathrooms, setBathrooms]       = useState(0);
@@ -450,6 +452,7 @@ function EditModal({
     setCity(listing.city ?? '');
     setNeighborhood(listing.neighborhood ?? '');
     setPrice(listing.price ?? '');
+    setCautionFee(listing.cautionFee ?? '');
     setPayFreq(listing.paymentFrequency ?? 'Monthly');
     setBedrooms(listing.bedrooms ?? 0);
     setBathrooms(listing.bathrooms ?? 0);
@@ -502,6 +505,7 @@ function EditModal({
       neighborhood:        neighborhood.trim(),
       price:               String(Number(price.replace(/,/g, ''))),
       paymentFrequency:    payFreq,
+      cautionFee:           payFreq === 'For Sale' ? '' : String(Number((cautionFee || '0').replace(/,/g, ''))),
       bedrooms, bathrooms, toilets, parlors, kitchens,
       areaSqm:             area.trim() || undefined,
       facilities:          JSON.stringify(amenities),
@@ -625,6 +629,23 @@ function EditModal({
               />
               <Text style={s.priceSuffix}>XAF</Text>
             </View>
+            {payFreq !== 'For Sale' && (
+              <>
+                <Text style={s.fieldLabel}>{t('listing.cautionFee')}</Text>
+                <View style={s.priceWrap}>
+                  <TextInput
+                    style={[s.input, s.priceInput]}
+                    value={cautionFee}
+                    onChangeText={(v) => setCautionFee(fmtPriceInput(v))}
+                    placeholder={t('listing.cautionFeePlaceholder')}
+                    keyboardType="numeric"
+                    placeholderTextColor={colors.textLight}
+                  />
+                  <Text style={s.priceSuffix}>XAF</Text>
+                </View>
+                <Text style={s.editNote}>{t('listing.cautionFeeHint')}</Text>
+              </>
+            )}
             <Text style={s.fieldLabel}>{t('listing.paymentFrequency')}</Text>
             <View style={s.chipRow}>
               {PAYMENT_FREQS.map(({ value, label }) => (

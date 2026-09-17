@@ -68,6 +68,7 @@ interface ListingDetail {
   type: string;
   price: string;
   paymentFrequency: string | null;
+  cautionFee: string | null;
   city: string;
   region: string;
   neighborhood: string | null;
@@ -1249,6 +1250,20 @@ export default function PropertyDetailScreen() {
               </View>
             ))}
           </View>
+
+          {/* ── Refundable caution fee ── */}
+          {listing.paymentFrequency !== "For Sale" && listing.cautionFee != null && Number(listing.cautionFee) > 0 && (
+            <View style={styles.rentalCard}>
+              <View style={styles.rentalLeft}>
+                <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
+                <View>
+                  <Text style={styles.rentalLabel}>{t("propertyDetail.cautionFee")}</Text>
+                  <Text style={styles.rentalVal}>{Number(listing.cautionFee).toLocaleString()} XAF</Text>
+                  <Text style={styles.rentalLabel}>{t("propertyDetail.cautionFeeRefundable")}</Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* ── Min rental ── */}
           {listing.paymentFrequency !== "For Sale" && (

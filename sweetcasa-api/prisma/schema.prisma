@@ -137,6 +137,7 @@ model Listing {
   kitchens             Int            @default(0)
   areaSqm              Decimal?       @map("area_sqm") @db.Decimal(10, 2)
   paymentFrequency     String?        @map("payment_frequency") @db.VarChar(20)
+  cautionFee           Decimal?       @map("caution_fee") @db.Decimal(12, 2)
   visitHours           String?        @map("visit_hours") @db.VarChar(120)
   facilities           Json?
   nearbySchoolName     String?        @map("nearby_school_name") @db.VarChar(150)

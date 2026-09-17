@@ -265,7 +265,10 @@
     "yearly": "Yearly",
     "forSale": "For Sale",
     "perMonth": "mo",
-    "perYear": "yr"
+    "perYear": "yr",
+    "cautionFee": "Caution Fee (Security Deposit)",
+    "cautionFeePlaceholder": "0",
+    "cautionFeeHint": "One-time refundable security deposit paid before move-in. It is separate from rent and may be used by the landlord only for qualifying damage or unpaid utility obligations under the lease."
   },
   "messages": {
     "title": "Messages",
@@ -739,7 +742,9 @@
     "invalidTime": "Invalid time",
     "invalidTimeDesc": "Please enter the time as HH:MM, for example 14:30.",
     "couldNotBookViewing": "Could not book viewing",
-    "genericTryAgain": "Something went wrong. Please try again."
+    "genericTryAgain": "Something went wrong. Please try again.",
+    "cautionFee": "Caution Fee (Security Deposit)",
+    "cautionFeeRefundable": "One-time refundable deposit • Terms apply"
   },
   "neighborhoodMap": {
     "title": "Neighborhood",

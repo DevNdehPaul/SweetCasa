@@ -265,7 +265,10 @@
     "yearly": "Annuel",
     "forSale": "À vendre",
     "perMonth": "mois",
-    "perYear": "an"
+    "perYear": "an",
+    "cautionFee": "Caution (Dépôt de garantie)",
+    "cautionFeePlaceholder": "0",
+    "cautionFeeHint": "Dépôt de garantie remboursable payé une seule fois avant l'emménagement. Il est distinct du loyer et ne peut être utilisé par le propriétaire que pour les dommages admissibles ou les factures de services impayées conformément au bail."
   },
   "messages": {
     "title": "Messages",
@@ -739,7 +742,9 @@
     "invalidTime": "Heure invalide",
     "invalidTimeDesc": "Veuillez saisir l'heure au format HH:MM, par exemple 14:30.",
     "couldNotBookViewing": "Impossible de réserver la visite",
-    "genericTryAgain": "Une erreur est survenue. Veuillez réessayer."
+    "genericTryAgain": "Une erreur est survenue. Veuillez réessayer.",
+    "cautionFee": "Caution (Dépôt de garantie)",
+    "cautionFeeRefundable": "Dépôt remboursable payé une seule fois • Conditions applicables"
   },
   "neighborhoodMap": {
     "title": "Quartier",

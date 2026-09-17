@@ -60,6 +60,7 @@ function serializeListing(listing) {
   return {
     ...listing,
     price:   listing.price?.toString?.()   ?? listing.price,
+    cautionFee: listing.cautionFee?.toString?.() ?? listing.cautionFee,
     areaSqm: listing.areaSqm?.toString?.() ?? listing.areaSqm,
     agent:   listing.agent ?? null,
     owner: listing.owner
@@ -164,7 +165,7 @@ exports.createListing = async (req, res) => {
     const {
       title, price, type, country, city, region,
       neighborhood, description, bedrooms, bathrooms, toilets,
-      parlors, kitchens, areaSqm, paymentFrequency,
+      parlors, kitchens, areaSqm, paymentFrequency, cautionFee,
       visitHours, facilities,
       nearbySchoolName, nearbyBankName, nearbyRestaurantName,
       nearbyMarketName, nearbyClinicName,
@@ -238,6 +239,7 @@ exports.createListing = async (req, res) => {
         kitchens: parseNumber(kitchens),
         areaSqm: parseOptionalDecimal(areaSqm),
         paymentFrequency: normalizeString(paymentFrequency),
+        cautionFee: parseOptionalDecimal(cautionFee),
         visitHours: normalizeString(visitHours),
         facilities: parseJsonArray(facilities),
         nearbySchoolName: normalizeString(nearbySchoolName),
@@ -772,7 +774,7 @@ exports.editListing = async (req, res) => {
     const {
       title, price, type, city, region, neighborhood,
       description, bedrooms, bathrooms, toilets,
-      parlors, kitchens, areaSqm, paymentFrequency,
+      parlors, kitchens, areaSqm, paymentFrequency, cautionFee,
       visitHours, facilities,
       nearbySchoolName, nearbyBankName, nearbyRestaurantName,
       nearbyMarketName, nearbyClinicName,
@@ -836,6 +838,7 @@ exports.editListing = async (req, res) => {
     if (kitchens !== undefined)    updateData.kitchens   = parseNumber(kitchens)
     if (areaSqm !== undefined)    updateData.areaSqm    = parseOptionalDecimal(areaSqm)
     if (paymentFrequency !== undefined) updateData.paymentFrequency = normalizeString(paymentFrequency)
+    if (cautionFee !== undefined) updateData.cautionFee = parseOptionalDecimal(cautionFee)
     if (visitHours !== undefined) updateData.visitHours = normalizeString(visitHours)
     if (facilities)       updateData.facilities       = parseJsonArray(facilities)
     if (nearbySchoolName !== undefined)     updateData.nearbySchoolName     = normalizeString(nearbySchoolName)
