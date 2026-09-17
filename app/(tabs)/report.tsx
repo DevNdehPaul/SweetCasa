@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
@@ -56,6 +56,7 @@ type SelectedMedia = {
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ReportIssue() {
+  const disputeParams = useLocalSearchParams<{ listingId?: string; transactionId?: string }>();
   const { t } = useTranslation();
   const { colors, isDark } = useAppTheme();
   const s = useMemo(() => getStyles(colors), [colors]);
@@ -133,6 +134,8 @@ export default function ReportIssue() {
       body.append('subject', subject.trim());
       body.append('description', description.trim());
       body.append('followUp', String(followUp));
+      if (disputeParams.listingId) body.append('listingId', String(disputeParams.listingId));
+      if (disputeParams.transactionId) body.append('transactionId', String(disputeParams.transactionId));
 
       media.forEach((m, i) => {
         const ext =

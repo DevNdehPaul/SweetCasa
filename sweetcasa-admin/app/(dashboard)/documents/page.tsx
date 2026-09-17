@@ -77,7 +77,7 @@ function DocumentsPageInner() {
         />
       )}
 
-      <PageHeader title="Documents" subtitle="Verify legal documents and floor plans attached to listings." />
+      <PageHeader title="Documents" subtitle="View signed agreements and verify legal documents and floor plans attached to listings." />
 
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line">
         {TABS.map((tab) => (
@@ -97,7 +97,7 @@ function DocumentsPageInner() {
       {!documents && !error && <CenteredSpinner />}
 
       {documents && documents.length === 0 && (
-        <EmptyState title={`No ${status === 'All' ? '' : status.toLowerCase()} documents`} description="Documents owners upload to a listing's vault appear here." />
+        <EmptyState title={`No ${status === 'All' ? '' : status.toLowerCase()} documents`} description="Signed agreements and documents attached to listings appear here." />
       )}
 
       {documents && documents.length > 0 && (

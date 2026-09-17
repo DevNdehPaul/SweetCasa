@@ -568,7 +568,12 @@
     "loadingLikedProperties": "Loading your liked properties…",
     "noLikedPropertyMatch": "None of your liked properties match this search.",
     "noLikedProperties": "You haven't liked any properties yet. Tap the heart on a property first, then it will appear here.",
-    "browsePropertiesToLike": "Browse properties to like"
+    "browsePropertiesToLike": "Browse properties to like",
+    "purchase": "Purchase",
+    "walletDepositDesc": "Add money to your SweetCasa escrow wallet. Deposited money stays available until you purchase a property or withdraw it.",
+    "purchaseDesc": "Choose a liked property. Rentals require one rental payment plus the caution fee. Properties for sale require at least 25% of the sale price.",
+    "availableNow": "Available now",
+    "purchaseShortage": "Your available escrow balance is not enough for this property. Deposit the difference first."
   },
   "casaMatch": {
     "stepOf": "{{step}}/{{total}}",

@@ -31,7 +31,8 @@ export interface DocumentRecord {
   id: number
   listingId: number | null
   userId: number | null
-  type: 'LEGAL_DOCUMENT' | 'FLOOR_PLAN' | 'NATIONAL_ID' | 'OTHER'
+  transactionId?: number | null
+  type: 'LEGAL_DOCUMENT' | 'FLOOR_PLAN' | 'NATIONAL_ID' | 'SIGNED_AGREEMENT' | 'OTHER'
   fileName: string | null
   url: string
   status: DocumentStatus

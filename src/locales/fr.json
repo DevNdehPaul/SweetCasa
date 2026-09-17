@@ -568,7 +568,12 @@
     "loadingLikedProperties": "Chargement de vos propriétés aimées…",
     "noLikedPropertyMatch": "Aucune de vos propriétés aimées ne correspond à cette recherche.",
     "noLikedProperties": "Vous n'avez encore aimé aucune propriété. Appuyez d'abord sur le cœur d'une propriété, puis elle apparaîtra ici.",
-    "browsePropertiesToLike": "Parcourir les propriétés à aimer"
+    "browsePropertiesToLike": "Parcourir les propriétés à aimer",
+    "purchase": "Acheter",
+    "walletDepositDesc": "Ajoutez de l’argent à votre portefeuille séquestre SweetCasa. L’argent déposé reste disponible jusqu’à l’achat d’un bien ou son retrait.",
+    "purchaseDesc": "Choisissez un bien aimé. Une location exige un paiement de loyer plus la caution. Un bien à vendre exige au moins 25 % du prix de vente.",
+    "availableNow": "Disponible maintenant",
+    "purchaseShortage": "Votre solde séquestre disponible est insuffisant pour ce bien. Déposez d’abord la différence."
   },
   "casaMatch": {
     "stepOf": "{{step}}/{{total}}",

@@ -87,6 +87,8 @@ model Transaction {
   listing       Listing?  @relation(fields: [listingId], references: [id], onDelete: SetNull)
   /// links a Hold/Release/Refund back to the Deposit that created the held funds
   relatedTransactionId Int? @map("related_transaction_id")
+  /// unique settlement guard prevents a Hold from being released/refunded twice
+  resolutionKey String? @unique @map("resolution_key") @db.VarChar(80)
   /// destination phone number for a Refund/Withdrawal payout
   phone         String?   @db.VarChar(20)
   /// 'mobile money' | 'orange money' | 'fapshi'
@@ -96,6 +98,17 @@ model Transaction {
   /// admin's note on a Release/Refund, or the user id who triggered a self-service action
   reason        String?
   initiatedBy   Int?      @map("initiated_by")
+  /// Purchase/lease accounting kept separate for audit and caution-fee evidence
+  rentAmount    Decimal?  @map("rent_amount") @db.Decimal(12, 2)
+  cautionFeeAmount Decimal? @map("caution_fee_amount") @db.Decimal(12, 2)
+  /// SweetCasa platform commission deducted from rent only at settlement
+  platformCommissionAmount Decimal? @map("platform_commission_amount") @db.Decimal(12, 2)
+  /// Net amount credited to the landlord after commission, including full caution fee
+  landlordPayoutAmount Decimal? @map("landlord_payout_amount") @db.Decimal(12, 2)
+  signatureName String?   @map("signature_name") @db.VarChar(180)
+  signedAt      DateTime? @map("signed_at")
+  moveInDate    DateTime? @map("move_in_date")
+  protectionEndsAt DateTime? @map("protection_ends_at")
   createdAt     DateTime? @default(now()) @map("created_at")
   updatedAt     DateTime? @updatedAt @map("updated_at")
 
@@ -105,6 +118,8 @@ model Transaction {
 model Report {
   id           Int       @id @default(autoincrement())
   userId       Int?      @map("user_id")
+  listingId    Int?      @map("listing_id")
+  transactionId Int?     @map("transaction_id")
   category     String    @db.VarChar(50)
   subject      String    @db.VarChar(255)
   description  String
@@ -308,8 +323,9 @@ model Document {
   id                 Int       @id @default(autoincrement())
   listingId          Int?      @map("listing_id")
   userId             Int?      @map("user_id")
-  /// 'LEGAL_DOCUMENT' | 'FLOOR_PLAN' | 'NATIONAL_ID' | 'OTHER'
+  /// 'LEGAL_DOCUMENT' | 'FLOOR_PLAN' | 'NATIONAL_ID' | 'SIGNED_AGREEMENT' | 'OTHER'
   type               String    @db.VarChar(50)
+  transactionId      Int?      @map("transaction_id")
   fileName           String?   @map("file_name") @db.VarChar(255)
   url                String
   cloudinaryPublicId String?   @map("cloudinary_public_id") @db.VarChar(255)

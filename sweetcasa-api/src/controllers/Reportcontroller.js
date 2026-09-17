@@ -22,7 +22,7 @@ exports.createReport = async (req, res) => {
   try {
     ensureCloudinaryConfigured();
     const prisma = getPrisma();
-    const { category, subject, description, followUp } = req.body;
+    const { category, subject, description, followUp, listingId, transactionId } = req.body;
 
     if (!subject?.trim()) {
       return res.status(400).json({ error: 'Subject is required.' });
@@ -45,6 +45,8 @@ exports.createReport = async (req, res) => {
     const report = await prisma.report.create({
       data: {
         userId,
+        listingId: listingId ? Number.parseInt(listingId, 10) : null,
+        transactionId: transactionId ? Number.parseInt(transactionId, 10) : null,
         category:     category || 'Other',
         subject:      subject.trim(),
         description:  description.trim(),

@@ -5,7 +5,7 @@ const { sendMail } = require('../lib/email')
 const { logAction } = require('../lib/audit')
 const { createNotification } = require('../services/notification.service')
 
-const ALLOWED_TYPES = ['LEGAL_DOCUMENT', 'FLOOR_PLAN', 'NATIONAL_ID', 'OTHER']
+const ALLOWED_TYPES = ['LEGAL_DOCUMENT', 'FLOOR_PLAN', 'NATIONAL_ID', 'SIGNED_AGREEMENT', 'OTHER']
 
 function normalizeType(type) {
   const normalized = String(type || '').toUpperCase()
@@ -17,6 +17,7 @@ function serializeDocument(doc) {
     id: doc.id,
     listingId: doc.listingId,
     userId: doc.userId,
+    transactionId: doc.transactionId ?? null,
     type: doc.type,
     fileName: doc.fileName,
     url: doc.url,
@@ -94,7 +95,7 @@ exports.getDocumentsForListing = async (req, res) => {
     if (!listing) return res.status(404).json({ error: 'Listing not found.' })
 
     const isOwner = listing.ownerId === req.user.id
-    const isAdmin = req.user.role === 'ADMIN'
+    const isAdmin = req.user.role === 'ADMIN' || req.user.role === 'STAFF'
     if (!isOwner && !isAdmin) return res.status(403).json({ error: 'Access denied.' })
 
     const documents = await getPrisma().document.findMany({

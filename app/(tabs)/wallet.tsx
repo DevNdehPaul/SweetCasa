@@ -66,6 +66,8 @@ interface ListingOption {
   title: string;
   price: string;
   city: string;
+  paymentFrequency?: string | null;
+  cautionFee?: string | null;
 }
 
 function formatXAF(value: string | number): string {
@@ -241,380 +243,95 @@ function DepositModal({
   const { t } = useTranslation();
   const { colors } = useAppTheme();
   const modalStyles = useMemo(() => getModalStyles(colors), [colors]);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<ListingOption[]>([]);
-  const [likedProperties, setLikedProperties] = useState<ListingOption[]>([]);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-  const [selected, setSelected] = useState<ListingOption | null>(null);
   const [amount, setAmount] = useState('');
-  const feePreview = useMemo(() => {
-    const amt = Number.parseInt(amount.replace(/[^0-9]/g, ''), 10);
-    if (!Number.isFinite(amt) || amt < 100) return null;
-    const { fee, total } = computeFapshiCharge(amt);
-    return { amount: amt, fee, total };
-  }, [amount]);
   const [phone, setPhone] = useState('');
   const [medium, setMedium] = useState<'mobile money' | 'orange money'>('mobile money');
   const [busy, setBusy] = useState(false);
   const [waitingForApproval, setWaitingForApproval] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const keyboardHeight = useKeyboardHeight();
-
-  // Holds whichever teardown fn (socket listener unsubscribe) needs to run
-  // once one of the two race paths in waitForOutcome resolves.
   const socketCleanupRef = useRef<(() => void) | null>(null);
+  const feePreview = useMemo(() => {
+    const amt = Number.parseInt(amount.replace(/[^0-9]/g, ''), 10);
+    return Number.isFinite(amt) && amt >= 100 ? { amount: amt, ...computeFapshiCharge(amt) } : null;
+  }, [amount]);
 
-  const normalizeLikedListings = (data: any): ListingOption[] => {
-    const raw = data?.listings ?? data?.favourites ?? data?.favorites ?? data?.data ?? [];
-    if (!Array.isArray(raw)) return [];
+  useEffect(() => { if (!visible) { setAmount(''); setPhone(''); setError(null); setWaitingForApproval(false); } }, [visible]);
 
-    const normalized = raw
-      .map((entry: any) => entry?.listing ?? entry?.property ?? entry)
-      .filter((item: any) => item?.id && item?.title)
-      .map((item: any) => ({
-        id: Number(item.id),
-        title: String(item.title),
-        price: String(item.price ?? item.amount ?? '0'),
-        city: String(item.city ?? item.location?.city ?? ''),
-      }));
-
-    return Array.from(new Map(normalized.map((item: ListingOption) => [item.id, item])).values());
-  };
-
-  const loadLikedProperties = useCallback(async () => {
-    setSuggestionsLoading(true);
-    try {
-      const data = await authedFetch('/favourites');
-      const liked = normalizeLikedListings(data);
-      setLikedProperties(liked);
-      setResults(liked);
-    } catch {
-      setLikedProperties([]);
-      setResults([]);
-    } finally {
-      setSuggestionsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (visible) {
-      void loadLikedProperties();
-      return;
-    }
-    setQuery('');
-    setResults([]);
-    setLikedProperties([]);
-    setSelected(null);
-    setAmount('');
-    setPhone('');
-    setMedium('mobile money');
-    setError(null);
-    setWaitingForApproval(false);
-  }, [visible, loadLikedProperties]);
-
-  const handleSearch = (text: string) => {
-    setQuery(text);
-    const needle = text.trim().toLowerCase();
-    if (!needle) {
-      setResults(likedProperties);
-      return;
-    }
-    setResults(
-      likedProperties.filter((item) =>
-        `${item.title} ${item.city}`.toLowerCase().includes(needle),
-      ),
-    );
-  };
-
-  // Waits for a terminal deposit status two ways at once:
-  //  1. The socket push — resolves the instant the webhook lands server-side.
-  //  2. The original poll loop — resolves within ~40s even if the socket
-  //     never connected or dropped along the way, and cancels the deposit
-  //     server-side if nothing resolved by the last attempt.
-  // Whichever path settles first wins; the other is torn down (poll timer
-  // cleared, or socket listener unsubscribed) so onClose()/Alert never fire twice.
   const waitForOutcome = async (transactionId: number) => {
     let settled = false;
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
-
     const socketPromise = new Promise<{ status: string; reason: string | null }>((resolve) => {
-      getSocket()
-        .then((socket) => {
-          if (settled) return; // poll loop already won by the time we connected
-          const handler = (tx: { id: number; status: string; reason: string | null }) => {
-            if (settled || tx.id !== transactionId) return;
-            if (tx.status === 'Completed' || tx.status === 'Failed' || tx.status === 'Cancelled') {
-              socket.off('wallet:deposit_update', handler);
-              resolve({ status: tx.status, reason: tx.reason });
-            }
-          };
-          socket.on('wallet:deposit_update', handler);
-          socketCleanupRef.current = () => socket.off('wallet:deposit_update', handler);
-        })
-        .catch(() => {
-          // Socket unavailable — the poll loop below is the only path, that's fine.
-        });
+      getSocket().then((socket) => {
+        if (settled) return;
+        const handler = (tx: any) => {
+          if (tx.id === transactionId && ['Completed','Failed','Cancelled'].includes(tx.status)) {
+            socket.off('wallet:deposit_update', handler); resolve({ status: tx.status, reason: tx.reason });
+          }
+        };
+        socket.on('wallet:deposit_update', handler);
+        socketCleanupRef.current = () => socket.off('wallet:deposit_update', handler);
+      }).catch(() => {});
     });
-
     const pollPromise = (async () => {
       for (let attempt = 0; attempt < VERIFY_POLL_MAX_ATTEMPTS; attempt += 1) {
         await new Promise<void>((resolve) => { pollTimer = setTimeout(resolve, VERIFY_POLL_INTERVAL_MS); });
-        if (settled) return { status: 'Cancelled', reason: null }; // socket already won, value unused
+        if (settled) return { status: 'Cancelled', reason: null };
         try {
           const verified = await authedFetch(`/wallet/deposit/${transactionId}/verify`);
-          const status = verified.transaction?.status;
-          const reason = verified.transaction?.reason;
-          if (status === 'Completed' || status === 'Failed' || status === 'Cancelled') {
-            return { status, reason };
-          }
-          // still Pending — keep polling
-        } catch {
-          // a single failed poll is fine — keep trying until we run out of attempts
-        }
+          if (['Completed','Failed','Cancelled'].includes(verified.transaction?.status)) return { status: verified.transaction.status, reason: verified.transaction.reason };
+        } catch {}
       }
-
-      // Timed out — cancel the deposit so it can't complete later via a stray webhook.
       try {
         const cancelled = await authedFetch(`/wallet/deposit/${transactionId}/cancel`, { method: 'PATCH' });
-        return {
-          status: cancelled.transaction?.status || 'Cancelled',
-          reason: cancelled.transaction?.reason || null,
-        };
-      } catch {
-        return { status: 'Cancelled', reason: null };
-      }
+        return { status: cancelled.transaction?.status || 'Cancelled', reason: cancelled.transaction?.reason || null };
+      } catch { return { status: 'Cancelled', reason: null }; }
     })();
-
     const outcome = await Promise.race([socketPromise, pollPromise]);
-    settled = true;
-    if (pollTimer) clearTimeout(pollTimer);
-    socketCleanupRef.current?.();
-    socketCleanupRef.current = null;
+    settled = true; if (pollTimer) clearTimeout(pollTimer); socketCleanupRef.current?.(); socketCleanupRef.current = null;
     return outcome;
   };
 
   const handleConfirm = async () => {
     setError(null);
-    if (!selected) { setError(t('escrow.selectAPropertyError')); return; }
     const amt = Number.parseInt(amount.replace(/[^0-9]/g, ''), 10);
-    if (!Number.isFinite(amt) || amt < 100) { setError(t('escrow.enterValidAmount')); return; }
-    if (!phone.trim()) { setError(t('escrow.enterPhoneNumber')); return; }
-
+    if (!Number.isFinite(amt) || amt < 100) return setError(t('escrow.enterValidAmount'));
+    if (!phone.trim()) return setError(t('escrow.enterPhoneNumber'));
     setBusy(true);
     try {
-      const data = await authedFetch('/wallet/deposit', {
-        method: 'POST',
-        body: JSON.stringify({ listingId: selected.id, amount: amt, phone: phone.trim(), medium }),
-      });
-
-      // A prompt has now been pushed to the person's phone — wait here so they
-      // see the "check your phone" state instead of the modal just vanishing.
+      const data = await authedFetch('/wallet/deposit', { method: 'POST', body: JSON.stringify({ amount: amt, phone: phone.trim(), medium }) });
       setWaitingForApproval(true);
       const outcome = await waitForOutcome(data.transaction.id);
-      // Stop the spinner the instant we have an outcome — success, failure, or timeout.
-      setWaitingForApproval(false);
-      onClose();
-
-      if (outcome.status === 'Completed') {
-        Alert.alert(t('escrow.depositSuccessTitle'), t('escrow.depositSuccessDesc'));
-      } else {
-        // Failed, Cancelled, or timed out — all flash as a failure.
-        Alert.alert(
-          t('escrow.depositFailedTitle'),
-          outcome.reason ? t('escrow.depositFailedDescReason', { reason: outcome.reason }) : t('escrow.depositFailedDesc'),
-        );
-      }
+      setWaitingForApproval(false); onClose();
+      Alert.alert(outcome.status === 'Completed' ? t('escrow.depositSuccessTitle') : t('escrow.depositFailedTitle'), outcome.status === 'Completed' ? t('escrow.depositSuccessDesc') : (outcome.reason || t('escrow.depositFailedDesc')));
       onDeposited();
-    } catch (err: any) {
-      setWaitingForApproval(false);
-      setError(err.message || t('common.error'));
-    } finally {
-      setBusy(false);
-    }
+    } catch (err: any) { setWaitingForApproval(false); setError(err.message || t('common.error')); }
+    finally { setBusy(false); }
   };
 
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent>
-      <View style={modalStyles.overlay}>
-        <View style={modalStyles.sheet}>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={[modalStyles.sheetScrollContent, { paddingBottom: keyboardHeight + 32 }]}>
-          <Text style={modalStyles.title}>{t('escrow.depositModalTitle')}</Text>
-          <Text style={modalStyles.desc}>{t('escrow.depositModalDesc')}</Text>
+  return <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent>
+    <View style={modalStyles.overlay}><View style={modalStyles.sheet}><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={[modalStyles.sheetScrollContent,{paddingBottom:keyboardHeight+32}]}>
+      <Text style={modalStyles.title}>{t('escrow.deposit', { defaultValue: 'Deposit' })}</Text>
+      <Text style={modalStyles.desc}>{t('escrow.walletDepositDesc', { defaultValue: 'Add money to your SweetCasa escrow wallet. Deposited money stays available until you purchase a property or withdraw it.' })}</Text>
+      {waitingForApproval ? <View style={{alignItems:'center',paddingVertical:24,gap:12}}><ActivityIndicator size="large" color={colors.primary}/><Text style={modalStyles.desc}>{t('escrow.depositWaitingDesc')}</Text></View> : <>
+        {error && <Text style={modalStyles.error}>{error}</Text>}
+        <Text style={modalStyles.label}>{t('escrow.amountXAF')}</Text><TextInput style={modalStyles.input} value={amount} onChangeText={setAmount} keyboardType="number-pad" placeholder={t('escrow.amountPlaceholder')} placeholderTextColor={colors.textLight}/>
+        {feePreview && <View style={modalStyles.feeBox}><View style={modalStyles.feeBoxRow}><Text style={modalStyles.feeBoxLabel}>{t('escrow.youWillPay')}</Text><Text style={modalStyles.feeBoxAmount}>{formatXAF(feePreview.total)}</Text></View><Text style={modalStyles.feeBoxNote}>{t('escrow.feePreviewNote',{escrow:formatXAF(feePreview.amount),fee:formatXAF(feePreview.fee)})}</Text></View>}
+        <Text style={modalStyles.label}>{t('escrow.selectNetwork')}</Text><View style={{flexDirection:'row',gap:10}}>{FAPSHI_MEDIUMS.map(m=><TouchableOpacity key={m.value} onPress={()=>setMedium(m.value)} style={[modalStyles.cancelBtn,{flex:1,borderColor:medium===m.value?colors.primary:colors.border}]}><Text style={{color:medium===m.value?colors.primary:colors.text,fontWeight:'700'}}>{t(m.labelKey)}</Text></TouchableOpacity>)}</View>
+        <Text style={modalStyles.label}>{t('escrow.phoneNumber')}</Text><TextInput style={modalStyles.input} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder={t('escrow.phonePlaceholder')} placeholderTextColor={colors.textLight}/>
+      </>}
+      <View style={modalStyles.actions}><TouchableOpacity style={modalStyles.cancelBtn} onPress={onClose}><Text style={modalStyles.cancelTxt}>{t('common.cancel')}</Text></TouchableOpacity><TouchableOpacity style={[modalStyles.confirmBtn,(busy||waitingForApproval)&&{opacity:.5}]} disabled={busy||waitingForApproval} onPress={handleConfirm}>{busy?<ActivityIndicator color="#fff"/>:<Text style={modalStyles.confirmTxt}>{t('common.confirm')}</Text>}</TouchableOpacity></View>
+    </ScrollView></View></View>
+  </Modal>;
+}
 
-          {waitingForApproval ? (
-            <View style={{ alignItems: 'center', paddingVertical: 24, gap: 12 }}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={{ fontSize: 13.5, fontWeight: '700', color: colors.text, textAlign: 'center' }}>
-                {t('escrow.depositWaitingTitle')}
-              </Text>
-              <Text style={{ fontSize: 12.5, color: colors.textLight, textAlign: 'center', lineHeight: 18 }}>
-                {t('escrow.depositWaitingDesc')}
-              </Text>
-            </View>
-          ) : (
-            <>
-              {error && <Text style={modalStyles.error}>{error}</Text>}
-
-              {!selected ? (
-                <>
-                  <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
-                  <Text style={modalStyles.hint}>
-                    {t('escrow.likedPropertyHint', {
-                      defaultValue: 'Choose from properties you have liked. Like a property first and it will appear here as a suggestion.',
-                    })}
-                  </Text>
-                  <TextInput
-                    style={modalStyles.input}
-                    placeholder={t('escrow.searchLikedProperties', { defaultValue: 'Search your liked properties…' })}
-                    placeholderTextColor={colors.textLight}
-                    value={query}
-                    onChangeText={handleSearch}
-                  />
-                  <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled">
-                    {suggestionsLoading ? (
-                      <View style={{ paddingVertical: 20, alignItems: 'center', gap: 8 }}>
-                        <ActivityIndicator size="small" color={colors.primary} />
-                        <Text style={modalStyles.hint}>
-                          {t('escrow.loadingLikedProperties', { defaultValue: 'Loading your liked properties…' })}
-                        </Text>
-                      </View>
-                    ) : results.length > 0 ? (
-                      results.map((r) => (
-                        <TouchableOpacity
-                          key={r.id}
-                          style={modalStyles.resultRow}
-                          onPress={() => setSelected(r)}
-                        >
-                          <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text style={modalStyles.resultTitle} numberOfLines={1}>{r.title}</Text>
-                            <Text style={modalStyles.resultMeta} numberOfLines={1}>
-                              {[r.city, formatXAF(r.price)].filter(Boolean).join(' · ')}
-                            </Text>
-                          </View>
-                          <Feather name="chevron-right" size={17} color={colors.primary} />
-                        </TouchableOpacity>
-                      ))
-                    ) : (
-                      <View style={{ paddingVertical: 16, gap: 10 }}>
-                        <Text style={[modalStyles.hint, { textAlign: 'center' }]}>
-                          {query.trim()
-                            ? t('escrow.noLikedPropertyMatch', { defaultValue: 'None of your liked properties match this search.' })
-                            : t('escrow.noLikedProperties', { defaultValue: 'You have not liked any properties yet. Tap the heart on a property first, then it will appear here.' })}
-                        </Text>
-                        <TouchableOpacity
-                          style={modalStyles.confirmBtn}
-                          onPress={() => {
-                            onClose();
-                            router.push('/search' as any);
-                          }}
-                        >
-                          <Feather name="heart" size={16} color="#fff" />
-                          <Text style={modalStyles.confirmTxt}>
-                            {t('escrow.browsePropertiesToLike', { defaultValue: 'Browse properties to like' })}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </ScrollView>
-                </>              ) : (
-                <>
-                  <Text style={modalStyles.label}>{t('escrow.selectProperty')}</Text>
-                  <View style={modalStyles.selectedRow}>
-                    <Text style={modalStyles.selectedTxt} numberOfLines={1}>{selected.title}</Text>
-                    <TouchableOpacity onPress={() => {
-                      setSelected(null);
-                      setQuery('');
-                      setResults(likedProperties);
-                    }}>
-                      <Text style={modalStyles.changeTxt}>{t('common.edit')}</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                                    <Text style={modalStyles.label}>{t('escrow.amountXAF')}</Text>
-                  <TextInput
-                    style={modalStyles.input}
-                    placeholder={t('escrow.amountPlaceholder')}
-                    placeholderTextColor={colors.textLight}
-                    value={amount}
-                    onChangeText={setAmount}
-                    keyboardType="number-pad"
-                  />
-
-                  {feePreview && (
-                    <View style={modalStyles.feeBox}>
-                      <View style={modalStyles.feeBoxRow}>
-                        <Text style={modalStyles.feeBoxLabel}>{t('escrow.youWillPay')}</Text>
-                        <Text style={modalStyles.feeBoxAmount}>{formatXAF(feePreview.total)}</Text>
-                      </View>
-                      <Text style={modalStyles.feeBoxNote}>
-                        {t('escrow.feePreviewNote', {
-                          escrow: formatXAF(feePreview.amount),
-                          fee: formatXAF(feePreview.fee),
-                        })}
-                      </Text>
-                      <TouchableOpacity onPress={() => Linking.openURL(FAPSHI_PRICING_URL)}>
-                        <Text style={modalStyles.feeBoxLink}>{t('escrow.seeFapshiFees')}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  <Text style={modalStyles.label}>{t('escrow.selectNetwork')}</Text>
-                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
-                    {FAPSHI_MEDIUMS.map((m) => (
-                      <TouchableOpacity
-                        key={m.value}
-                        onPress={() => setMedium(m.value)}
-                        style={{
-                          flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center',
-                          borderWidth: 1.5,
-                          borderColor: medium === m.value ? colors.primary : colors.border,
-                          backgroundColor: medium === m.value ? colors.primaryTint : colors.card,
-                        }}>
-                        <Text style={{
-                          fontSize: 13, fontWeight: '700',
-                          color: medium === m.value ? colors.primary : colors.textSecondary,
-                        }}>
-                          {t(m.labelKey)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <Text style={modalStyles.label}>{t('escrow.phoneNumber')}</Text>
-                  <TextInput
-                    style={modalStyles.input}
-                    placeholder={t('escrow.phonePlaceholder')}
-                    placeholderTextColor={colors.textLight}
-                    value={phone}
-                    onChangeText={setPhone}
-                    keyboardType="phone-pad"
-                  />
-                </>
-              )}
-            </>
-          )}
-
-          <View style={modalStyles.actions}>
-            <TouchableOpacity style={modalStyles.cancelBtn} onPress={onClose} disabled={busy}>
-              <Text style={modalStyles.cancelTxt}>{t('common.cancel')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[modalStyles.confirmBtn, (!selected || busy) && { opacity: 0.5 }]}
-              onPress={handleConfirm}
-              disabled={!selected || busy}>
-              {busy ? <ActivityIndicator color="#fff" size="small" /> : (
-                <Text style={modalStyles.confirmTxt}>{t('common.confirm')}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
+function PurchaseModal({ visible, availableBalance, onClose }: { visible:boolean; availableBalance:string; onClose:()=>void }) {
+  const { t } = useTranslation(); const { colors } = useAppTheme(); const ms = useMemo(()=>getModalStyles(colors),[colors]);
+  const [items,setItems]=useState<ListingOption[]>([]); const [loading,setLoading]=useState(false); const [error,setError]=useState<string|null>(null); const keyboardHeight=useKeyboardHeight();
+  useEffect(()=>{ if(!visible)return; setLoading(true); setError(null); authedFetch('/favourites').then((data:any)=>{ const raw=data?.savedListings??data?.listings??data?.favourites??[]; setItems(raw.map((e:any)=>e?.listing??e).filter((x:any)=>x?.id).map((x:any)=>({id:Number(x.id),title:String(x.title),price:String(x.price||0),city:String(x.city||''),paymentFrequency:x.paymentFrequency,cautionFee:x.cautionFee==null?null:String(x.cautionFee)}))); }).catch((e:any)=>setError(e.message)).finally(()=>setLoading(false)); },[visible]);
+  const requirement=(x:ListingOption)=>x.paymentFrequency==='For Sale'?Math.ceil(Number(x.price)*.25):Number(x.price)+Number(x.cautionFee||0);
+  const choose=(x:ListingOption)=>{ const required=requirement(x); if(Number(availableBalance)<required){ setError(t('escrow.purchaseShortage',{defaultValue:`You need ${formatXAF(required)} available. Your available balance is ${formatXAF(availableBalance)}. Deposit the difference first.`})); return; } onClose(); router.push({pathname:'/lease-agreement' as any,params:{listingId:String(x.id),title:x.title,price:x.price,paymentFrequency:x.paymentFrequency||'',cautionFee:x.cautionFee||'0',requiredAmount:String(required)}} as any); };
+  return <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent><View style={ms.overlay}><View style={ms.sheet}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[ms.sheetScrollContent,{paddingBottom:keyboardHeight+32}]}><Text style={ms.title}>{t('escrow.purchase',{defaultValue:'Purchase'})}</Text><Text style={ms.desc}>{t('escrow.purchaseDesc',{defaultValue:'Choose a liked property. Rentals require one rental payment plus the caution fee. Properties for sale require at least 25% of the sale price.'})}</Text><Text style={ms.hint}>{t('escrow.availableNow',{defaultValue:'Available now'})}: {formatXAF(availableBalance)}</Text>{error&&<Text style={ms.error}>{error}</Text>}{loading?<ActivityIndicator color={colors.primary}/>:items.length?items.map(x=><TouchableOpacity key={x.id} style={ms.resultRow} onPress={()=>choose(x)}><View style={{flex:1}}><Text style={ms.resultTitle}>{x.title}</Text><Text style={ms.resultMeta}>{x.paymentFrequency==='For Sale'?'25% sale commitment':'Rent + caution fee'} · {formatXAF(requirement(x))}</Text></View><Feather name="chevron-right" size={17} color={colors.primary}/></TouchableOpacity>):<Text style={ms.hint}>{t('escrow.noLikedProperties',{defaultValue:'Like a property first so it appears here.'})}</Text>}<View style={ms.actions}><TouchableOpacity style={ms.cancelBtn} onPress={onClose}><Text style={ms.cancelTxt}>{t('common.cancel')}</Text></TouchableOpacity></View></ScrollView></View></View></Modal>;
 }
 
 // ─── Withdraw Modal ───────────────────────────────────────────────────────────
@@ -1103,6 +820,7 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
   const [infoVisible, setInfoVisible] = useState(false);
   const [depositVisible, setDepositVisible] = useState(false);
   const [withdrawVisible, setWithdrawVisible] = useState(false);
+  const [purchaseVisible, setPurchaseVisible] = useState(false);
   const [allActivityVisible, setAllActivityVisible] = useState(false);
 
   const [wallet, setWallet] = useState<WalletData | null>(null);
@@ -1233,6 +951,12 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
               <Text style={[styles.primaryActionTxt, styles.primaryActionTxtDeposit]}>{t('escrow.deposit')}</Text>
             </TouchableOpacity>
           )}
+          {!isOwner && (
+            <TouchableOpacity style={[styles.primaryActionBtn, styles.depositBtn]} activeOpacity={0.85} onPress={() => setPurchaseVisible(true)}>
+              <Feather name="home" size={18} color={colors.primary} />
+              <Text style={[styles.primaryActionTxt, styles.primaryActionTxtDeposit]}>{t('escrow.purchase', { defaultValue: 'Purchase' })}</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.primaryActionBtn, styles.withdrawBtn, isOwner && { flex: 1 }]}
             activeOpacity={0.85}
@@ -1310,6 +1034,7 @@ export default function EscrowWalletScreen({ role: roleProp }: { role?: string }
       {!isOwner && (
         <DepositModal visible={depositVisible} onClose={() => setDepositVisible(false)} onDeposited={load} />
       )}
+      {!isOwner && <PurchaseModal visible={purchaseVisible} availableBalance={wallet?.availableBalance || '0'} onClose={() => setPurchaseVisible(false)} />}
       <WithdrawModal
         visible={withdrawVisible}
         availableBalance={wallet?.availableBalance || '0'}

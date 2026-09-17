@@ -6,6 +6,7 @@ const {
   verifyDeposit,
   cancelDeposit,
   fapshiWebhook,
+  purchase,
   releaseHold,
   refundHold,
   withdraw,
@@ -20,10 +21,11 @@ router.post('/webhooks/fapshi', fapshiWebhook)
 // ── Any authenticated user ────────────────────────────────────────────────────
 router.get('/me', requireRole(), getMyWallet)
 router.get('/transactions', requireRole(), listMyTransactions)
-router.post('/deposit', requireRole(), deposit)
+router.post('/deposit', requireRole('BUYER'), deposit)
+router.post('/purchase', requireRole('BUYER'), purchase)
 router.get('/deposit/:id/verify', requireRole(), verifyDeposit)
 router.patch('/deposit/:id/cancel', requireRole(), cancelDeposit)
-router.post('/withdraw', requireRole('SELLER'), withdraw)
+router.post('/withdraw', requireRole('BUYER', 'SELLER'), withdraw)
 
 // ── Admin/staff — the "admin-triggered release" from the roadmap ─────────────
 router.patch('/transactions/:id/release', requireRole('ADMIN', 'STAFF'), releaseHold)
