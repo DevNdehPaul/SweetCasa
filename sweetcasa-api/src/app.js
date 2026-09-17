@@ -24,6 +24,7 @@ const allowedOrigins = [
   'http://localhost:8081',
   'http://localhost:4200',
   'https://sweetcasa-admin-dashboard.up.railway.app',
+  'https://sweetcasa-f110e.web.app',
   ...(process.env.WEB_ORIGINS || '')
     .split(',')
     .map((origin) => origin.trim())

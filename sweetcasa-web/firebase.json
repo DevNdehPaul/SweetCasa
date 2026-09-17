@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "dist/sweetcasa-web",
+    "public": "dist/sweetcasa-web/browser",
     "ignore": [
       "firebase.json",
       "**/.*",
