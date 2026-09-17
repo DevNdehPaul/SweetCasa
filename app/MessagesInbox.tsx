@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -224,6 +224,14 @@ function MessagesInbox() {
     fetchConversations().finally(() => setLoading(false));
   }, [fetchConversations]);
 
+  // Always refresh the inbox when this screen becomes active again.
+  // This keeps unread badges in sync after a conversation is opened/read.
+  useFocusEffect(
+    useCallback(() => {
+      fetchConversations();
+    }, [fetchConversations])
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchConversations();
@@ -322,12 +330,21 @@ function MessagesInbox() {
             <ConversationRow
               item={item}
               colors={colors}
-              onPress={() =>
+              onPress={() => {
+                // Update the UI immediately instead of leaving a stale unread badge
+                // while the conversation screen marks the messages as read.
+                setConversations((prev) =>
+                  prev.map((conversation) =>
+                    conversation.id === item.id
+                      ? { ...conversation, unreadCount: 0 }
+                      : conversation
+                  )
+                );
                 router.push({
                   pathname: '/MessagesScreen',
                   params: { conversationId: String(item.id) },
-                } as any)
-              }
+                } as any);
+              }}
               onDelete={() => handleDelete(item.id)}
             />
           )}

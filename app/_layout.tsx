@@ -62,6 +62,10 @@ function RootStack() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
+            name="lease-agreement"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="house_owners_login_signup"
             options={{ headerShown: false }}
           />

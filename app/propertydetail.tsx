@@ -776,14 +776,28 @@ export default function PropertyDetailScreen() {
         return;
       }
 
-      // Resolve buyer's display name — try multiple common storage keys
-      let buyerName = "A potential buyer";
+      // Resolve the seeker's real display name from the stored auth profile.
+      // Auth responses may be stored either as the profile itself or as { profile: ... }.
+      let buyerName = "";
       try {
         if (userRaw) {
-          const u = JSON.parse(userRaw);
-          buyerName = u.name || u.fullName || u.companyName || buyerName;
+          const stored = JSON.parse(userRaw);
+          const u = stored?.profile || stored;
+          buyerName = String(
+            u?.fullName ||
+              u?.name ||
+              [u?.firstName, u?.lastName].filter(Boolean).join(" ") ||
+              u?.companyName ||
+              "",
+          ).trim();
         }
       } catch {}
+
+      // Do not send an awkward generic identity such as “A potential buyer”.
+      // If the local profile is unavailable, keep the introduction natural.
+      const buyerIntroduction = buyerName
+        ? `My name is ${buyerName}. `
+        : "I'm contacting you through SweetCasa. ";
 
       // Start or retrieve existing conversation
       const convRes = await fetch(BASE_URL + "/messages/conversations", {
@@ -808,19 +822,18 @@ export default function PropertyDetailScreen() {
       const convData = await convRes.json();
       const conversationId = convData.conversationId;
 
-      // Send pre-drafted welcome message with buyer's name
+      // Send a short, natural introduction that identifies both people.
       const loc = [listing.neighborhood, listing.city, listing.region]
         .filter(Boolean)
         .join(", ");
+      const ownerName = String(listing.agent?.name || "").trim();
+      const greeting = ownerName ? `Hello ${ownerName},` : "Hello,";
+      const propertyLocation = loc ? ` in ${loc}` : "";
       const welcomeText =
-        "Hello! My name is " +
-        buyerName +
-        ' and I came across your listing "' +
-        listing.title +
-        '" in ' +
-        loc +
-        " on SweetCasa. I am very interested in this property and would love to get more details. " +
-        "Could you please let me know when a viewing would be possible? Thank you!";
+        `${greeting} ${buyerIntroduction}` +
+        `I found your property, “${listing.title}”${propertyLocation}, on SweetCasa. ` +
+        "I'm interested in it and would like to know more. " +
+        "Please let me know when you would be available for a viewing. Thank you.";
 
       if (!conversationId) {
         throw new Error("The server did not return a conversation ID.");

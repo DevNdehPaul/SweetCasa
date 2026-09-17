@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -63,6 +63,22 @@ export default function MessagesScreen() {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated }), 120);
   }, []);
 
+  const markConversationRead = useCallback(async (id: number, token: string) => {
+    try {
+      await fetch(`${BASE_URL}/messages/conversations/${id}/read`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+    } catch (e) {
+      // Reading the conversation must still work if the read receipt request
+      // briefly fails. The next focus/refresh will retry through the backend state.
+      console.warn("Could not mark conversation as read", e);
+    }
+  }, []);
+
   const loadConversation = useCallback(async () => {
     const id = Number(conversationId);
 
@@ -101,6 +117,7 @@ export default function MessagesScreen() {
       }
 
       setConversation(data.conversation);
+      await markConversationRead(id, token);
     } catch (e: any) {
       setError(
         e?.message || t("chat.couldNotLoadConversation")
@@ -108,11 +125,17 @@ export default function MessagesScreen() {
     } finally {
       setLoading(false);
     }
-  }, [conversationId, t]);
+  }, [conversationId, markConversationRead, t]);
 
   useEffect(() => {
     loadConversation();
   }, [loadConversation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadConversation();
+    }, [loadConversation])
+  );
 
   const sendMessage = async () => {
     const body = text.trim();

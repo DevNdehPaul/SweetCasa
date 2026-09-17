@@ -316,14 +316,33 @@ exports.socialAuth = async (req, res) => {
     const prisma = getPrisma()
     const providerField = provider === 'GOOGLE' ? 'googleId' : 'appleId'
 
+    // The auth screen is role-specific. Existing accounts must sign in from
+    // the screen that matches the role already stored on their SweetCasa account.
+    const requestedRole = normalizeRole(role)
+    const roleMismatchResponse = (existingUser) => {
+      if (!existingUser || existingUser.role === requestedRole) return false
+
+      const isOwner = existingUser.role === 'SELLER'
+      res.status(409).json({
+        error: isOwner
+          ? 'This Google account belongs to a House Owner account. Please go to the House Owner sign-in screen to continue.'
+          : 'This Google account belongs to a House Seeker account. Please go to the House Seeker sign-in screen to continue.',
+        code: 'AUTH_ROLE_MISMATCH',
+        accountRole: existingUser.role,
+      })
+      return true
+    }
+
     // 1. Already linked to this provider → returning social login.
     let user = await prisma.user.findFirst({ where: { [providerField]: verified.providerId } })
+    if (roleMismatchResponse(user)) return
 
     if (!user) {
       // 2. An account with this email already exists (password account, or
       //    signed up with the other provider) → link this provider to it
       //    instead of creating a duplicate account with the same email.
       user = await prisma.user.findFirst({ where: { email: normalizedEmail } })
+      if (roleMismatchResponse(user)) return
 
       if (user) {
         user = await prisma.user.update({
