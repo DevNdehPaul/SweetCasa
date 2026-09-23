@@ -1,2 +1,2 @@
-import { Component } from '@angular/core'; import { RouterOutlet } from '@angular/router';
-@Component({selector:'app-root',imports:[RouterOutlet],template:'<router-outlet />'}) export class App {}
+import { Component } from '@angular/core'; import { RouterOutlet } from '@angular/router'; import { I18nService } from './core/services/i18n.service';
+@Component({selector:'app-root',imports:[RouterOutlet],template:'<router-outlet />'}) export class App { constructor(public i18n:I18nService){} }

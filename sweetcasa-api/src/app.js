@@ -20,6 +20,12 @@ const { initSocket } = require('./lib/socket')   // ← NEW (real-time deposit u
 
 const app = express()
 
+// Prisma can return BigInt values (for example User.phone). Native JSON.stringify
+// throws on BigInt, so make every Express JSON response API-safe in one place.
+app.set('json replacer', (_key, value) =>
+  typeof value === 'bigint' ? value.toString() : value
+)
+
 const allowedOrigins = [
   'http://localhost:8081',
   'http://localhost:4200',

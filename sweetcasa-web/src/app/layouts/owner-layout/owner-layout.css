@@ -12,3 +12,5 @@ main{grid-column:2;min-width:0}header{height:72px;position:fixed;top:0;right:0;l
 
 /* V5 fixed topbar */
 .portal-topbar{position:sticky!important;top:0!important;z-index:40!important;backdrop-filter:blur(16px)}
+/* V9 sidebar: navigation scrolls independently and utility actions stay cleanly pinned */
+aside{height:100dvh;box-sizing:border-box;overflow:hidden;padding-bottom:16px}nav{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:10px}.aside-bottom{flex:0 0 auto;margin-top:8px;padding-top:10px;background:transparent}.aside-bottom>*{display:flex;align-items:center;min-height:38px;box-sizing:border-box;cursor:pointer;text-decoration:none}

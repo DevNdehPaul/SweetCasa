@@ -86,3 +86,9 @@ main{min-height:calc(100vh - 76px);display:grid;grid-template-columns:minmax(430
   .upload-box small,.check,.secure{font-size:9px!important}
   .submit{height:44px!important;font-size:12px!important}
 }
+/* V10 auth alignment + password visibility */
+.credentials{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.credentials.login-credentials{grid-template-columns:1fr}.credentials label{min-width:0}.credentials input,.password-field{width:100%;box-sizing:border-box}.credentials input{height:46px}.password-field{position:relative}.password-field input{padding-right:48px}.password-field .eye{position:absolute;right:5px;top:5px;width:36px;height:36px;border:0;border-radius:9px;background:transparent;color:var(--primary);font-size:20px;cursor:pointer;display:grid;place-items:center}.password-field .eye:hover{background:var(--primary-soft)}.check a{color:var(--primary);font-weight:800;text-decoration:none}.check a:hover{text-decoration:underline}@media(max-width:700px){.credentials{grid-template-columns:1fr}}
+
+.legal-link{border:0;background:transparent;padding:0;color:var(--primary);font:inherit;font-weight:800;cursor:pointer;text-decoration:none}.legal-link:hover{text-decoration:underline}
+/* V12 real password visibility icon */
+.password-field .eye{border-radius:8px!important;background:transparent!important}.password-field .eye svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.password-field .eye:hover{background:var(--primary-soft)!important}

@@ -1,44 +1,44 @@
 <sc-topbar/>
-<main>
+<main data-i18n-safe>
 <section class="hero">
   <div class="aurora a1"></div><div class="aurora a2"></div>
   <div class="copy reveal">
-    <span class="eyebrow">✦ THE SMARTER PROPERTY EXPERIENCE IN CAMEROON</span>
-    <h1>Find home.<br><em>Feel at home.</em></h1>
-    <p>Discover verified properties, talk directly with property owners and use CasaMatch AI to narrow down the home that actually fits your life.</p>
-    <div class="actions"><a class="primary-cta" routerLink="/auth">Explore SweetCasa <span>→</span></a><a class="secondary-cta" routerLink="/auth">List a property</a></div>
-    <div class="trust"><div><b>✓</b><span><strong>Verified</strong><small>property listings</small></span></div><div><b>♢</b><span><strong>Safer</strong><small>in-app conversations</small></span></div><div><b>✦</b><span><strong>Smarter</strong><small>CasaMatch discovery</small></span></div></div>
+    <span class="eyebrow">{{i18n.text('✦ THE SMARTER PROPERTY EXPERIENCE IN CAMEROON')}}</span>
+    <h1>{{i18n.text('Find home.')}}<br><em>{{i18n.text('Feel at home.')}}</em></h1>
+    <p>{{i18n.text('Discover verified properties, talk directly with property owners and use CasaMatch AI to narrow down the home that actually fits your life.')}}</p>
+    <div class="actions"><a class="primary-cta" routerLink="/auth" [queryParams]="{mode:'signup',role:'BUYER'}">{{i18n.text('Explore SweetCasa')}} <span>→</span></a><a class="secondary-cta" routerLink="/auth" [queryParams]="{mode:'signup',role:'SELLER'}">{{i18n.text('List a property')}}</a></div>
+    <div class="trust"><div><b>✓</b><span><strong>{{i18n.text('Verified')}}</strong><small>{{i18n.text('property listings')}}</small></span></div><div><b>♢</b><span><strong>{{i18n.text('Safer')}}</strong><small>{{i18n.text('in-app conversations')}}</small></span></div><div><b>✦</b><span><strong>{{i18n.text('Smarter')}}</strong><small>{{i18n.text('CasaMatch discovery')}}</small></span></div></div>
   </div>
   <div class="stage">
     <div class="dashboard-card">
       <div class="dash-head"><span class="mini-logo">S</span><b>SweetCasa</b><span>⌕</span><span>♡</span></div>
-      <div class="dash-search">⌕ <span>Where do you want to live?</span><b>Search</b></div>
+      <div class="dash-search">⌕ <span>{{i18n.text('Where do you want to live?')}}</span><b>{{i18n.t('search')}}</b></div>
       <div class="property"><img src="/assets/seeker_lifestyle.png"><span class="tag">✓ VERIFIED</span><span class="heart">♡</span></div>
-      <div class="property-info"><small>BONAPRISO · DOUALA</small><h3>Modern city apartment</h3><div><b>250,000 XAF</b><span>2 beds · 2 baths</span></div></div>
+      <div class="property-info"><small>BONAPRISO · DOUALA</small><h3>{{i18n.text('Modern city apartment')}}</h3><div><b>250,000 XAF</b><span>{{i18n.text('2 beds · 2 baths')}}</span></div></div>
     </div>
-    <div class="floating ai"><span>✦</span><div><small>CASAMATCH AI</small><b>92% match for you</b></div></div>
-    <div class="floating owner"><span>⌂</span><div><small>DIRECT CONNECTION</small><b>Talk to the property owner</b></div></div>
+    <div class="floating ai"><span>✦</span><div><small>CASAMATCH AI</small><b>{{i18n.text('92% match for you')}}</b></div></div>
+    <div class="floating owner"><span>⌂</span><div><small>{{i18n.text('DIRECT CONNECTION')}}</small><b>{{i18n.text('Talk to the property owner')}}</b></div></div>
     <div class="dotgrid"></div>
   </div>
 </section>
 
-<section class="marquee"><span>Verified homes</span><i>✦</i><span>Direct conversations</span><i>✦</i><span>CasaMatch AI</span><i>✦</i><span>Property viewings</span><i>✦</i><span>SweetCasa Wallet</span></section>
+<section class="marquee"><span>{{i18n.text('Verified homes')}}</span><i>✦</i><span>{{i18n.text('Direct conversations')}}</span><i>✦</i><span>CasaMatch AI</span><i>✦</i><span>{{i18n.text('Property viewings')}}</span><i>✦</i><span>{{i18n.text('SweetCasa Wallet')}}</span></section>
 
 <section class="experience">
- <div class="section-copy"><span>ONE PLATFORM. TWO JOURNEYS.</span><h2>Built differently for the person searching and the person listing.</h2><p>SweetCasa gives house seekers and property owners their own focused experience, while keeping the property journey connected.</p></div>
+ <div class="section-copy"><span>{{i18n.text('ONE PLATFORM. TWO JOURNEYS.')}}</span><h2>{{i18n.text('Built differently for the person searching and the person listing.')}}</h2><p>{{i18n.text('SweetCasa gives house seekers and property owners their own focused experience, while keeping the property journey connected.')}}</p></div>
  <div class="journeys">
-  <article class="seeker"><div class="label">HOUSE SEEKER</div><h3>Stop scrolling blindly.<br>Start finding deliberately.</h3><p>Search approved homes, save favourites, request viewings, chat safely and let CasaMatch help refine the search.</p><img src="/assets/seeker_security.png"><a routerLink="/auth">Start searching <span>→</span></a></article>
-  <article class="owner"><div class="label">PROPERTY OWNER</div><h3>Your properties deserve<br>a better workspace.</h3><p>Publish listings, manage enquiries, follow viewing requests and keep your property activity organised.</p><img src="/assets/owner_dashboard.png"><a routerLink="/auth">List with SweetCasa <span>→</span></a></article>
+  <article class="seeker"><div class="label">{{i18n.text('HOUSE SEEKER')}}</div><h3>{{i18n.text('Stop scrolling blindly.')}}<br>{{i18n.text('Start finding deliberately.')}}</h3><p>{{i18n.text('Search approved homes, save favourites, request viewings, chat safely and let CasaMatch help refine the search.')}}</p><img src="/assets/seeker_security.png"><a routerLink="/auth" [queryParams]="{mode:'signup',role:'BUYER'}">{{i18n.text('Start searching')}} <span>→</span></a></article>
+  <article class="owner"><div class="label">{{i18n.text('PROPERTY OWNER')}}</div><h3>{{i18n.text('Your properties deserve')}}<br>{{i18n.text('a better workspace.')}}</h3><p>{{i18n.text('Publish listings, manage enquiries, follow viewing requests and keep your property activity organised.')}}</p><img src="/assets/owner_dashboard.png"><a routerLink="/auth" [queryParams]="{mode:'signup',role:'SELLER'}">{{i18n.text('List with SweetCasa')}} <span>→</span></a></article>
  </div>
 </section>
 
 <section class="casamatch">
- <div class="ai-visual"><div class="chat"><div class="bubble user">I need a 2-bedroom apartment in Douala, under 300k.</div><div class="bubble bot"><span>✦</span><div><b>CasaMatch</b><p>I found homes that fit what you're looking for. The strongest match is in Bonapriso.</p></div></div><div class="match-card"><img src="/assets/seeker_verified.png"><div><small>92% MATCH</small><b>Modern 2-bedroom</b><span>Bonapriso · 250,000 XAF</span></div></div></div></div>
- <div class="section-copy"><span>MEET CASAMATCH AI</span><h2>Describe the home you want like you're talking to a person.</h2><p>Budget, city, rooms, facilities or deal-breakers. CasaMatch turns a natural conversation into a smarter property search.</p><ul><li>Understands English and French</li><li>Searches SweetCasa's available inventory</li><li>Surfaces close alternatives when useful</li></ul><a routerLink="/auth">Try CasaMatch <b>→</b></a></div>
+ <div class="ai-visual"><div class="chat"><div class="bubble user">{{i18n.text('I need a 2-bedroom apartment in Douala, under 300k.')}}</div><div class="bubble bot"><span>✦</span><div><b>CasaMatch</b><p>{{i18n.text("I found homes that fit what you're looking for. The strongest match is in Bonapriso.")}}</p></div></div><div class="match-card"><img src="/assets/seeker_verified.png"><div><small>{{i18n.text('92% MATCH')}}</small><b>{{i18n.text('Modern 2-bedroom')}}</b><span>Bonapriso · 250,000 XAF</span></div></div></div></div>
+ <div class="section-copy"><span>{{i18n.text('MEET CASAMATCH AI')}}</span><h2>{{i18n.text("Describe the home you want like you're talking to a person.")}}</h2><p>{{i18n.text('Budget, city, rooms, facilities or deal-breakers. CasaMatch turns a natural conversation into a smarter property search.')}}</p><ul><li>{{i18n.text('Understands English and French')}}</li><li>{{i18n.text("Searches SweetCasa's available inventory")}}</li><li>{{i18n.text('Surfaces close alternatives when useful')}}</li></ul><a routerLink="/auth" [queryParams]="{mode:'login',role:'BUYER'}">{{i18n.text('Try CasaMatch')}} <b>→</b></a></div>
 </section>
 
-<section class="safety"><div><span>TRUST IS PART OF THE PRODUCT</span><h2>Property conversations belong somewhere safer.</h2><p>SweetCasa keeps communication inside the platform, helping both sides avoid unnecessary exposure of personal contact and payment information.</p><div class="safety-points"><span>♢ In-app messaging</span><span>✓ Verified listings</span><span>⚑ Reporting tools</span></div></div><div class="shield-art"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="shield">♢</div><span class="safe-note n1">✓ Listing verified</span><span class="safe-note n2">♢ Conversation protected</span></div></section>
+<section class="safety"><div><span>{{i18n.text('TRUST IS PART OF THE PRODUCT')}}</span><h2>{{i18n.text('Property conversations belong somewhere safer.')}}</h2><p>{{i18n.text('SweetCasa keeps communication inside the platform, helping both sides avoid unnecessary exposure of personal contact and payment information.')}}</p><div class="safety-points"><span>♢ {{i18n.text('In-app messaging')}}</span><span>✓ {{i18n.text('Verified listings')}}</span><span>⚑ {{i18n.text('Reporting tools')}}</span></div></div><div class="shield-art"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="shield">♢</div><span class="safe-note n1">✓ {{i18n.text('Listing verified')}}</span><span class="safe-note n2">♢ {{i18n.text('Conversation protected')}}</span></div></section>
 
-<section class="final-cta"><span class="spark">✦</span><h2>Your next home might be one good search away.</h2><p>Create your SweetCasa account and continue the journey on web or in the app.</p><div><a class="white" routerLink="/auth">Create account →</a><a class="outline" routerLink="/auth">Sign in</a></div></section>
+<section class="final-cta"><span class="spark">✦</span><h2>{{i18n.text('Your next home might be one good search away.')}}</h2><p>{{i18n.text('Create your SweetCasa account and continue the journey on web or in the app.')}}</p><div><a class="white" routerLink="/auth" [queryParams]="{mode:'signup'}">{{i18n.text('Create account →')}}</a><a class="outline" routerLink="/auth" [queryParams]="{mode:'login'}">{{i18n.t('signIn')}}</a></div></section>
 </main>
-<footer><div><span class="footer-logo">S</span><div><b>SweetCasa</b><small>Find home. Feel at home.</small></div></div><nav><a routerLink="/">Home</a><a routerLink="/auth">Sign in</a><a routerLink="/auth">Create account</a></nav><small>© 2026 SweetCasa</small></footer>
+<footer><div><span class="footer-logo">S</span><div><b>SweetCasa</b><small>{{i18n.text('Find home.')}} {{i18n.text('Feel at home.')}}</small></div></div><nav><a routerLink="/">{{i18n.t('home')}}</a><a routerLink="/auth" [queryParams]="{mode:'login'}">{{i18n.t('signIn')}}</a><a routerLink="/auth" [queryParams]="{mode:'signup'}">{{i18n.t('createAccount')}}</a><a routerLink="/privacy">{{i18n.text('Privacy')}}</a><a routerLink="/terms">{{i18n.text('Terms')}}</a></nav><small>© 2026 SweetCasa</small></footer>

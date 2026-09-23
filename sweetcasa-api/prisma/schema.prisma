@@ -51,6 +51,8 @@ model User {
   wallet              Wallet?
   requestedViewings   ViewingRequest[] @relation("ViewingRequester")
   receivedViewings    ViewingRequest[] @relation("ViewingAgent")
+  pushTokens          PushToken[]
+  notifications       Notification[]
 
   @@map("users")
 }
@@ -408,4 +410,37 @@ model ViewingRequest {
   @@index([requesterId, status])
   @@index([agentId, status])
   @@map("viewing_requests")
+}
+
+
+// ─── Push Notifications ──────────────────────────────────────────────────────
+model PushToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  token     String    @db.VarChar(255)
+  platform  String    @default("ios") @db.VarChar(20)
+  createdAt DateTime? @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token], map: "unique_user_push_token")
+  @@index([userId])
+  @@map("push_tokens")
+}
+
+// ─── In-App Notifications ────────────────────────────────────────────────────
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  type      String    @db.VarChar(50)
+  title     String    @db.VarChar(200)
+  body      String
+  data      Json?
+  read      Boolean   @default(false)
+  sent      Boolean   @default(false)
+  createdAt DateTime? @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, read])
+  @@map("notifications")
 }
