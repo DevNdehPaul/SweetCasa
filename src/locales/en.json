@@ -330,7 +330,9 @@
     "step2": "House Seekers find and contact you",
     "step3": "SweetCasa verifies & protects every deal",
     "getStarted": "Get Started",
-    "exploreOwn": "I'll explore on my own"
+    "exploreOwn": "I'll explore on my own",
+    "viewingRequests": "Viewing Requests",
+    "viewingRequestsSub": "Review visits requested by house seekers"
   },
   "seekerDashboard": {
     "welcomeHi": "Welcome back,",
@@ -360,7 +362,9 @@
     "step2": "Every listing is 12-point verified by our agents",
     "step3": "Pay securely through our escrow wallet system",
     "startSearching": "Start Searching",
-    "exploreOwn": "I'll explore on my own"
+    "exploreOwn": "I'll explore on my own",
+    "myViewings": "My Viewings",
+    "myViewingsSub": "Track your property visits"
   },
   "report": {
     "title": "Report Issue",
@@ -752,7 +756,9 @@
     "couldNotBookViewing": "Could not book viewing",
     "genericTryAgain": "Something went wrong. Please try again.",
     "cautionFee": "Caution Fee (Security Deposit)",
-    "cautionFeeRefundable": "One-time refundable deposit • Terms apply"
+    "cautionFeeRefundable": "One-time refundable deposit • Terms apply",
+    "chooseDateHint": "Tap a date. No typing needed.",
+    "chooseTimeHint": "Choose the time that works best for you."
   },
   "neighborhoodMap": {
     "title": "Neighborhood",
@@ -1123,5 +1129,40 @@
     "googleIntroSeeker": "You signed in with Google. Just a few more details before you can message an owner.",
     "businessHint": "Use your registered business name or your own name if self-employed.",
     "complete": "Complete Profile"
+  },
+  "viewings": {
+    "title": "Viewings",
+    "myTitle": "My Viewings",
+    "mySub": "Track your requested property visits",
+    "ownerTitle": "Viewing Requests",
+    "ownerSub": "Manage visits requested for your properties",
+    "loading": "Loading viewings…",
+    "loadError": "Could not load viewing requests.",
+    "updateError": "Could not update the viewing request.",
+    "emptyTitle": "No viewings yet",
+    "emptyOwner": "New viewing requests from house seekers will appear here.",
+    "emptySeeker": "When you request to view a property, it will appear here.",
+    "findProperty": "Find a Property",
+    "property": "Property",
+    "requestedDate": "Requested date",
+    "requestedTime": "Requested time",
+    "message": "Your message",
+    "ownerResponse": "Landlord response",
+    "confirmedFor": "Confirmed for",
+    "viewProperty": "View Property",
+    "cancel": "Cancel Request",
+    "decline": "Decline",
+    "confirm": "Confirm Visit",
+    "confirmTitle": "Confirm action",
+    "cancelConfirm": "Cancel this viewing request?",
+    "declineConfirm": "Decline this viewing request?",
+    "keep": "Keep",
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "declined": "Declined",
+      "cancelled": "Cancelled",
+      "completed": "Completed"
+    }
   }
 }

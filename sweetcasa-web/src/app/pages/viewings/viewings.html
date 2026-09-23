@@ -1,0 +1,15 @@
+<div class="head"><div><span>{{i18n.text(owner?'VIEWING REQUESTS':'MY VIEWINGS')}}</span><h1>{{i18n.text(owner?'Property viewing requests':'My property viewings')}}</h1><p>{{i18n.text(owner?'Review and respond to requests from house seekers.':'Track the visits you have requested and the owner’s response.')}}</p></div><button class="refresh" (click)="load()">↻ {{i18n.text('Refresh')}}</button></div>
+@if(error()){<div class="error">{{i18n.text(error())}}</div>}
+@if(loading()){<div class="empty">{{i18n.text('Loading viewing requests…')}}</div>}@else{
+<div class="list">@for(v of rows();track v.id){<article>
+  <img [src]="image(v)" (click)="open(v)" alt="Property">
+  <div class="body">
+    <div class="title"><div><small>{{place(v)}}</small><h2 (click)="open(v)">{{v.listing?.title}}</h2></div><span class="status" [attr.data-status]="v.status">{{status(v)}}</span></div>
+    @if(owner){<div class="person"><b>{{i18n.text('House Seeker')}}</b><span>{{v.requester?.name||i18n.text('House Seeker')}}</span>@if(v.requester?.phone){<small>{{v.requester.phone}}</small>}</div>}
+    <div class="schedule"><div><small>{{i18n.text('Requested date')}}</small><b>{{v.preferredDate}}</b></div><div><small>{{i18n.text('Requested time')}}</small><b>{{v.preferredTime}}</b></div>@if(v.confirmedDate){<div><small>{{i18n.text('Confirmed date')}}</small><b>{{v.confirmedDate}}</b></div>}@if(v.confirmedTime){<div><small>{{i18n.text('Confirmed time')}}</small><b>{{v.confirmedTime}}</b></div>}</div>
+    @if(v.note){<div class="note"><small>{{i18n.text(owner?'Seeker message':'Your message')}}</small><p>{{v.note}}</p></div>}
+    @if(v.agentMessage){<div class="note owner-note"><small>{{i18n.text('Owner response')}}</small><p>{{v.agentMessage}}</p></div>}
+    @if(owner && v.status==='PENDING'){<div class="decision"><div class="when"><label><span>{{i18n.text('Confirmed date')}}</span><input type="date" [(ngModel)]="drafts[v.id].date"></label><label><span>{{i18n.text('Confirmed time')}}</span><input type="time" [(ngModel)]="drafts[v.id].time"></label></div><label><span>{{i18n.text('Message to house seeker (optional)')}}</span><textarea rows="2" [(ngModel)]="drafts[v.id].message" [placeholder]="i18n.text('Add a short note about the viewing…')"></textarea></label><div class="actions"><button class="decline" [disabled]="busy()===v.id" (click)="decline(v)">{{i18n.text('Decline')}}</button><button class="confirm" [disabled]="busy()===v.id" (click)="confirmRequest(v)">{{busy()===v.id?i18n.text('Saving…'):i18n.text('Confirm viewing')}}</button></div></div>}
+    @if(!owner && (v.status==='PENDING'||v.status==='CONFIRMED')){<div class="actions seeker-actions"><button class="open" (click)="open(v)">{{i18n.text('View property')}}</button><button class="decline" [disabled]="busy()===v.id" (click)="cancel(v)">{{i18n.text('Cancel request')}}</button></div>}
+  </div>
+</article>}@empty{<div class="empty"><span>◷</span><h2>{{i18n.text(owner?'No viewing requests yet':'No viewings yet')}}</h2><p>{{i18n.text(owner?'New requests from house seekers will appear here.':'When you request a property viewing, it will appear here.')}}</p></div>}</div>}

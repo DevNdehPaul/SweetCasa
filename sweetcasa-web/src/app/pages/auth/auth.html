@@ -40,16 +40,59 @@
         <label><span>Password *</span><div class="password-field"><input [(ngModel)]="password" name="password" [type]="showPassword()?'text':'password'" [attr.autocomplete]="mode()==='login'?'current-password':'new-password'" placeholder="••••••••"><button type="button" class="eye" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword()?'Hide password':'Show password'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div></label>
         @if(mode()==='signup'){<label><span>Confirm password *</span><div class="password-field"><input [(ngModel)]="confirmPassword" name="confirmPassword" [type]="showConfirmPassword()?'text':'password'" autocomplete="new-password" placeholder="••••••••"><button type="button" class="eye" (click)="showConfirmPassword.set(!showConfirmPassword())" [attr.aria-label]="showConfirmPassword()?'Hide password':'Show password'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div></label>}
       </div>
+      @if(mode()==='login'){<div class="forgot-row"><button type="button" (click)="openForgot()">Forgot password?</button></div>}
 
       @if(mode()==='signup'){
         <label class="upload"><span>National ID *</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="chooseFile($event)"><div class="upload-box"><span>⇧</span><div><b>{{nationalId?.name || 'Upload your identification card'}}</b><small>JPG, PNG, WEBP or PDF • max 5 MB</small></div></div></label>
         <label class="check"><input type="checkbox" [checked]="acceptedTerms" name="terms" (click)="termsCheckbox($event)"><span>I have read and agree to the SweetCasa <button type="button" class="legal-link" (click)="$event.preventDefault();$event.stopPropagation();openLegal('terms',!acceptedTerms)">Terms & Conditions</button> and <button type="button" class="legal-link" (click)="$event.preventDefault();$event.stopPropagation();openLegal('privacy')">Privacy Policy</button>.</span></label>
       }
 
+      <div class="social-divider"><span></span><b>OR CONTINUE WITH</b><span></span></div>
+      <div class="google-auth-wrap">
+        <div id="google-button-host" class="google-button-host"></div>
+        <button type="button" class="google-init-btn" (click)="googleAuth()" [disabled]="googleLoading()"><span class="google-g">G</span>{{googleLoading()?'Loading Google…':(mode()==='login'?'Continue with Google':'Sign up with Google')}}</button>
+      </div>
+
       <button class="submit" [disabled]="loading()">{{loading()?'Please wait…':(mode()==='login'?'Sign in to SweetCasa':'Create my account')}} <span>→</span></button>
       <p class="secure">♢ Your account information is protected by SweetCasa.</p>
     </form>
   </section>
 </main>
+
+@if(finishProfileOpen()){
+<div class="auth-modal-backdrop">
+ <form class="auth-modal" (ngSubmit)="saveFinishProfile()">
+  <div class="modal-head"><div><span>ONE LAST STEP</span><h2>Finish setting up</h2><p>You signed in with Google. Complete the remaining details before continuing.</p></div></div>
+  @if(error()){<div class="error">! <span>{{error()}}</span></div>}
+  <div class="modal-grid">
+   <label><span>Full name *</span><input [(ngModel)]="finishName" name="finishName" placeholder="Your full name"></label>
+   @if(role()==='SELLER'){<label><span>Company name *</span><input [(ngModel)]="finishCompany" name="finishCompany" placeholder="Business or personal trading name"></label>}
+   <label><span>Phone</span><input [(ngModel)]="finishPhone" name="finishPhone" placeholder="+237 6..."></label>
+   <label><span>Country</span><input [(ngModel)]="finishCountry" name="finishCountry" placeholder="Cameroon"></label>
+   <label><span>Region</span><input [(ngModel)]="finishRegion" name="finishRegion"></label>
+   <label><span>City</span><input [(ngModel)]="finishCity" name="finishCity"></label>
+   <label class="wide"><span>Street / area</span><input [(ngModel)]="finishStreet" name="finishStreet"></label>
+   <label class="upload wide"><span>National ID *</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="chooseFinishId($event)"><div class="upload-box"><span>⇧</span><div><b>{{finishNationalId?.name || 'Upload your identification card'}}</b><small>JPG, PNG, WEBP or PDF • max 5 MB</small></div></div></label>
+  </div>
+  <div class="modal-actions"><button type="submit" class="submit" [disabled]="finishSaving()">{{finishSaving()?'Saving…':'Finish profile'}} <span>→</span></button></div>
+ </form>
+</div>
+}
+@if(forgotOpen()){
+<div class="auth-modal-backdrop" (click)="forgotOpen.set(false)">
+ <form class="auth-modal forgot-modal" (click)="$event.stopPropagation()" (ngSubmit)="$event.preventDefault()">
+  <button type="button" class="modal-close" (click)="forgotOpen.set(false)">×</button>
+  @if(forgotStep()==='email'){<div class="modal-head"><span>PASSWORD RECOVERY</span><h2>Forgot your password?</h2><p>Enter your account email and we will send you a 6-digit verification code.</p></div><label><span>Email address</span><input [(ngModel)]="forgotEmail" name="forgotEmail" type="email" autocomplete="email" placeholder="you@example.com"></label>}
+  @if(forgotStep()==='code'){<div class="modal-head"><span>CHECK YOUR INBOX</span><h2>Enter verification code</h2><p>We sent a 6-digit code to <b>{{forgotEmail}}</b>.</p></div><label><span>Verification code</span><input [(ngModel)]="resetCode" name="resetCode" inputmode="numeric" maxlength="6" placeholder="000000"></label>}
+  @if(forgotStep()==='password'){<div class="modal-head"><span>NEW PASSWORD</span><h2>Choose a new password</h2><p>Use at least 8 characters.</p></div><label><span>New password</span><input [(ngModel)]="newPassword" name="newPassword" type="password" autocomplete="new-password"></label><label><span>Confirm new password</span><input [(ngModel)]="confirmNewPassword" name="confirmNewPassword" type="password" autocomplete="new-password"></label>}
+  @if(forgotStep()==='done'){<div class="modal-head success-head"><span>✓ PASSWORD UPDATED</span><h2>Password reset successfully</h2><p>You can now sign in with your new password.</p></div>}
+  @if(forgotError()){<div class="error">! <span>{{forgotError()}}</span></div>}
+  @if(forgotStep()==='email'){<button type="button" class="submit" [disabled]="forgotLoading()" (click)="sendResetCode()">{{forgotLoading()?'Sending…':'Send verification code'}} <span>→</span></button>}
+  @if(forgotStep()==='code'){<button type="button" class="submit" [disabled]="forgotLoading()" (click)="verifyReset()">{{forgotLoading()?'Verifying…':'Verify code'}} <span>→</span></button>}
+  @if(forgotStep()==='password'){<button type="button" class="submit" [disabled]="forgotLoading()" (click)="finishReset()">{{forgotLoading()?'Resetting…':'Reset password'}} <span>→</span></button>}
+  @if(forgotStep()==='done'){<button type="button" class="submit" (click)="forgotOpen.set(false);mode.set('login')">Back to sign in <span>→</span></button>}
+ </form>
+</div>
+}
 
 @if(legalModal()){<sc-legal-modal [kind]="legalModal()!" [role]="role()" [requireAcceptance]="legalNeedsAcceptance()&&legalModal()==='terms'" (closed)="legalModal.set(null);legalNeedsAcceptance.set(false)" (accepted)="acceptTerms()"/>}

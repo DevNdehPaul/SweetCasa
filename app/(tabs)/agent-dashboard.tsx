@@ -350,6 +350,21 @@ export default function AgentHubScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={styles.actionCard}
+          activeOpacity={0.85}
+          onPress={() => router.push('/viewings' as any)}
+        >
+          <View style={styles.actionIconWrap}>
+            <Feather name="calendar" size={22} color="#fff" />
+          </View>
+          <View style={styles.actionText}>
+            <Text style={styles.actionTitle}>{t('agentHub.viewingRequests')}</Text>
+            <Text style={styles.actionSub}>{t('agentHub.viewingRequestsSub')}</Text>
+          </View>
+          <Feather name="arrow-up-right" size={20} color={colors.textLight} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.actionCard, styles.actionCardMessages]}
           activeOpacity={0.85}
           onPress={() => router.push('/MessagesInbox')}

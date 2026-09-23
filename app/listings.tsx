@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Image,
   Modal,
   RefreshControl,
@@ -787,11 +788,12 @@ function EditModal({
 
 // ─── Listing Card ─────────────────────────────────────────────────────────────
 const ListingCard = ({
-  item, onDelete, onEdit,
+  item, onDelete, onEdit, onOpen,
 }: {
   item: Listing;
   onDelete: (item: Listing) => void;
   onEdit: (item: Listing) => void;
+  onOpen: (item: Listing) => void;
 }) => {
   const { t } = useTranslation();
   const { colors } = useAppTheme();
@@ -800,7 +802,7 @@ const ListingCard = ({
   const location = [item.neighborhood, item.city, item.region].filter(Boolean).join(', ');
 
   return (
-    <View style={s.card}>
+    <TouchableOpacity activeOpacity={0.96} style={s.card} onPress={() => onOpen(item)}>
       {imageUrl ? (
         <Image source={{ uri: imageUrl }} style={s.cardImg} />
       ) : (
@@ -814,17 +816,17 @@ const ListingCard = ({
         <Text style={s.cardLocation} numberOfLines={1}>📍 {location}</Text>
         <StatusBadge status={item.status} />
         <View style={s.cardActions}>
-          <TouchableOpacity style={s.editBtn} onPress={() => onEdit(item)}>
+          <TouchableOpacity style={s.editBtn} onPress={(e) => { e.stopPropagation(); onEdit(item); }}>
             <Feather name="edit-2" size={13} color={colors.primary} />
             <Text style={s.editBtnTxt}>{t('common.edit')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(item)}>
+          <TouchableOpacity style={s.deleteBtn} onPress={(e) => { e.stopPropagation(); onDelete(item); }}>
             <Feather name="trash-2" size={13} color={colors.danger} />
             <Text style={s.deleteBtnTxt}>{t('common.delete')}</Text>
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -847,9 +849,9 @@ export default function MyListings() {
   const [editTarget, setEditTarget]     = useState<Listing | null>(null);
   const [saving, setSaving]             = useState(false);
 
-  const fetchListings = useCallback(async (isRefresh = false) => {
+  const fetchListings = useCallback(async (isRefresh = false, silent = false) => {
     if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+    else if (!silent) setLoading(true);
     setError(null);
     try {
       const token = await AsyncStorage.getItem('token');
@@ -862,12 +864,27 @@ export default function MyListings() {
     } catch (err: any) {
       setError(err.message || t('common.error'));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => { fetchListings(); }, [fetchListings]);
+  useEffect(() => {
+    fetchListings();
+    const timer = setInterval(() => fetchListings(false, true), 3000);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') fetchListings(false, true);
+    });
+    return () => { clearInterval(timer); subscription.remove(); };
+  }, [fetchListings]);
+
+  const handleOpenListing = (item: Listing) => {
+    if (item.status !== 'Approved') {
+      setEditTarget(item);
+      return;
+    }
+    router.push({ pathname: '/propertydetail', params: { id: String(item.id) } } as any);
+  };
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
@@ -1022,7 +1039,7 @@ export default function MyListings() {
           {/* Cards */}
           <View style={s.listContainer}>
             {filtered.map((item) => (
-              <ListingCard key={item.id} item={item} onDelete={setDeleteTarget} onEdit={setEditTarget} />
+              <ListingCard key={item.id} item={item} onDelete={setDeleteTarget} onEdit={setEditTarget} onOpen={handleOpenListing} />
             ))}
             {filtered.length === 0 && (
               <View style={s.empty}>

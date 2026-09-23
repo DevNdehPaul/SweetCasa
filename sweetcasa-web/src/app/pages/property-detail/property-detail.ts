@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,12 +7,14 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({selector:'sc-property-detail',imports:[RouterLink,DecimalPipe,FormsModule],templateUrl:'./property-detail.html',styleUrl:'./property-detail.css'})
-export class PropertyDetail implements OnInit {
+export class PropertyDetail implements OnInit, OnDestroy {
   property=signal<any|null>(null); loading=signal(true); favourite=signal(false); favBusy=signal(false); imageIndex=signal(0); error=signal('');
   nearby=signal<any[]>([]); bookingOpen=signal(false); booking=signal(false); bookingMessage=signal('');
-  viewingDate=''; viewingTime=''; viewingNote=''; mapUrl=signal<SafeResourceUrl|null>(null);
+  viewingDate=''; viewingTime=''; viewingNote=''; mapUrl=signal<SafeResourceUrl|null>(null); private statusTimer:any=null; private listingId=0;
   constructor(private route:ActivatedRoute,private api:ApiService,public auth:AuthService,private router:Router,private sanitizer:DomSanitizer){}
-  ngOnInit(){const id=Number(this.route.snapshot.paramMap.get('id'));if(!id){this.error.set('Property not found.');this.loading.set(false);return}this.api.get<any>(`/listings/${id}`).subscribe({next:r=>{const p=r.listing||r;this.property.set(p);this.loading.set(false);this.checkFavourite(id);this.loadNearby(id);this.makeMap(p)},error:e=>{this.error.set(e.error?.error||'Could not load this property.');this.loading.set(false)}})}
+  ngOnInit(){const id=Number(this.route.snapshot.paramMap.get('id'));this.listingId=id;if(!id){this.error.set('Property not found.');this.loading.set(false);return}this.api.get<any>(`/listings/${id}`).subscribe({next:r=>{const p=r.listing||r;this.property.set(p);this.loading.set(false);this.checkFavourite(id);this.loadNearby(id);this.makeMap(p);this.statusTimer=setInterval(()=>this.refreshListingStatus(),3000)},error:e=>{this.error.set(e.error?.error||'Could not load this property.');this.loading.set(false)}})}
+  ngOnDestroy(){if(this.statusTimer)clearInterval(this.statusTimer)}
+  refreshListingStatus(){if(!this.listingId)return;this.api.get<any>(`/listings/${this.listingId}`,{_statusCheck:Date.now()}).subscribe({next:r=>{const fresh=r.listing||r;if(fresh?.id)this.property.update(current=>current?{...current,...fresh}:fresh)},error:()=>{}})}
   images(){return (this.property()?.images||[]).map((x:any)=>x.imageUrl||x.url).filter(Boolean)} setImage(i:number){this.imageIndex.set(i)}
   facilities(){const v=this.property()?.facilities??this.property()?.amenities??[];if(Array.isArray(v))return v;try{return JSON.parse(v||'[]')}catch{return String(v||'').split(',').map(x=>x.trim()).filter(Boolean)}}
   locationText(){const p=this.property();return [p?.neighborhood,p?.city,p?.region].filter(Boolean).join(', ')}

@@ -322,6 +322,7 @@ export default function HomeScreen() {
     { id: '2', icon: 'plus-circle',    label: t('seekerDashboard.favourites'),   sub: t('seekerDashboard.favouritesSub'),   iconColor: colors.primary, bg: colors.primaryTint, link: '/favourites' },
     { id: '3', icon: 'message-circle', label: t('seekerDashboard.messages'),     sub: t('seekerDashboard.messagesSub'),     iconColor: '#0891B2', bg: isDark ? '#0C2B33' : '#ECFEFF', link: '/MessagesInbox' },
     { id: '4', icon: 'credit-card',    label: t('seekerDashboard.secureWallet'), sub: t('seekerDashboard.secureWalletSub'), iconColor: colors.warning, bg: colors.warningBg, link: '/wallet' },
+    { id: '5', icon: 'calendar',       label: t('seekerDashboard.myViewings'),    sub: t('seekerDashboard.myViewingsSub'),    iconColor: colors.primary, bg: colors.primaryTint, link: '/viewings' },
   ];
 
   return (

@@ -92,3 +92,31 @@ main{min-height:calc(100vh - 76px);display:grid;grid-template-columns:minmax(430
 .legal-link{border:0;background:transparent;padding:0;color:var(--primary);font:inherit;font-weight:800;cursor:pointer;text-decoration:none}.legal-link:hover{text-decoration:underline}
 /* V12 real password visibility icon */
 .password-field .eye{border-radius:8px!important;background:transparent!important}.password-field .eye svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.password-field .eye:hover{background:var(--primary-soft)!important}
+
+/* V12.8 Google auth, profile completion and password recovery */
+.forgot-row{display:flex;justify-content:flex-end;margin:-2px 0 10px}.forgot-row button{border:0;background:transparent;color:var(--primary);font-size:11px;font-weight:800;cursor:pointer;padding:4px 0}.forgot-row button:hover{text-decoration:underline}
+.social-divider{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin:14px 0 10px}.social-divider span{height:1px;background:var(--border)}.social-divider b{font-size:9px;letter-spacing:.1em;color:var(--muted)}
+.google-btn{width:100%;height:46px;border:1px solid var(--border);border-radius:13px;background:var(--card);color:var(--text);font-weight:800;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer}.google-btn:hover{background:var(--surface);border-color:#c4b5fd}.google-btn:disabled{opacity:.65}.google-g{width:23px;height:23px;border-radius:50%;display:grid;place-items:center;font:900 15px Arial;color:#4285f4;background:white;border:1px solid #e5e7eb}.google-fallback{display:flex;justify-content:center;margin-top:8px;min-height:0}
+.auth-modal-backdrop{position:fixed;inset:0;z-index:1000;background:#17052e99;backdrop-filter:blur(7px);display:grid;place-items:center;padding:22px;overflow:auto}.auth-modal{position:relative;width:min(680px,100%);max-height:calc(100vh - 44px);overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:26px;box-shadow:0 30px 100px #1e0b3f55}.forgot-modal{width:min(480px,100%)}.modal-head{margin-bottom:18px}.modal-head>span{font-size:9px;letter-spacing:.14em;color:var(--primary);font-weight:900}.modal-head h2{font-size:26px;letter-spacing:-.03em;margin:5px 0}.modal-head p{color:var(--muted);font-size:12px;line-height:1.55;margin:0}.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.modal-grid .wide{grid-column:1/-1}.modal-actions{margin-top:12px}.modal-close{position:absolute;right:18px;top:16px;width:34px;height:34px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:22px;cursor:pointer}.success-head>span{color:#16a34a}
+@media(max-width:620px){.modal-grid{grid-template-columns:1fr}.modal-grid .wide{grid-column:auto}.auth-modal{padding:22px 18px;border-radius:19px}}
+
+/* V12.8.1 Google button cleanup: only one Google control is visible */
+.google-auth-wrap{position:relative;width:100%;min-height:46px;display:grid;place-items:center}
+.google-button-host{width:100%;display:flex;justify-content:center;align-items:center;position:relative;z-index:2}
+.google-button-host:empty{display:none}
+.google-button-host:not(:empty)+.google-init-btn{display:none}
+.google-button-host>div{max-width:100%!important}
+.google-init-btn{width:100%;height:46px;border:1px solid var(--border);border-radius:13px;background:var(--card);color:var(--text);font-weight:800;cursor:pointer}
+.google-init-btn:hover{background:var(--surface);border-color:#c4b5fd}
+
+/* V12.8.2 Google initial-render + spacing fix */
+.google-auth-wrap{width:100%;min-height:44px!important;height:44px;display:block!important;margin:0!important;padding:0!important;overflow:hidden;border-radius:12px}
+.google-button-host{width:100%!important;height:44px;min-height:0!important;margin:0!important;padding:0!important;display:flex;align-items:center;justify-content:center}
+.google-button-host:empty{display:none!important}
+.google-button-host:not(:empty)+.google-init-btn{display:none!important}
+.google-button-host>div{width:100%!important;max-width:none!important;margin:0!important}
+.google-button-host iframe{width:100%!important;max-width:none!important;margin:0!important}
+.google-init-btn{width:100%!important;height:44px!important;margin:0!important;padding:0 16px!important;border:1px solid var(--border)!important;border-radius:12px!important;background:var(--card)!important;color:var(--text)!important;font-weight:800;display:flex!important;align-items:center;justify-content:center;gap:10px;box-sizing:border-box;cursor:pointer}
+.google-init-btn:hover{background:var(--surface)!important;border-color:#c4b5fd!important}
+.social-divider{margin:14px 0 10px!important}
+.google-auth-wrap+.submit{margin-top:12px}

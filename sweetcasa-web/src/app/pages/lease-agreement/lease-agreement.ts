@@ -1,10 +1,10 @@
 import { Component, OnInit, signal } from '@angular/core';
-import { DecimalPipe, DatePipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
-@Component({selector:'sc-lease-agreement',imports:[FormsModule,DecimalPipe,DatePipe,RouterLink],templateUrl:'./lease-agreement.html',styleUrl:'./lease-agreement.css'})
+@Component({selector:'sc-lease-agreement',imports:[FormsModule,DecimalPipe,RouterLink],templateUrl:'./lease-agreement.html',styleUrl:'./lease-agreement.css'})
 export class LeaseAgreement implements OnInit{
  listing=signal<any>(null);wallet=signal<any>(null);loading=signal(true);busy=signal(false);error=signal('');success=signal(false);agreementUrl=signal('');signatureName='';moveInDate='';accepted=false;
  readonly leaseText=`RESIDENTIAL

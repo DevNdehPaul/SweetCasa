@@ -12,6 +12,11 @@ export class AuthService{
  constructor(private api:ApiService){}
  login(email:string,password:string,expectedRole:Role){return this.api.post<any>('/auth/login',{email,password,expectedRole}).pipe(tap(r=>this.persist(r)));}
  register(data:FormData){return this.api.post<any>('/auth/register',data).pipe(tap(r=>this.persist(r)));}
+ social(provider:'GOOGLE'|'APPLE',idToken:string,role:Role){return this.api.post<any>('/auth/social',{provider,idToken,role}).pipe(tap(r=>this.persist(r)));}
+ completeProfile(data:FormData){return this.api.put<any>('/auth/profile',data).pipe(tap(r=>{if(r.profile)this.setProfile(r.profile)}));}
+ forgotPassword(email:string){return this.api.post<any>('/auth/forgot-password',{email});}
+ verifyResetCode(email:string,code:string){return this.api.post<any>('/auth/verify-reset-code',{email,code});}
+ resetPassword(email:string,code:string,password:string){return this.api.post<any>('/auth/reset-password',{email,code,password});}
  updateProfile(data:FormData){return this.api.put<any>('/auth/profile',data).pipe(tap(r=>{if(r.profile)this.setProfile(r.profile)}));}
  setProfile(profile:any){localStorage.setItem('sc-profile',JSON.stringify(profile));localStorage.setItem('profile',JSON.stringify(profile));this.profile.set(profile);}
  logout(){this.api.post('/auth/logout',{}).subscribe({error:()=>{}});['token','sc-role','role','sc-profile','profile'].forEach(k=>localStorage.removeItem(k));this.token.set(null);this.role.set(null);this.profile.set(null);}

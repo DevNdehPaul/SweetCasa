@@ -330,7 +330,9 @@
     "step2": "Les chercheurs vous trouvent et vous contactent",
     "step3": "SweetCasa vérifie et protège chaque transaction",
     "getStarted": "Commencer",
-    "exploreOwn": "Je vais explorer par moi-même"
+    "exploreOwn": "Je vais explorer par moi-même",
+    "viewingRequests": "Demandes de visite",
+    "viewingRequestsSub": "Gérer les visites demandées par les chercheurs de logement"
   },
   "seekerDashboard": {
     "welcomeHi": "Bon retour,",
@@ -360,7 +362,9 @@
     "step2": "Chaque annonce est vérifiée en 12 points par nos agents",
     "step3": "Payez en toute sécurité via notre système d'entiercement",
     "startSearching": "Commencer la recherche",
-    "exploreOwn": "Je vais explorer par moi-même"
+    "exploreOwn": "Je vais explorer par moi-même",
+    "myViewings": "Mes visites",
+    "myViewingsSub": "Suivre vos visites de biens"
   },
   "report": {
     "title": "Signaler un problème",
@@ -752,7 +756,9 @@
     "couldNotBookViewing": "Impossible de réserver la visite",
     "genericTryAgain": "Une erreur est survenue. Veuillez réessayer.",
     "cautionFee": "Caution (Dépôt de garantie)",
-    "cautionFeeRefundable": "Dépôt remboursable payé une seule fois • Conditions applicables"
+    "cautionFeeRefundable": "Dépôt remboursable payé une seule fois • Conditions applicables",
+    "chooseDateHint": "Touchez une date. Aucune saisie nécessaire.",
+    "chooseTimeHint": "Choisissez l’heure qui vous convient le mieux."
   },
   "neighborhoodMap": {
     "title": "Quartier",
@@ -1123,5 +1129,40 @@
     "googleIntroSeeker": "Vous vous êtes connecté avec Google. Encore quelques informations avant de pouvoir contacter un propriétaire.",
     "businessHint": "Utilisez le nom enregistré de votre entreprise ou votre propre nom si vous travaillez à votre compte.",
     "complete": "Terminer le profil"
+  },
+  "viewings": {
+    "title": "Visites",
+    "myTitle": "Mes visites",
+    "mySub": "Suivez vos demandes de visite",
+    "ownerTitle": "Demandes de visite",
+    "ownerSub": "Gérez les visites demandées pour vos biens",
+    "loading": "Chargement des visites…",
+    "loadError": "Impossible de charger les demandes de visite.",
+    "updateError": "Impossible de mettre à jour la demande de visite.",
+    "emptyTitle": "Aucune visite pour le moment",
+    "emptyOwner": "Les nouvelles demandes de visite apparaîtront ici.",
+    "emptySeeker": "Lorsque vous demandez à visiter un bien, il apparaîtra ici.",
+    "findProperty": "Trouver un bien",
+    "property": "Bien",
+    "requestedDate": "Date demandée",
+    "requestedTime": "Heure demandée",
+    "message": "Votre message",
+    "ownerResponse": "Réponse du propriétaire",
+    "confirmedFor": "Confirmée pour le",
+    "viewProperty": "Voir le bien",
+    "cancel": "Annuler la demande",
+    "decline": "Refuser",
+    "confirm": "Confirmer la visite",
+    "confirmTitle": "Confirmer l’action",
+    "cancelConfirm": "Annuler cette demande de visite ?",
+    "declineConfirm": "Refuser cette demande de visite ?",
+    "keep": "Garder",
+    "status": {
+      "pending": "En attente",
+      "confirmed": "Confirmée",
+      "declined": "Refusée",
+      "cancelled": "Annulée",
+      "completed": "Terminée"
+    }
   }
 }

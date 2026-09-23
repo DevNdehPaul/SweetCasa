@@ -649,6 +649,29 @@ export default function PropertyDetailScreen() {
   const [viewingDate, setViewingDate] = useState("");
   const [viewingTime, setViewingTime] = useState("");
   const [viewingNote, setViewingNote] = useState("");
+  const viewingDateOptions = useMemo(() => {
+    const days: { value: string; weekday: string; day: string; month: string }[] = [];
+    const now = new Date();
+    for (let i = 1; i <= 45; i += 1) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      days.push({
+        value,
+        weekday: d.toLocaleDateString(undefined, { weekday: "short" }),
+        day: String(d.getDate()),
+        month: d.toLocaleDateString(undefined, { month: "short" }),
+      });
+    }
+    return days;
+  }, []);
+  const viewingTimeOptions = useMemo(() => {
+    const slots: string[] = [];
+    for (let h = 8; h <= 18; h += 1) {
+      slots.push(`${String(h).padStart(2, "0")}:00`);
+      if (h < 18) slots.push(`${String(h).padStart(2, "0")}:30`);
+    }
+    return slots;
+  }, []);
   const [nearbyFacilities, setNearbyFacilities] = useState<NearbyFacility[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [expandedNearbyCategories, setExpandedNearbyCategories] = useState<Record<string, boolean>>({});
@@ -750,6 +773,27 @@ export default function PropertyDetailScreen() {
   useEffect(() => {
     fetchListing();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep moderation/status changes in sync while this screen is open.
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    const refreshStatus = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/listings/${id}?_statusCheck=${Date.now()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const fresh: ListingDetail = data?.listing ?? data;
+        if (active && fresh?.id) {
+          setListing((prev) => prev ? withNormalizedFacilities({ ...prev, ...fresh }) : withNormalizedFacilities(fresh));
+        }
+      } catch {
+        // Keep the current property visible if a background status check fails.
+      }
+    };
+    const timer = setInterval(refreshStatus, 3000);
+    return () => { active = false; clearInterval(timer); };
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Contact seller ──
   const handleContact = async () => {
@@ -1073,30 +1117,43 @@ export default function PropertyDetailScreen() {
                 </View>
 
                 <Text style={styles.bookingLabel}>{t("propertyDetail.preferredDate")}</Text>
-                <TextInput
-                  style={styles.bookingInput}
-                  value={viewingDate}
-                  onChangeText={setViewingDate}
-                  placeholder={t("propertyDetail.datePlaceholder")}
-                  placeholderTextColor={colors.textLight}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric"}
-                  returnKeyType="next"
-                />
+                <Text style={styles.pickerHelp}>{t("propertyDetail.chooseDateHint")}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateOptions}>
+                  {viewingDateOptions.map((item) => {
+                    const active = viewingDate === item.value;
+                    return (
+                      <TouchableOpacity
+                        key={item.value}
+                        style={[styles.dateOption, active && styles.dateOptionActive]}
+                        onPress={() => setViewingDate(item.value)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[styles.dateWeekday, active && styles.dateOptionTextActive]}>{item.weekday}</Text>
+                        <Text style={[styles.dateDay, active && styles.dateOptionTextActive]}>{item.day}</Text>
+                        <Text style={[styles.dateMonth, active && styles.dateOptionTextActive]}>{item.month}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
 
                 <Text style={styles.bookingLabel}>{t("propertyDetail.preferredTime")}</Text>
-                <TextInput
-                  style={styles.bookingInput}
-                  value={viewingTime}
-                  onChangeText={setViewingTime}
-                  placeholder={t("propertyDetail.timePlaceholder")}
-                  placeholderTextColor={colors.textLight}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType={Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric"}
-                  returnKeyType="next"
-                />
+                <Text style={styles.pickerHelp}>{t("propertyDetail.chooseTimeHint")}</Text>
+                <View style={styles.timeOptions}>
+                  {viewingTimeOptions.map((time) => {
+                    const active = viewingTime === time;
+                    return (
+                      <TouchableOpacity
+                        key={time}
+                        style={[styles.timeOption, active && styles.timeOptionActive]}
+                        onPress={() => setViewingTime(time)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="time-outline" size={15} color={active ? colors.textInverse : colors.primary} />
+                        <Text style={[styles.timeOptionText, active && styles.timeOptionTextActive]}>{time}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
 
                 <Text style={styles.bookingLabel}>{t("propertyDetail.noteToLandlord")}</Text>
                 <TextInput
@@ -2254,6 +2311,19 @@ function getStyles(colors: ThemeColors) {
       fontSize: 14,
       marginBottom: 13,
     },
+    pickerHelp: { fontSize: 12, color: colors.textLight, marginTop: -4, marginBottom: 10 },
+    dateOptions: { gap: 9, paddingBottom: 8, paddingRight: 8 },
+    dateOption: { width: 66, minHeight: 78, borderRadius: 14, borderWidth: 1, borderColor: colors.borderLight, backgroundColor: colors.cardMuted, alignItems: "center", justifyContent: "center", paddingVertical: 9 },
+    dateOptionActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    dateWeekday: { fontSize: 11, fontWeight: "600", color: colors.textLight },
+    dateDay: { fontSize: 21, lineHeight: 26, fontWeight: "800", color: colors.text },
+    dateMonth: { fontSize: 11, fontWeight: "600", color: colors.textLight },
+    dateOptionTextActive: { color: colors.textInverse },
+    timeOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 4 },
+    timeOption: { flexDirection: "row", alignItems: "center", gap: 5, minWidth: 78, justifyContent: "center", paddingHorizontal: 10, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: colors.borderLight, backgroundColor: colors.cardMuted },
+    timeOptionActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    timeOptionText: { fontSize: 13, fontWeight: "700", color: colors.text },
+    timeOptionTextActive: { color: colors.textInverse },
     bookingNote: { minHeight: 96, maxHeight: 160 },
     bookingSubmit: {
       width: "100%",
