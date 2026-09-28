@@ -7,7 +7,7 @@
     <h1>{{i18n.text('Find home.')}}<br><em>{{i18n.text('Feel at home.')}}</em></h1>
     <p>{{i18n.text('Discover verified properties, talk directly with property owners and use CasaMatch AI to narrow down the home that actually fits your life.')}}</p>
     <div class="actions"><a class="primary-cta" routerLink="/auth" [queryParams]="{mode:'signup',role:'BUYER'}">{{i18n.text('Explore SweetCasa')}} <span>→</span></a><a class="secondary-cta" routerLink="/auth" [queryParams]="{mode:'signup',role:'SELLER'}">{{i18n.text('List a property')}}</a></div>
-    <div class="trust"><div><b>✓</b><span><strong>{{i18n.text('Verified')}}</strong><small>{{i18n.text('property listings')}}</small></span></div><div><b>♢</b><span><strong>{{i18n.text('Safer')}}</strong><small>{{i18n.text('in-app conversations')}}</small></span></div><div><b>✦</b><span><strong>{{i18n.text('Smarter')}}</strong><small>{{i18n.text('CasaMatch discovery')}}</small></span></div></div>
+    <div class="trust"><div><b><svg viewBox="0 0 24 24"><path d="m7.5 12 3 3 6-7"/></svg></b><span><strong>{{i18n.text('Verified')}}</strong><small>{{i18n.text('property listings')}}</small></span></div><div><b><svg viewBox="0 0 24 24"><path d="M12 3 5.5 6v5.2c0 4.3 2.7 7.6 6.5 9.8 3.8-2.2 6.5-5.5 6.5-9.8V6L12 3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg></b><span><strong>{{i18n.text('Safer')}}</strong><small>{{i18n.text('in-app conversations')}}</small></span></div><div><b><svg viewBox="0 0 24 24"><path d="M12 3 13.7 8.3 19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z"/></svg></b><span><strong>{{i18n.text('Smarter')}}</strong><small>{{i18n.text('CasaMatch discovery')}}</small></span></div></div>
   </div>
   <div class="stage">
     <div class="dashboard-card">
@@ -22,7 +22,21 @@
   </div>
 </section>
 
-<section class="marquee"><span>{{i18n.text('Verified homes')}}</span><i>✦</i><span>{{i18n.text('Direct conversations')}}</span><i>✦</i><span>CasaMatch AI</span><i>✦</i><span>{{i18n.text('Property viewings')}}</span><i>✦</i><span>{{i18n.text('SweetCasa Wallet')}}</span></section>
+<section class="marquee" aria-label="SweetCasa features">
+  <div class="marquee-track">
+    <span>{{i18n.text('Verified homes')}}</span><i>•</i><span>{{i18n.text('Direct conversations')}}</span><i>•</i><span>CasaMatch AI</span><i>•</i><span>{{i18n.text('Property viewings')}}</span><i>•</i><span>{{i18n.text('SweetCasa Wallet')}}</span>
+    <span>{{i18n.text('Verified homes')}}</span><i>•</i><span>{{i18n.text('Direct conversations')}}</span><i>•</i><span>CasaMatch AI</span><i>•</i><span>{{i18n.text('Property viewings')}}</span><i>•</i><span>{{i18n.text('SweetCasa Wallet')}}</span>
+  </div>
+</section>
+
+<section class="intro-band">
+  <div class="intro-number"><span>01</span><i></i></div>
+  <div>
+    <span class="section-kicker">{{i18n.text('PROPERTY, WITHOUT THE NOISE')}}</span>
+    <h2>{{i18n.text('A clearer way to move from searching to settling in.')}}</h2>
+  </div>
+  <p>{{i18n.text('SweetCasa brings discovery, conversations, viewings and property management into one focused experience for people looking for homes and the people who own them.')}}</p>
+</section>
 
 <section class="experience">
  <div class="section-copy"><span>{{i18n.text('ONE PLATFORM. TWO JOURNEYS.')}}</span><h2>{{i18n.text('Built differently for the person searching and the person listing.')}}</h2><p>{{i18n.text('SweetCasa gives house seekers and property owners their own focused experience, while keeping the property journey connected.')}}</p></div>
@@ -38,6 +52,62 @@
 </section>
 
 <section class="safety"><div><span>{{i18n.text('TRUST IS PART OF THE PRODUCT')}}</span><h2>{{i18n.text('Property conversations belong somewhere safer.')}}</h2><p>{{i18n.text('SweetCasa keeps communication inside the platform, helping both sides avoid unnecessary exposure of personal contact and payment information.')}}</p><div class="safety-points"><span>♢ {{i18n.text('In-app messaging')}}</span><span>✓ {{i18n.text('Verified listings')}}</span><span>⚑ {{i18n.text('Reporting tools')}}</span></div></div><div class="shield-art"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="shield">♢</div><span class="safe-note n1">✓ {{i18n.text('Listing verified')}}</span><span class="safe-note n2">♢ {{i18n.text('Conversation protected')}}</span></div></section>
+
+<section class="team-section">
+  <div class="team-head">
+    <div>
+      <span class="section-kicker">{{i18n.text('THE PEOPLE BEHIND SWEETCASA')}}</span>
+      <h2>{{i18n.text('Built by a small team focused on making the property journey better.')}}</h2>
+    </div>
+    <p>{{i18n.text('Product, engineering and community working together behind SweetCasa.')}}</p>
+  </div>
+
+  <div class="team-grid">
+    <article class="team-card founder-card">
+      <div class="team-photo">
+        <img src="founder.jpeg" alt="Ngang Anna-Flonick Ijang" loading="lazy">
+        <span class="team-index">01</span>
+      </div>
+      <div class="team-meta">
+        <span>{{i18n.text('CEO & Founder')}}</span>
+        <h3>Ngang Anna-Flonick Ijang</h3>
+      </div>
+    </article>
+
+    <article class="team-card">
+      <div class="team-photo">
+        <img src="Paul.jpeg" alt="Ndeh Paul Zuhwaimboh" loading="lazy">
+        <span class="team-index">02</span>
+      </div>
+      <div class="team-meta">
+        <span>{{i18n.text('Software Developer')}}</span>
+        <h3>Ndeh Paul Zuhwaimboh</h3>
+      </div>
+    </article>
+
+    <article class="team-card">
+      <div class="team-photo">
+        <img src="betrand.jpeg" alt="Betrand Ojong" loading="lazy">
+        <span class="team-index">03</span>
+      </div>
+      <div class="team-meta">
+        <span>{{i18n.text('Software Developer')}}</span>
+        <h3>Betrand Ojong</h3>
+      </div>
+    </article>
+
+    <article class="team-card">
+      <div class="team-photo">
+        <img src="coordinator.jpeg" alt="Dylan Assongwe Musi Atanga" loading="lazy">
+        <span class="team-index">04</span>
+      </div>
+      <div class="team-meta">
+        <span>{{i18n.text('Head of Community Outreach')}}</span>
+        <h3>Dylan Assongwe Musi Atanga</h3>
+      </div>
+    </article>
+  </div>
+</section>
 
 <section class="final-cta"><span class="spark">✦</span><h2>{{i18n.text('Your next home might be one good search away.')}}</h2><p>{{i18n.text('Create your SweetCasa account and continue the journey on web or in the app.')}}</p><div><a class="white" routerLink="/auth" [queryParams]="{mode:'signup'}">{{i18n.text('Create account →')}}</a><a class="outline" routerLink="/auth" [queryParams]="{mode:'login'}">{{i18n.t('signIn')}}</a></div></section>
 </main>

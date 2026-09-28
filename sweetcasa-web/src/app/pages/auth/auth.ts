@@ -8,7 +8,7 @@ import { environment } from '../../../environments/environment';
 
 @Component({selector:'sc-auth',imports:[FormsModule,RouterLink,TopbarComponent,LegalModalComponent],templateUrl:'./auth.html',styleUrl:'./auth.css'})
 export class Auth implements AfterViewInit, OnDestroy {
-  mode=signal<'login'|'signup'>('login'); role=signal<Role>('BUYER');
+  mode=signal<'login'|'signup'>('login'); role=signal<Role>('BUYER'); signupStep=signal<1|2|3>(1);
   loading=signal(false); error=signal(''); acceptedTerms=false;
   showPassword=signal(false); showConfirmPassword=signal(false); legalModal=signal<'terms'|'privacy'|null>(null); legalNeedsAcceptance=signal(false);
   fullName=''; companyName=''; email=''; phone=''; password=''; confirmPassword='';
@@ -29,7 +29,21 @@ export class Auth implements AfterViewInit, OnDestroy {
   acceptTerms(){this.acceptedTerms=true;this.legalModal.set(null);this.legalNeedsAcceptance.set(false)}
   chooseFile(e:Event){ this.nationalId=(e.target as HTMLInputElement).files?.[0]||null; }
   ngAfterViewInit(){setTimeout(()=>this.googleAuth(),0)}
-  setMode(next:'login'|'signup'){this.mode.set(next);setTimeout(()=>this.googleAuth(),0)}
+  setMode(next:'login'|'signup'){this.mode.set(next);this.error.set('');if(next==='signup')this.signupStep.set(1);setTimeout(()=>this.googleAuth(),0)}
+  nextSignupStep(){
+    this.error.set('');
+    if(this.signupStep()===1){
+      if(!this.fullName.trim()){this.error.set('Enter your full name to continue.');return}
+      this.signupStep.set(2);return;
+    }
+    if(this.signupStep()===2){
+      if(!this.email.trim()||!this.password){this.error.set('Enter your email and password to continue.');return}
+      if(this.password.length<8){this.error.set('Password must be at least 8 characters long.');return}
+      if(this.password!==this.confirmPassword){this.error.set('Passwords do not match.');return}
+      this.signupStep.set(3);
+    }
+  }
+  previousSignupStep(){this.error.set('');if(this.signupStep()>1)this.signupStep.set((this.signupStep()-1) as 1|2|3)}
   ngOnDestroy(){if(this.googleScript?.parentNode)this.googleScript.parentNode.removeChild(this.googleScript)}
   chooseFinishId(e:Event){this.finishNationalId=(e.target as HTMLInputElement).files?.[0]||null}
   private routeHome(role:Role){this.router.navigate([role==='BUYER'?'/seeker':'/owner'])}

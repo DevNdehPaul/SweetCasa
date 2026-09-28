@@ -7,3 +7,26 @@ html{font-size:16.5px}
 body{font-size:14px}
 button,input,select,textarea{font-size:inherit}
 .portal-content p,.portal-content label,.portal-content a,.portal-content button{letter-spacing:normal}
+
+/* SweetCasa UI refinement: quieter, product-led visual system */
+:root{--radius-sm:10px;--radius-md:14px;--radius-lg:20px;--shadow-sm:0 1px 2px rgba(17,24,39,.04),0 5px 18px rgba(17,24,39,.045);--shadow-md:0 12px 36px rgba(17,24,39,.075)}
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,select,textarea{font-family:inherit}button{font-weight:700}
+.portal-content h1,.portal-content h2,.portal-content h3{letter-spacing:-.025em}.portal-content h1{font-weight:750}.portal-content p{line-height:1.65}
+.portal-content article,.portal-content section.card,.portal-content .card{box-shadow:var(--shadow-sm)}
+.ui-icon{width:18px;height:18px;display:inline-block;vertical-align:middle;fill:none;stroke:currentColor}
+
+
+/* SweetCasa V14 product design system */
+:root{
+ --primary:#6d3ae6;--primary-dark:#5426c8;--primary-soft:#f5f2ff;
+ --bg:#f7f8fb;--surface:#f2f4f7;--card:#ffffff;--text:#171923;--muted:#6f7685;
+ --border:#e5e7ec;--shadow:0 8px 30px rgba(24,24,35,.07);
+ --sc-radius-sm:10px;--sc-radius:14px;--sc-radius-lg:18px;--sc-control:44px;
+}
+html[data-theme=dark]{--bg:#111218;--surface:#171920;--card:#1c1e26;--text:#f6f7fb;--muted:#9ca3b1;--border:#2a2d36;--shadow:0 8px 30px rgba(0,0,0,.22)}
+body{font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,select,textarea{font-family:inherit}button{letter-spacing:-.01em}input,select,textarea{cursor:text}select{cursor:pointer}
+.ui-icon,.sc-icon{width:19px;height:19px;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.btn{min-height:42px;border-radius:11px;padding:0 16px;font-weight:700}.btn.primary{background:var(--primary);box-shadow:none}.btn.primary:hover{background:var(--primary-dark)}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 22%,transparent);outline-offset:2px}

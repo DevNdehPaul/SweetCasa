@@ -14,47 +14,52 @@
 
   <section class="auth-panel">
     <form (ngSubmit)="submit()">
-      <div class="tabs"><button type="button" [class.active]="mode()==='login'" (click)="mode.set('login');error.set('')">Sign in</button><button type="button" [class.active]="mode()==='signup'" (click)="mode.set('signup');error.set('')">Create account</button></div>
-      <div class="heading"><span>{{mode()==='login'?'WELCOME BACK':'JOIN SWEETCASA'}}</span><h2>{{mode()==='login'?'Continue your property journey':'Create your account'}}</h2><p>{{mode()==='login'?'Choose your portal and enter your details.':'Start as a house seeker or property owner.'}}</p></div>
-
+      <div class="tabs"><button type="button" [class.active]="mode()==='login'" (click)="setMode('login')">Sign in</button><button type="button" [class.active]="mode()==='signup'" (click)="setMode('signup')">Create account</button></div>
+      <div class="heading"><span>{{mode()==='login'?'WELCOME BACK':'JOIN SWEETCASA'}}</span><h2>{{mode()==='login'?'Continue your property journey':'Create your account'}}</h2><p>{{mode()==='login'?'Choose your portal and enter your details.':'A few details and you are ready to go.'}}</p></div>
       <div class="role-picker">
         <button type="button" [class.active]="role()==='BUYER'" (click)="role.set('BUYER')"><span>⌕</span><div><b>House Seeker</b><small>Find and save homes</small></div><i>✓</i></button>
         <button type="button" [class.active]="role()==='SELLER'" (click)="role.set('SELLER')"><span>⌂</span><div><b>House Owner</b><small>List and manage property</small></div><i>✓</i></button>
       </div>
-
       @if(error()){<div class="error">! <span>{{error()}}</span></div>}
-
       @if(mode()==='signup'){
-        <div class="grid2">
-          <label><span>Full name *</span><input [(ngModel)]="fullName" name="fullName" placeholder="Your full name"></label>
-          @if(role()==='SELLER'){<label><span>Company name</span><input [(ngModel)]="companyName" name="companyName" placeholder="Optional"></label>}
-          <label><span>Phone</span><input [(ngModel)]="phone" name="phone" placeholder="+237 6..."></label>
-          <label><span>City</span><input [(ngModel)]="city" name="city" placeholder="Douala"></label>
-          <label><span>Region</span><input [(ngModel)]="region" name="region" placeholder="Littoral"></label>
-          <label><span>Street / area</span><input [(ngModel)]="street" name="street" placeholder="Bonapriso"></label>
+        <div class="signup-progress"><div [class.active]="signupStep()>=1"><b>1</b><span>About you</span></div><i [class.active]="signupStep()>=2"></i><div [class.active]="signupStep()>=2"><b>2</b><span>Account</span></div><i [class.active]="signupStep()>=3"></i><div [class.active]="signupStep()>=3"><b>3</b><span>Verify</span></div></div>
+        @if(signupStep()===1){
+          <div class="step-copy"><b>Tell us about you</b><span>Basic information for your SweetCasa profile.</span></div>
+          <div class="grid2 compact-grid">
+            <label><span>Full name *</span><input [(ngModel)]="fullName" name="fullName" placeholder="Your full name"></label>
+            @if(role()==='SELLER'){<label><span>Company name</span><input [(ngModel)]="companyName" name="companyName" placeholder="Optional"></label>}
+            <label><span>Phone</span><input [(ngModel)]="phone" name="phone" placeholder="+237 6..."></label>
+            <label><span>City</span><input [(ngModel)]="city" name="city" placeholder="Douala"></label>
+            <label><span>Region</span><input [(ngModel)]="region" name="region" placeholder="Littoral"></label>
+            <label><span>Street / area</span><input [(ngModel)]="street" name="street" placeholder="Bonapriso"></label>
+          </div><button type="button" class="submit" (click)="nextSignupStep()">Continue <span>→</span></button>
+          <div class="social-divider signup-social"><span></span><b>OR SIGN UP WITH</b><span></span></div>
+          <div class="google-auth-wrap"><div id="google-button-host" class="google-button-host"></div><button type="button" class="google-init-btn" (click)="googleAuth()" [disabled]="googleLoading()"><span class="google-g">G</span>{{googleLoading()?'Loading Google…':'Sign up with Google'}}</button></div>
+        }
+        @if(signupStep()===2){
+          <div class="step-copy"><b>Secure your account</b><span>Create the credentials you will use to sign in.</span></div>
+          <div class="credentials signup-credentials">
+            <label><span>Email address *</span><input [(ngModel)]="email" name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
+            <label><span>Password *</span><div class="password-field"><input [(ngModel)]="password" name="password" [type]="showPassword()?'text':'password'" autocomplete="new-password" placeholder="••••••••"><button type="button" class="eye" (click)="showPassword.set(!showPassword())"><svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div></label>
+            <label><span>Confirm password *</span><div class="password-field"><input [(ngModel)]="confirmPassword" name="confirmPassword" [type]="showConfirmPassword()?'text':'password'" autocomplete="new-password" placeholder="••••••••"><button type="button" class="eye" (click)="showConfirmPassword.set(!showConfirmPassword())"><svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div></label>
+          </div><div class="step-actions"><button type="button" class="back-btn" (click)="previousSignupStep()">← Back</button><button type="button" class="submit" (click)="nextSignupStep()">Continue <span>→</span></button></div>
+        }
+        @if(signupStep()===3){
+          <div class="step-copy"><b>Verify your identity</b><span>Final verification before creating your account.</span></div>
+          <label class="upload"><span>National ID *</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="chooseFile($event)"><div class="upload-box"><span>⇧</span><div><b>{{nationalId?.name || 'Upload your identification card'}}</b><small>JPG, PNG, WEBP or PDF • max 5 MB</small></div></div></label>
+          <label class="check"><input type="checkbox" [checked]="acceptedTerms" name="terms" (click)="termsCheckbox($event)"><span>I agree to the SweetCasa <button type="button" class="legal-link" (click)="$event.preventDefault();$event.stopPropagation();openLegal('terms',!acceptedTerms)">Terms & Conditions</button> and <button type="button" class="legal-link" (click)="$event.preventDefault();$event.stopPropagation();openLegal('privacy')">Privacy Policy</button>.</span></label>
+          <div class="step-actions"><button type="button" class="back-btn" (click)="previousSignupStep()">← Back</button><button class="submit" [disabled]="loading()">{{loading()?'Please wait…':'Create my account'}} <span>→</span></button></div>
+        }
+      } @else {
+        <div class="credentials login-credentials">
+          <label><span>Email address *</span><input [(ngModel)]="email" name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
+          <label><span>Password *</span><div class="password-field"><input [(ngModel)]="password" name="password" [type]="showPassword()?'text':'password'" autocomplete="current-password" placeholder="••••••••"><button type="button" class="eye" (click)="showPassword.set(!showPassword())"><svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div></label>
         </div>
+        <div class="forgot-row"><button type="button" (click)="openForgot()">Forgot password?</button></div>
+        <div class="social-divider"><span></span><b>OR CONTINUE WITH</b><span></span></div>
+        <div class="google-auth-wrap"><div id="google-button-host" class="google-button-host"></div><button type="button" class="google-init-btn" (click)="googleAuth()" [disabled]="googleLoading()"><span class="google-g">G</span>{{googleLoading()?'Loading Google…':'Continue with Google'}}</button></div>
+        <button class="submit login-submit" [disabled]="loading()">{{loading()?'Please wait…':'Sign in to SweetCasa'}} <span>→</span></button>
       }
-
-      <div class="credentials" [class.login-credentials]="mode()==='login'">
-        <label><span>Email address *</span><input [(ngModel)]="email" name="email" type="email" autocomplete="email" placeholder="you@example.com"></label>
-        <label><span>Password *</span><div class="password-field"><input [(ngModel)]="password" name="password" [type]="showPassword()?'text':'password'" [attr.autocomplete]="mode()==='login'?'current-password':'new-password'" placeholder="••••••••"><button type="button" class="eye" (click)="showPassword.set(!showPassword())" [attr.aria-label]="showPassword()?'Hide password':'Show password'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div></label>
-        @if(mode()==='signup'){<label><span>Confirm password *</span><div class="password-field"><input [(ngModel)]="confirmPassword" name="confirmPassword" [type]="showConfirmPassword()?'text':'password'" autocomplete="new-password" placeholder="••••••••"><button type="button" class="eye" (click)="showConfirmPassword.set(!showConfirmPassword())" [attr.aria-label]="showConfirmPassword()?'Hide password':'Show password'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.8"/></svg></button></div></label>}
-      </div>
-      @if(mode()==='login'){<div class="forgot-row"><button type="button" (click)="openForgot()">Forgot password?</button></div>}
-
-      @if(mode()==='signup'){
-        <label class="upload"><span>National ID *</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="chooseFile($event)"><div class="upload-box"><span>⇧</span><div><b>{{nationalId?.name || 'Upload your identification card'}}</b><small>JPG, PNG, WEBP or PDF • max 5 MB</small></div></div></label>
-        <label class="check"><input type="checkbox" [checked]="acceptedTerms" name="terms" (click)="termsCheckbox($event)"><span>I have read and agree to the SweetCasa <button type="button" class="legal-link" (click)="$event.preventDefault();$event.stopPropagation();openLegal('terms',!acceptedTerms)">Terms & Conditions</button> and <button type="button" class="legal-link" (click)="$event.preventDefault();$event.stopPropagation();openLegal('privacy')">Privacy Policy</button>.</span></label>
-      }
-
-      <div class="social-divider"><span></span><b>OR CONTINUE WITH</b><span></span></div>
-      <div class="google-auth-wrap">
-        <div id="google-button-host" class="google-button-host"></div>
-        <button type="button" class="google-init-btn" (click)="googleAuth()" [disabled]="googleLoading()"><span class="google-g">G</span>{{googleLoading()?'Loading Google…':(mode()==='login'?'Continue with Google':'Sign up with Google')}}</button>
-      </div>
-
-      <button class="submit" [disabled]="loading()">{{loading()?'Please wait…':(mode()==='login'?'Sign in to SweetCasa':'Create my account')}} <span>→</span></button>
-      <p class="secure">♢ Your account information is protected by SweetCasa.</p>
     </form>
   </section>
 </main>

@@ -120,3 +120,34 @@ main{min-height:calc(100vh - 76px);display:grid;grid-template-columns:minmax(430
 .google-init-btn:hover{background:var(--surface)!important;border-color:#c4b5fd!important}
 .social-divider{margin:14px 0 10px!important}
 .google-auth-wrap+.submit{margin-top:12px}
+
+/* V14 mature product UI */
+:host{color:var(--text)}
+.head h1,.hero-row h1,.page-head h1{font-weight:750!important;letter-spacing:-.035em!important}
+.head p,.hero-row p,.page-head p{color:var(--muted)!important;line-height:1.6!important}
+.head>div>span,.head>span,.kicker,.eyebrow{letter-spacing:.12em!important;font-weight:800!important}
+button,a{box-shadow:none!important}
+input,select,textarea{border-radius:10px!important;border-color:var(--border)!important;background:var(--card)!important;color:var(--text)!important}
+input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
+
+main{background:var(--bg)}.auth-visual{background:#29105b!important}.glow{opacity:.18!important}.visual-copy h1{font-weight:720;letter-spacing:-.05em}.proof span{border-radius:999px!important;background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.14)!important}.visual-card{border-radius:16px!important;box-shadow:none!important}.auth-card,.form-card{box-shadow:0 12px 36px rgba(20,20,35,.07)!important;border-color:var(--border)!important}.google-btn,.google-init-btn{border-radius:10px!important}
+
+/* V15 auth: no desktop scrolling + 3-step signup */
+@media (min-width:1025px){
+  :host{display:block;height:100dvh;overflow:hidden}
+  main{height:calc(100dvh - 76px)!important;min-height:0!important;overflow:hidden!important}
+  .auth-visual{height:100%!important;min-height:0!important;padding:22px clamp(30px,4vw,58px)!important}
+  .visual-copy{margin:16px 0!important}.visual-copy h1{font-size:clamp(38px,4vw,58px)!important;margin:10px 0!important}.visual-copy p{font-size:14px!important;line-height:1.5!important}.proof{margin-top:14px!important}.visual-card{padding:11px!important}
+  .auth-panel{height:100%!important;min-height:0!important;overflow:hidden!important;padding:12px 24px!important;align-items:center!important}
+  .auth-panel form{width:min(650px,100%)!important;max-height:100%!important;overflow:visible!important;padding:15px 21px!important;border-radius:18px!important}
+  .heading{margin:10px 0 8px!important}.heading h2{font-size:22px!important;margin:2px 0!important}.heading p{font-size:10px!important}
+  .role-picker{margin-bottom:7px!important}.role-picker button{padding:7px 9px!important;border-radius:10px!important}.role-picker button>span{width:30px!important;height:30px!important}
+  label{margin:6px 0!important;gap:4px!important}input:not([type=checkbox]):not([type=file]),.credentials input{height:39px!important}.password-field .eye{top:1px!important}
+  .submit{height:41px!important;border-radius:10px!important}.social-divider{margin:7px 0 6px!important}.google-auth-wrap,.google-button-host,.google-init-btn{height:39px!important;min-height:39px!important}
+  .upload-box{min-height:55px!important;padding:8px 11px!important}.upload-box>span{width:32px!important;height:32px!important}
+}
+.signup-progress{display:grid;grid-template-columns:auto 1fr auto 1fr auto;align-items:center;gap:8px;margin:7px 0 9px}
+.signup-progress>div{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:9px;font-weight:800;white-space:nowrap}.signup-progress b{width:23px;height:23px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border);font-size:9px}.signup-progress i{height:1px;background:var(--border)}.signup-progress>div.active{color:var(--primary)}.signup-progress>div.active b{background:var(--primary);border-color:var(--primary);color:#fff}.signup-progress i.active{background:var(--primary)}
+.step-copy{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:6px 0 2px}.step-copy b{font-size:12px}.step-copy span{font-size:9px;color:var(--muted)}.compact-grid{gap:3px 10px!important}.signup-credentials{grid-template-columns:1fr 1fr}.signup-credentials label:first-child{grid-column:1/-1}
+.step-actions{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-top:7px}.back-btn{height:41px;padding:0 16px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-weight:800;cursor:pointer}.step-actions .submit{margin:0}.signup-social{margin-top:8px!important}.login-submit{margin-top:9px}
+@media(max-width:1024px){.signup-progress span{display:none}.step-copy{display:grid}}
