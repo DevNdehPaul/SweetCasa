@@ -17,7 +17,7 @@
       }
     },
     "android": {
-      "package": "com.ndeh_paul.SweetCasa",
+      "package": "com.ndehpaul.sweetcasa",
       "softwareKeyboardLayoutMode": "resize",
       "config": {
         "googleMaps": {
