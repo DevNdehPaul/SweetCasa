@@ -11,3 +11,37 @@ input,select,textarea{border-radius:10px!important;border-color:var(--border)!im
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
 
 .grid{gap:16px}.grid article{border-radius:14px!important;box-shadow:none!important;transition:border-color .16s,transform .16s}.grid article:hover{transform:translateY(-2px);border-color:#d7d0ec}.grid button{width:34px;height:34px;border-radius:9px!important;box-shadow:0 3px 12px #1112!important}.head>b{border-radius:8px!important}
+
+/* ===== Responsive (added) ===== */
+@media(max-width:640px){.grid{grid-template-columns:1fr;gap:14px}.grid img{height:190px}.grid button{width:44px;height:44px}}
+
+@media(max-width:760px){
+ .head,.hero-row,.map-head,.agreement-top,.section-head{flex-wrap:wrap;gap:12px;align-items:flex-start}
+ .head h1,.hero-row h1,.map-head h1{font-size:clamp(26px,7.4vw,34px)}
+ .head>button,.head>a,.head .actions{align-self:flex-start}
+}
+
+/* min readable text on phones */
+@media(max-width:760px){.head span{font-size:12px}}
+
+
+/* ===== Favourites: mobile + tablet ===== */
+@media(max-width:1024px){
+ .head{display:flex;align-items:center;gap:12px;margin:0 0 18px}
+ .head>div>span{display:none}
+ .head h1{margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:28px}
+ .head p{margin:0;font-size:13px;line-height:19px}
+ .head>b{flex:0 0 auto;padding:7px 12px;font-size:12px;background:var(--m-primary-tint);color:var(--m-primary)}
+ .grid{grid-template-columns:1fr;gap:14px;margin-top:0}
+ .grid article{border:1px solid var(--m-border);border-radius:16px;background:var(--m-card);box-shadow:0 3px 10px rgba(0,0,0,.06)}
+ .grid img{height:190px}
+ .grid button{right:10px;top:10px;width:38px;height:38px;display:grid;place-items:center;background:rgba(255,255,255,.95);color:var(--m-primary-dark)}
+ .grid article>div{padding:14px}
+ .grid small{font-size:12px;color:var(--m-muted)}
+ .grid h3{margin:4px 0 6px;font-size:15px;font-weight:700;letter-spacing:-.2px}
+ .grid p{font-size:12px;color:var(--m-muted);margin:0 0 8px}
+ .grid strong{font-size:16px;font-weight:800;color:var(--m-primary)}
+ .empty{color:var(--m-muted)}
+ .empty span{width:64px;height:64px;display:grid;place-items:center;border-radius:20px;background:var(--m-primary-tint);color:var(--m-primary);font-size:28px;margin:0 auto}
+}
+@media(min-width:640px) and (max-width:1024px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

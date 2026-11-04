@@ -10,3 +10,44 @@ input,select,textarea{border-radius:10px!important;border-color:var(--border)!im
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
 
 .refresh{border-radius:10px!important}.list article{border-radius:14px!important;box-shadow:none!important}.list article>img{min-height:210px}.status{border-radius:7px!important}.actions button{border-radius:9px!important}
+
+/* ===== Responsive (added) ===== */
+@media(max-width:640px){.body{padding:14px}.title{flex-direction:column;gap:6px}.schedule>div{min-width:0;flex:1 1 130px}.actions{flex-wrap:wrap}.actions button{flex:1;min-height:44px}.refresh{min-height:44px}}
+
+@media(max-width:760px){
+ .head,.hero-row,.map-head,.agreement-top,.section-head{flex-wrap:wrap;gap:12px;align-items:flex-start}
+ .head h1,.hero-row h1,.map-head h1{font-size:clamp(26px,7.4vw,34px)}
+ .head>button,.head>a,.head .actions{align-self:flex-start}
+}
+
+/* min readable text on phones */
+@media(max-width:760px){.head span{font-size:12px}.title small,.note small,.schedule small,.person b,.decision label>span{font-size:12px}.status{font-size:12px}.person span{font-size:12px}.person small{font-size:12px}.schedule b{font-size:12px}.note p{font-size:12px}.decision input,.decision textarea{font-size:12px}.actions button{font-size:12px}.error{font-size:12px}.empty p{font-size:12px}}
+
+
+/* ===== Viewings: mobile + tablet ===== */
+@media(max-width:1024px){
+ .head{display:flex;align-items:center;gap:12px;margin:0 0 18px}
+ .head>div>span{display:none}
+ .head h1{margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-.4px}
+ .head p{font-size:13px;line-height:19px;color:var(--m-muted)}
+ .refresh{flex:0 0 auto;min-height:40px;padding:0 14px;border:1.5px solid var(--m-border);border-radius:12px;background:var(--m-card);font-size:13px}
+ .list{gap:14px}
+ .list article{grid-template-columns:1fr;border:1px solid var(--m-border);border-radius:18px;background:var(--m-card);box-shadow:0 3px 10px rgba(0,0,0,.05)}
+ .list article>img{height:170px;min-height:0}
+ .body{padding:16px}
+ .title{align-items:flex-start;gap:10px}
+ .title h2{margin:3px 0 12px;font-size:16px;font-weight:700;line-height:22px}
+ .status{flex:0 0 auto;padding:5px 11px;font-size:11px;font-weight:800;letter-spacing:.3px}
+ .person{background:var(--m-card-muted);border:1px solid var(--m-border-light);border-radius:12px;padding:10px 12px}
+ .person span{font-size:13px}
+ .schedule{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+ .schedule>div{min-width:0;padding:10px 12px;border:1px solid var(--m-border);border-radius:12px;background:var(--m-card)}
+ .schedule b{font-size:13px}
+ .note{background:var(--m-card-muted);border-radius:12px;padding:12px 14px}
+ .note p{font-size:13px;line-height:1.5}
+ .decision input,.decision textarea{border:1.5px solid var(--m-border);border-radius:12px;background:var(--m-card-muted);padding:11px 13px;font-size:14px}
+ .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+ .actions button{min-height:46px;border-radius:12px;font-size:14px;font-weight:700}
+ .empty{border:1.5px dashed var(--m-border);border-radius:18px;color:var(--m-muted);background:var(--m-card)}
+}
+@media(min-width:760px) and (max-width:1024px){.list{grid-template-columns:1fr 1fr}}

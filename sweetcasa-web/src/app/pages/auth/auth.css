@@ -151,3 +151,10 @@ main{background:var(--bg)}.auth-visual{background:#29105b!important}.glow{opacit
 .step-copy{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:6px 0 2px}.step-copy b{font-size:12px}.step-copy span{font-size:9px;color:var(--muted)}.compact-grid{gap:3px 10px!important}.signup-credentials{grid-template-columns:1fr 1fr}.signup-credentials label:first-child{grid-column:1/-1}
 .step-actions{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-top:7px}.back-btn{height:41px;padding:0 16px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-weight:800;cursor:pointer}.step-actions .submit{margin:0}.signup-social{margin-top:8px!important}.login-submit{margin-top:9px}
 @media(max-width:1024px){.signup-progress span{display:none}.step-copy{display:grid}}
+
+/* ===== Responsive (added) ===== */
+@media(max-width:1024px){main{min-height:calc(100dvh - 66px)}.auth-panel{min-height:calc(100dvh - 66px)}.auth-panel form{width:min(640px,100%)}}
+@media(max-width:480px){.auth-panel{padding:16px 12px}.auth-panel form{padding:18px 16px}.submit{height:50px}.signup-progress{gap:6px}}
+
+/* min readable text on phones */
+@media(max-width:760px){.visual-card small{font-size:12px}.match{font-size:12px}.heading>span{font-size:12px}.role-picker small{font-size:12px}.upload-box small{font-size:12px}.secure{font-size:12px}.social-divider b{font-size:12px}.modal-head>span{font-size:12px}.signup-progress>div{font-size:12px}.signup-progress b{font-size:12px}.step-copy span{font-size:12px}}

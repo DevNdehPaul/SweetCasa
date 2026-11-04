@@ -9,3 +9,78 @@ input,select,textarea{border-radius:10px!important;border-color:var(--border)!im
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
 
 .support{border-radius:10px!important;background:var(--surface)!important;color:var(--text)!important}form>section{border-radius:14px!important;box-shadow:none!important}.categories button{border-radius:9px!important}.categories button.active{background:var(--primary-soft)!important;border-color:#cfc3f7!important}.submit{background:var(--primary)!important;border-radius:10px!important}
+
+/* ===== Responsive (added) ===== */
+@media(max-width:900px){form{grid-template-columns:1fr}}
+@media(max-width:640px){form>section{padding:16px}.categories button{min-height:48px}.submit{height:48px}.support{width:100%}}
+
+@media(max-width:760px){
+ .head,.hero-row,.map-head,.agreement-top,.section-head{flex-wrap:wrap;gap:12px;align-items:flex-start}
+ .head h1,.hero-row h1,.map-head h1{font-size:clamp(26px,7.4vw,34px)}
+ .head>button,.head>a,.head .actions{align-self:flex-start}
+}
+
+/* min readable text on phones */
+@media(max-width:760px){.head>div>span{font-size:12px}.support b{font-size:12px}.support small{font-size:12px}.categories button{font-size:12px}.fields label>span{font-size:12px}.fields input:not([type=checkbox]):not([type=file]),.fields textarea{font-size:12px}.upload b{font-size:12px}.upload small{font-size:12px}.follow b{font-size:12px}.follow small{font-size:12px}.submit{font-size:12px}.error,.success{font-size:12px}}
+
+
+/* ===== Icons (all screen sizes) ===== */
+.categories button span{display:inline-grid;place-items:center}
+.support{align-items:center}
+.upload>div{gap:4px}
+.upload>div .ic{width:24px;height:24px;margin:0 auto 4px}
+.r-ic{display:none}
+
+/* ===== Mobile + tablet report (React Native design) ===== */
+@media(max-width:1024px){
+ .head{display:block;text-align:center;margin:4px 0 26px}
+ .head>div>span:not(.r-ic){display:none}
+ .r-ic{display:grid;place-items:center;width:56px;height:56px;margin:0 auto 12px;border-radius:18px;background:var(--m-primary-tint);color:var(--m-primary)}
+ .r-ic .ic{width:28px;height:28px}
+ .head h1{font-size:22px;font-weight:800!important;letter-spacing:-.4px!important;margin:0 0 10px;text-align:center}
+ .head p{font-size:14px!important;line-height:22px!important;color:var(--m-muted)!important;padding:0 8px;margin:0;text-align:center}
+ .head .support{display:none}
+ form{display:block;max-width:640px;margin:0 auto}
+ form>section:first-child{background:none;border:0;padding:0;margin-bottom:20px}
+ section h2{font-size:15px;font-weight:700;margin:0 0 12px;letter-spacing:-.2px}
+ .categories{display:flex;flex-wrap:wrap;gap:10px}
+ .categories button{display:inline-flex;align-items:center;gap:7px;padding:11px 16px;border:1.5px solid var(--m-border);border-radius:50px;background:var(--m-card);color:var(--m-text);font-size:13.5px;font-weight:600;text-align:center}
+ .categories button span{width:auto;height:auto;margin:0;background:none;border-radius:0}
+ .categories button .ic{width:16px;height:16px}
+ .categories button.active{background:var(--m-primary);border-color:var(--m-primary);color:#fff}
+ form>section.fields{background:none;border:0;padding:0}
+ .fields label{margin:0 0 14px;padding:18px;background:var(--m-card);border-radius:18px;box-shadow:0 1px 6px rgba(0,0,0,.05);gap:8px}
+ .fields>label:nth-of-type(1){margin-bottom:0;border-radius:18px 18px 0 0;padding-bottom:0}
+ .fields>label:nth-of-type(2){border-radius:0 0 18px 18px}
+ .fields label>span{font-size:14px;font-weight:700;letter-spacing:0;text-transform:capitalize}
+ .fields input:not([type=checkbox]):not([type=file]),.fields textarea{border:1.5px solid var(--m-border);background:var(--m-card-muted);border-radius:12px;padding:12px 14px;font-size:14px}
+ .upload>span{align-items:center}
+ .upload i{font-size:12px;font-weight:600;background:var(--m-border-light);color:var(--m-muted);border-radius:20px;padding:4px 10px}
+ .upload>div{min-height:92px;border:1.5px dashed var(--m-primary);background:var(--m-primary-tint);border-radius:14px;color:var(--m-primary);font-size:12px}
+ .upload b{font-size:12px;font-weight:600}
+ .upload small{font-size:12px;line-height:18px;color:var(--m-light)}
+ .follow{flex-direction:row-reverse;justify-content:space-between;gap:12px}
+ .follow>span{flex:1;min-width:0}
+ .follow b{font-size:14px;font-weight:700}
+ .follow small{font-size:12px;color:var(--m-light)}
+ .follow input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:0 0 auto;width:48px;height:28px;border-radius:14px;background:var(--m-border);position:relative;cursor:pointer;transition:background .2s;margin:0;min-height:0!important}
+ .follow input[type=checkbox]::after{content:"";position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s}
+ .follow input[type=checkbox]:checked{background:var(--m-primary)}
+ .follow input[type=checkbox]:checked::after{transform:translateX(20px)}
+ .submit{height:54px;border-radius:18px;font-size:16px;font-weight:800;letter-spacing:.3px;background:var(--m-primary)!important;color:#fff!important;box-shadow:0 6px 14px rgba(124,58,237,.35)!important}
+}
+
+
+/* ===== Report categories: clear active state (mobile + tablet) ===== */
+@media(max-width:1024px){
+ .categories button{transition:background-color .15s,border-color .15s,color .15s}
+ .categories button.active{background:var(--m-primary)!important;border-color:var(--m-primary)!important;color:#fff!important;box-shadow:0 4px 10px rgba(124,58,237,.3)}
+ .categories button.active span,.categories button.active .ic{color:#fff!important;background:none!important}
+}
+
+/* ===== Reports: keep the follow-up text as written; visible switch track ===== */
+@media(max-width:1024px){
+ .follow>span,.follow b,.follow small{text-transform:none!important}
+ .follow input[type=checkbox]{background:color-mix(in srgb,var(--m-light) 45%,transparent)}
+ .follow input[type=checkbox]:checked{background:var(--m-primary)}
+}

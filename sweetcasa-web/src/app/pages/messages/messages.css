@@ -9,3 +9,71 @@ input,select,textarea{border-radius:10px!important;border-color:var(--border)!im
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
 
 .messenger{border-radius:14px!important;box-shadow:none!important}.safety{border-radius:10px!important;background:var(--surface)!important;color:var(--text)!important}.avatar{border-radius:10px!important}.conv{border-radius:0!important}.conv.active{background:var(--primary-soft)!important}.bubble,.message{border-radius:14px!important}.composer{border-radius:12px!important}
+
+/* ===== Responsive (added) ===== */
+.back{display:none}
+@media(max-width:900px){
+ .messenger{grid-template-columns:1fr;height:calc(100dvh - 176px - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:480px;border-radius:14px}
+ .messenger>aside{border-right:0}
+ .messenger .chat{display:none}
+ .messenger.show-chat>aside{display:none}
+ .messenger.show-chat .chat{display:grid}
+ .back{display:grid;place-items:center;width:44px;height:44px;flex:0 0 auto;border:0;background:var(--surface);color:var(--text);border-radius:12px;font-size:20px;margin-left:-6px}
+ .chat{grid-template-rows:auto 1fr auto}
+ .chat header{min-height:64px;padding:0 12px}
+ .bubble{max-width:82%}
+ .conv{padding:14px 16px;min-height:64px}
+ .chat form{padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+ .chat form input{height:46px}
+ .chat form button{min-width:76px;height:46px}
+}
+@media(max-width:600px){.nochat{padding:20px;text-align:center}}
+
+/* min readable text on phones */
+@media(max-width:760px){.mh span{font-size:12px}.mh>b{font-size:12px}.safety b{font-size:12px}.safety small{font-size:12px}.conv small{font-size:12px}.conv i{font-size:12px}.chat header small{font-size:12px}.chat header>span{font-size:12px}.bubble small{font-size:12px}.chat form button{font-size:12px}}
+
+
+/* ===== Messages: colours + alignment (mobile + tablet) ===== */
+@media(max-width:1024px){
+ .messenger{background:var(--m-card);border:1px solid var(--m-border);border-radius:16px;box-shadow:none}
+ .mh{padding:16px}
+ .mh span{display:none}
+ .mh h1{margin:0;font-size:20px;font-weight:800;letter-spacing:-.4px}
+ .mh>b{background:var(--m-primary-tint);color:var(--m-primary);font-size:12px;padding:5px 10px;border-radius:20px}
+ .safety{margin:0 14px 10px;padding:12px;border-radius:12px;background:var(--m-primary-tint);border:1px solid var(--m-primary-border);align-items:flex-start}
+ .safety b{font-size:13px}
+ .safety small{font-size:12px;color:var(--m-muted);line-height:1.4}
+ .conv{padding:13px 16px;gap:12px;border-top:1px solid var(--m-border-light);align-items:center;text-align:left}
+ .conv.active{background:var(--m-primary-tint)}
+ .avatar{width:46px;height:46px;border-radius:50%!important;background:var(--m-primary-tint)!important;color:var(--m-primary)!important;font-size:14px;font-weight:800}
+ .conv b{font-size:14px;font-weight:600}
+ .conv small{font-size:12.5px;color:var(--m-light);margin-top:2px}
+ .conv i{background:var(--m-primary);font-size:11px;padding:3px 8px;font-weight:700}
+ .chat header{border-bottom:1px solid var(--m-border-light);background:var(--m-card)}
+ .chat header b{font-size:15px}
+ .chat header small{font-size:12px;color:var(--m-light)}
+ .chat header>span{font-size:11px;font-weight:700;padding:5px 10px;border-radius:20px}
+ .thread{padding:16px 14px;background:var(--m-bg)}
+ .bubble{max-width:82%;padding:10px 14px;background:var(--m-card);border:1px solid var(--m-border-light);border-radius:18px 18px 18px 6px}
+ .bubble.me{background:var(--m-primary);border-color:var(--m-primary);color:#fff;border-radius:18px 18px 6px 18px}
+ .bubble p{font-size:14px;line-height:1.45}
+ .bubble small{font-size:10.5px}
+ .chat form{border-top:1px solid var(--m-border-light);background:var(--m-card)}
+ .chat form input{border:1.5px solid var(--m-border);background:var(--m-card-muted);border-radius:24px;padding:0 16px}
+ .chat form button{border-radius:24px;font-size:14px;font-weight:700;background:var(--m-primary)}
+ .nochat{color:var(--m-muted)}
+ .nochat span{width:64px;height:64px;display:grid;place-items:center;border-radius:20px;background:var(--m-primary-tint);color:var(--m-primary);font-size:28px;margin:0 auto}
+}
+
+
+/* ===== Fix: back button shifted child positions, so target the name block by its new position ===== */
+.chat header>div:nth-child(3){display:grid;min-width:0}
+@media(max-width:1024px){
+ .chat header>div:nth-child(3){gap:2px;align-content:center}
+ .chat header>div:nth-child(3) b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .chat header>div:nth-child(3) small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .chat header>span{white-space:nowrap;flex:0 0 auto}
+ .chat form button{white-space:nowrap;flex:0 0 auto;min-width:84px;padding:0 16px}
+ .conv i:empty{display:none}
+ .conv.active .avatar{background:var(--m-card)!important}
+}

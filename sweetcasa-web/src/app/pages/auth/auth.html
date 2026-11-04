@@ -7,9 +7,9 @@
       <span class="eyebrow">FIND HOME. FEEL AT HOME.</span>
       <h1>Property discovery built around <em>trust.</em></h1>
       <p>Find verified homes, talk directly with property owners and keep your property journey organised in one place.</p>
-      <div class="proof"><span>✓ Verified listings</span><span>✦ CasaMatch AI</span><span>♢ Safer conversations</span></div>
+      <div class="proof"><span>✓ Verified listings</span><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4Z"/><path d="M18.5 16v4M16.5 18h4"/></svg> CasaMatch AI</span><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8 4.5 5.6v5.7c0 4.6 3.2 8.4 7.5 9.8 4.3-1.4 7.5-5.2 7.5-9.8V5.6L12 2.8Z"/></svg> Safer conversations</span></div>
     </div>
-    <div class="visual-card"><span class="icon">✦</span><div><small>CASAMATCH AI</small><b>“Show me a 2-bedroom in Bonapriso under 300k.”</b></div><span class="match">92% match</span></div>
+    <div class="visual-card"><span class="icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4Z"/><path d="M18.5 16v4M16.5 18h4"/></svg></span><div><small>CASAMATCH AI</small><b>“Show me a 2-bedroom in Bonapriso under 300k.”</b></div><span class="match">92% match</span></div>
   </section>
 
   <section class="auth-panel">
@@ -17,8 +17,8 @@
       <div class="tabs"><button type="button" [class.active]="mode()==='login'" (click)="setMode('login')">Sign in</button><button type="button" [class.active]="mode()==='signup'" (click)="setMode('signup')">Create account</button></div>
       <div class="heading"><span>{{mode()==='login'?'WELCOME BACK':'JOIN SWEETCASA'}}</span><h2>{{mode()==='login'?'Continue your property journey':'Create your account'}}</h2><p>{{mode()==='login'?'Choose your portal and enter your details.':'A few details and you are ready to go.'}}</p></div>
       <div class="role-picker">
-        <button type="button" [class.active]="role()==='BUYER'" (click)="role.set('BUYER')"><span>⌕</span><div><b>House Seeker</b><small>Find and save homes</small></div><i>✓</i></button>
-        <button type="button" [class.active]="role()==='SELLER'" (click)="role.set('SELLER')"><span>⌂</span><div><b>House Owner</b><small>List and manage property</small></div><i>✓</i></button>
+        <button type="button" [class.active]="role()==='BUYER'" (click)="role.set('BUYER')"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span><div><b>House Seeker</b><small>Find and save homes</small></div><i>✓</i></button>
+        <button type="button" [class.active]="role()==='SELLER'" (click)="role.set('SELLER')"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/></svg></span><div><b>House Owner</b><small>List and manage property</small></div><i>✓</i></button>
       </div>
       @if(error()){<div class="error">! <span>{{error()}}</span></div>}
       @if(mode()==='signup'){
@@ -46,7 +46,7 @@
         }
         @if(signupStep()===3){
           <div class="step-copy"><b>Verify your identity</b><span>Final verification before creating your account.</span></div>
-          <label class="upload"><span>National ID *</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="chooseFile($event)"><div class="upload-box"><span>⇧</span><div><b>{{nationalId?.name || 'Upload your identification card'}}</b><small>JPG, PNG, WEBP or PDF • max 5 MB</small></div></div></label>
+          <label class="upload"><span>National ID *</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="chooseFile($event)"><div class="upload-box"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg></span><div><b>{{nationalId?.name || 'Upload your identification card'}}</b><small>JPG, PNG, WEBP or PDF • max 5 MB</small></div></div></label>
           <label class="check"><input type="checkbox" [checked]="acceptedTerms" name="terms" (click)="termsCheckbox($event)"><span>I agree to the SweetCasa <button type="button" class="legal-link" (click)="$event.preventDefault();$event.stopPropagation();openLegal('terms',!acceptedTerms)">Terms & Conditions</button> and <button type="button" class="legal-link" (click)="$event.preventDefault();$event.stopPropagation();openLegal('privacy')">Privacy Policy</button>.</span></label>
           <div class="step-actions"><button type="button" class="back-btn" (click)="previousSignupStep()">← Back</button><button class="submit" [disabled]="loading()">{{loading()?'Please wait…':'Create my account'}} <span>→</span></button></div>
         }
@@ -77,7 +77,7 @@
    <label><span>Region</span><input [(ngModel)]="finishRegion" name="finishRegion"></label>
    <label><span>City</span><input [(ngModel)]="finishCity" name="finishCity"></label>
    <label class="wide"><span>Street / area</span><input [(ngModel)]="finishStreet" name="finishStreet"></label>
-   <label class="upload wide"><span>National ID *</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="chooseFinishId($event)"><div class="upload-box"><span>⇧</span><div><b>{{finishNationalId?.name || 'Upload your identification card'}}</b><small>JPG, PNG, WEBP or PDF • max 5 MB</small></div></div></label>
+   <label class="upload wide"><span>National ID *</span><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="chooseFinishId($event)"><div class="upload-box"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg></span><div><b>{{finishNationalId?.name || 'Upload your identification card'}}</b><small>JPG, PNG, WEBP or PDF • max 5 MB</small></div></div></label>
   </div>
   <div class="modal-actions"><button type="submit" class="submit" [disabled]="finishSaving()">{{finishSaving()?'Saving…':'Finish profile'}} <span>→</span></button></div>
  </form>

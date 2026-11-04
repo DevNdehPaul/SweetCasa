@@ -27,3 +27,41 @@ input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--pri
 @media(max-width:1100px){.hero{grid-template-columns:1fr;text-align:left;min-height:auto}.copy{max-width:780px;justify-items:start!important}.trust{justify-content:flex-start}.intro-band{grid-template-columns:70px 1fr}.intro-band>p{grid-column:2}.team-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:760px){.hero{padding:48px 18px 68px}.copy h1{font-size:clamp(50px,15vw,72px)!important}.copy>p{font-size:15px}.trust{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.trust>div{display:grid;justify-items:center;text-align:center}.trust small{display:block!important}.stage{height:430px}.dashboard-card{width:94vw}.property{height:205px}.intro-band{margin:85px auto 50px;padding:0 18px;grid-template-columns:1fr;gap:18px}.intro-number{display:none}.intro-band>p{grid-column:auto;margin:0}.experience,.team-section{padding-inline:18px;margin-block:90px}.journeys article{padding:25px;min-height:540px}.casamatch{padding-inline:18px}.team-head{grid-template-columns:1fr;gap:18px;margin-bottom:30px}.team-grid{grid-template-columns:1fr 1fr;gap:26px 12px}.team-photo{border-radius:13px}.team-meta h3{font-size:14px}.team-meta span{font-size:8px}}
 @media(max-width:480px){.team-grid{grid-template-columns:1fr}.team-photo{aspect-ratio:5/5.5}.team-meta h3{font-size:16px}}
+
+/* ===== Responsive (added) ===== */
+/* ===== Responsive refinements ===== */
+@media(max-width:1024px){
+ .casamatch{gap:40px;margin-block:80px;padding-block:20px}
+ .journeys{gap:18px}
+ .journeys article{min-height:0;padding:28px}
+ .journeys img{margin-top:28px}
+ .safety{padding:44px 32px;gap:32px;margin-inline:24px}
+ .team-head{grid-template-columns:1fr;gap:18px}
+ .hero{padding-inline:24px;gap:36px}
+ .stage{height:auto;min-height:480px;padding:10px 0}
+ .dashboard-card{width:min(540px,100%)}
+}
+@media(max-width:760px){
+ .dashboard-card{width:100%}
+ .stage{min-height:0;height:auto}
+ .actions a{width:100%}
+ .journeys article{padding:22px}
+ .journeys img{width:100%;height:190px}
+ .casamatch{margin-block:60px;gap:30px;padding-inline:18px}
+ .ai-visual{padding:18px;min-height:0}
+ .bubble.user{margin-left:8%}
+ .safety{margin:60px 16px;padding:28px 18px}
+ .shield-art{height:240px;overflow:hidden}
+ .n2{right:0}
+ .final-cta>div{flex-wrap:wrap}
+ .final-cta a{flex:1 1 100%;text-align:center;min-height:46px}
+ footer{flex-wrap:wrap;gap:16px}
+ .marquee,.marquee-track{height:56px;min-height:56px}
+}
+@media(hover:none) and (max-width:1024px){.journeys article:hover,.actions a:hover,.final-cta a:hover{transform:none}.journeys article:hover img,.team-card:hover .team-photo img{transform:none!important}}
+
+/* min readable text on phones */
+@media(max-width:760px){.eyebrow{font-size:12px}.trust small{font-size:12px}.dash-search{font-size:12px}.tag{font-size:12px}.property-info small{font-size:12px}.property-info span{font-size:12px}.floating small{font-size:12px}.section-copy>span{font-size:12px}.label{font-size:12px}.bubble.bot b{font-size:12px}.match-card small{font-size:12px}.match-card span{font-size:12px}.safety>div:first-child>span{font-size:12px}.safety-points span{font-size:12px}.safe-note{font-size:12px}footer small{font-size:12px}footer nav{font-size:12px}.eyebrow,.section-kicker{font-size:12px!important}.marquee span{font-size:12px}.intro-number{font-size:12px}.team-index{font-size:12px}.team-meta span{font-size:12px}}
+
+/* ===== Landing: the stray .owner offset shifted the owner card over the seeker card (mobile + tablet only) ===== */
+@media(max-width:1024px){.journeys .owner{right:auto;bottom:auto}}

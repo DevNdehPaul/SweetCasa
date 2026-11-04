@@ -23,4 +23,5 @@ export class Wallet implements OnInit{
  pagedTx(){const start=(this.page()-1)*this.pageSize;return this.tx().slice(start,start+this.pageSize)} pages(){return Math.max(1,Math.ceil(this.tx().length/this.pageSize))} prev(){this.page.update(v=>Math.max(1,v-1))} next(){this.page.update(v=>Math.min(this.pages(),v+1))}
  open(type:'deposit'|'withdraw'|'purchase'){this.error.set('');this.message.set('');this.amount='';this.phone='';this.listingId='';this.modal.set(type);if(type==='purchase')this.loadProperties()}
  close(){this.modal.set(null)}
+ total(){const w:any=this.wallet();return (Number(w?.heldBalance)||0)+(Number(w?.availableBalance)||0)}
 }

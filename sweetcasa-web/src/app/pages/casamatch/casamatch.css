@@ -9,3 +9,96 @@ input,select,textarea{border-radius:10px!important;border-color:var(--border)!im
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
 
 .cm{border-radius:14px!important;box-shadow:none!important}.cm-brand>span,.ai-avatar{border-radius:10px!important;background:var(--primary)!important}.new{border-radius:10px!important}.history{border-radius:9px!important}.history.active{background:var(--primary-soft)!important}.bubble,.msg{border-radius:14px!important}.composer{border-radius:12px!important}
+
+/* ===== Responsive (added) ===== */
+.back{display:none}
+@media(max-width:900px){
+ .cm{grid-template-columns:1fr;height:calc(100dvh - 176px - env(safe-area-inset-top) - env(safe-area-inset-bottom));min-height:480px;border-radius:14px}
+ .cm>aside{border-right:0}
+ .cm .chat{display:none}
+ .cm.show-chat>aside{display:none}
+ .cm.show-chat .chat{display:grid}
+ .back{display:grid;place-items:center;width:44px;height:44px;flex:0 0 auto;border:0;background:var(--surface);color:var(--text);border-radius:12px;font-size:20px;margin-left:-6px}
+ .chat header{padding:0 12px}
+ .messages{padding:16px 12px}
+ .bubble{max-width:86%}
+ .bubble img{max-width:100%}
+ .match-grid{grid-template-columns:1fr}
+ .matches{max-width:100%}
+ .chat form{padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+ .chat form>button{min-width:70px}
+ .attach{width:46px;height:46px}
+ .empty,.welcome{padding:24px 16px}
+ .empty h1,.welcome h1{font-size:22px}
+ .history{min-height:54px}
+}
+
+/* min readable text on phones */
+@media(max-width:760px){.cm-brand small{font-size:12px}.new{font-size:12px}.history-title{font-size:12px}.history b{font-size:12px}.history small{font-size:12px}.chat header small{font-size:12px}.chat header>span{font-size:12px}.bubble small{font-size:12px}.matches-title{font-size:12px}.match-grid span{font-size:12px}.match-grid p,.match-grid small{font-size:12px}.match-grid b{font-size:12px}.typing{font-size:12px}.chat form>button{font-size:12px}.attachment{font-size:12px}.empty>span{font-size:12px}.empty button{font-size:12px}.suggestions button{font-size:12px}.center-load,.mini-load{font-size:12px}}
+
+
+/* ===== CasaMatch chat: colours + alignment (mobile + tablet) ===== */
+@media(max-width:1024px){
+ .cm{background:var(--m-card);border:1px solid var(--m-border);border-radius:16px;box-shadow:none}
+ .cm>aside{padding:16px}
+ .cm-brand{padding:2px 0 14px;gap:12px}
+ .cm-brand>span,.ai-avatar{width:40px;height:40px;border-radius:50%!important;background:var(--m-primary)!important;color:#fff}
+ .cm-brand small{font-size:11px;letter-spacing:.1em;color:var(--m-primary)}
+ .cm-brand b{font-size:17px;font-weight:800}
+ .cm-brand button{width:38px;height:38px;border-radius:12px;background:var(--m-primary-tint);color:var(--m-primary)}
+ .new{height:48px;border-radius:14px;background:var(--m-primary);font-size:14px;font-weight:700}
+ .history-title{margin:22px 4px 10px;font-size:11px;letter-spacing:1.2px;color:var(--m-light)}
+ .history{padding:12px;gap:12px;border-radius:14px}
+ .history>span{width:38px;height:38px;border-radius:12px;background:var(--m-primary-tint);color:var(--m-primary)}
+ .history b{font-size:14px;font-weight:600}.history small{font-size:12px;color:var(--m-light);margin-top:2px}
+ .chat header{background:var(--m-card);border-bottom:1px solid var(--m-border-light)}
+ .chat header b{font-size:15px}.chat header small{font-size:12px;color:var(--m-light)}
+ .chat header>span{font-size:11px;font-weight:700;color:var(--m-success)}
+ .messages{background:var(--m-bg)}
+ .bubble{padding:10px 14px;background:var(--m-card);border:1px solid var(--m-border-light);border-radius:18px 18px 18px 6px}
+ .mine .bubble{background:var(--m-primary);border-color:var(--m-primary);color:#fff;border-radius:18px 18px 6px 18px}
+ .bubble p{font-size:14px;line-height:1.5}
+ .bubble small{font-size:10.5px}
+ .matches-title{font-size:12px;color:var(--m-primary)}
+ .match-grid article{border:1px solid var(--m-border);border-radius:14px;background:var(--m-card)}
+ .match-grid span{font-size:10px;color:var(--m-primary)}
+ .match-grid h4{font-size:14px;font-weight:700}
+ .match-grid p,.match-grid small{font-size:12px;color:var(--m-muted)}
+ .match-grid b{font-size:13px;color:var(--m-primary)}
+ .typing{font-size:12px;color:var(--m-muted)}
+ .chat form{background:var(--m-card);border-top:1px solid var(--m-border-light);align-items:end}
+ .chat textarea{border:1.5px solid var(--m-border);background:var(--m-card-muted);color:var(--m-text);border-radius:22px;padding:12px 16px}
+ .chat form>button{border-radius:22px;background:var(--m-primary);font-size:14px;font-weight:700;min-height:46px}
+ .attach{width:46px;height:46px;border-radius:50%;background:var(--m-primary-tint);color:var(--m-primary)}
+ .attachment{background:var(--m-primary-tint);color:var(--m-primary);font-size:12px}
+ .empty .orb,.welcome .orb{width:68px;height:68px;border-radius:50%;background:var(--m-primary)}
+ .empty>span{font-size:11px;color:var(--m-primary)}
+ .empty h1,.welcome h1{font-size:22px;font-weight:800;letter-spacing:-.4px}
+ .empty p,.welcome p{font-size:14px;line-height:1.55;color:var(--m-muted)}
+ .empty button{border-radius:14px;background:var(--m-primary);font-size:14px;min-height:46px;padding:0 20px}
+ .suggestions button{border:1.5px solid var(--m-border);background:var(--m-card);color:var(--m-text);border-radius:50px;padding:9px 14px;font-size:13px}
+}
+
+
+/* ===== Fix: back button shifted child positions, so target the name block by its new position ===== */
+.chat header>div:nth-child(3){display:grid;min-width:0}
+@media(max-width:1024px){
+ .chat header{gap:10px}
+ .chat header>div:nth-child(3){gap:2px;align-content:center}
+ .chat header>div:nth-child(3) b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px}
+ .chat header>div:nth-child(3) small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .chat header>span{white-space:nowrap;flex:0 0 auto}
+ .chat form>button{white-space:nowrap;flex:0 0 auto;min-width:84px;padding:0 16px}
+ .chat textarea{min-height:48px;height:48px;max-height:120px;line-height:1.35;padding:13px 16px;font-size:15px;resize:none}
+}
+
+/* ===== CasaMatch composer + match cards (mobile + tablet) ===== */
+@media(max-width:1024px){
+ .chat form{gap:8px}
+ .chat textarea::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ .chat form>button{min-width:76px}
+ .match-grid article{grid-template-columns:1fr}
+ .match-grid article:has(>img){grid-template-columns:96px 1fr}
+ .match-grid img{width:96px;height:100%;min-height:112px}
+ .match-grid article>div{padding:12px}
+}

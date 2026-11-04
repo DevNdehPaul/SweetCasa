@@ -10,3 +10,34 @@ input,select,textarea{border-radius:10px!important;border-color:var(--border)!im
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
 
 .summary,.money,.terms,.sign,.success-card{border-radius:12px!important;box-shadow:none!important}.agreement-page{color:var(--text)!important}.brand{color:var(--primary)!important}.agreement-page>h1{font-weight:750!important;letter-spacing:-.02em}.sign button,.primary{border-radius:9px!important;background:var(--primary)!important}
+
+/* ===== Responsive (added) ===== */
+@media(max-width:720px){header{flex-direction:column;gap:10px}.agreement-page>h1{font-size:20px}.money div{flex-wrap:wrap}.sign{margin:20px auto}}
+
+@media(max-width:760px){
+ .head,.hero-row,.map-head,.agreement-top,.section-head{flex-wrap:wrap;gap:12px;align-items:flex-start}
+ .head h1,.hero-row h1,.map-head h1{font-size:clamp(26px,7.4vw,34px)}
+ .head>button,.head>a,.head .actions{align-self:flex-start}
+}
+
+
+/* ===== Lease agreement: RN colours + dark mode (mobile + tablet) ===== */
+@media(max-width:1024px){
+ .agreement-page{padding:0 0 24px;color:var(--m-text)}
+ .agreement-top a,.agreement-top span,.brand,.sign>span,.success-card a{color:var(--m-primary)!important}
+ header{border-bottom-color:var(--m-primary)}
+ .doc-type{color:var(--m-muted)}
+ .agreement-page>h1{font-size:20px;margin:20px auto}
+ .summary,.money,.terms,.sign,.success-card{background:var(--m-card)!important;border:1px solid var(--m-border)!important;border-radius:18px;padding:18px}
+ .summary{background:var(--m-primary-tint-alt)!important;border-left:4px solid var(--m-primary)!important}
+ .summary-grid span,.money span,.sign label>span{color:var(--m-light)!important;font-size:11px}
+ .money div{border-bottom-color:var(--m-border-light)}
+ .money .total{background:var(--m-primary-tint)!important;color:var(--m-primary-dark)}
+ .terms pre{background:var(--m-card-muted)!important;color:var(--m-text2)!important;border-radius:12px;font-size:13px}
+ .sign input[type=date],.sign input[type=text],.sign label:not(.accept) input{border:1.5px solid var(--m-border)!important;background:var(--m-card-muted)!important;color:var(--m-text)!important;border-radius:12px;font-size:16px}
+ .sign button,.success-card button{min-height:54px;border-radius:18px;background:var(--m-primary)!important;font-size:16px;font-weight:800}
+ .sign>small{color:var(--m-muted)}
+ .locked{background:var(--m-primary-tint-alt)}
+ .locked b{color:var(--m-primary-dark)}
+ .success-card>div:first-child{background:var(--m-primary-tint);color:var(--m-primary)}
+}

@@ -9,3 +9,38 @@ input,select,textarea{border-radius:10px!important;border-color:var(--border)!im
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
 
 .settings-grid section{border-radius:14px!important;box-shadow:none!important}.settings-grid a,.settings-grid button{min-height:64px}.settings-grid i{border-radius:9px!important;font-style:normal}.switch{border-radius:999px!important}
+
+/* ===== Responsive (added) ===== */
+@media(max-width:640px){.settings-grid a,.settings-grid button{min-height:52px}.settings-grid section{padding:12px}}
+
+@media(max-width:760px){
+ .head,.hero-row,.map-head,.agreement-top,.section-head{flex-wrap:wrap;gap:12px;align-items:flex-start}
+ .head h1,.hero-row h1,.map-head h1{font-size:clamp(26px,7.4vw,34px)}
+ .head>button,.head>a,.head .actions{align-self:flex-start}
+}
+
+/* min readable text on phones */
+@media(max-width:760px){.head>span{font-size:12px}.settings-grid h3{font-size:12px}.settings-grid b{font-size:12px}.settings-grid small{font-size:12px}.settings-grid em{font-size:12px}}
+
+
+/* ===== Settings: mobile + tablet (grouped rows like the RN profile menu) ===== */
+@media(max-width:1024px){
+ .head{margin:0 0 18px}
+ .head>span,.head p{display:none}
+ .head h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.4px}
+ .settings-grid{grid-template-columns:1fr;gap:14px;max-width:640px;margin:0 auto}
+ .settings-grid section{padding:0;height:auto;overflow:hidden;background:var(--m-card);border:1px solid var(--m-border);border-radius:16px}
+ .settings-grid h3{margin:0;padding:14px 16px 8px;font-size:11px;font-weight:700;letter-spacing:1.2px;color:var(--m-light)}
+ .settings-grid a,.settings-grid button{grid-template-columns:auto 1fr auto;gap:14px;padding:13px 16px;min-height:64px;border-top:1px solid var(--m-border-light);text-align:left;border-radius:0!important;color:var(--m-text)}
+ .settings-grid i{width:38px;height:38px;border-radius:11px;background:var(--m-primary-tint);color:var(--m-primary)}
+ .settings-grid i .ic{width:19px;height:19px}
+ .settings-grid span{text-align:left}
+ .settings-grid b{font-size:13.5px;font-weight:600}
+ .settings-grid small{font-size:11.5px;margin-top:2px;color:var(--m-light)}
+ .settings-grid em{color:var(--m-light)}
+ .settings-grid em .ic{width:18px;height:18px}
+ .switch{width:48px;height:28px;padding:2px;background:var(--m-border)}
+ .switch u{width:24px;height:24px}
+ .switch.on{background:var(--m-primary)}
+}
+@media(min-width:760px) and (max-width:1024px){.settings-grid{grid-template-columns:1fr 1fr;max-width:none;align-items:start}}

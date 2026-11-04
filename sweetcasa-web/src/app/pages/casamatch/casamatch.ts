@@ -5,7 +5,7 @@ import { ApiService } from '../../core/services/api.service';
 
 @Component({selector:'sc-casamatch',imports:[FormsModule,DatePipe],templateUrl:'./casamatch.html',styleUrl:'./casamatch.css'})
 export class Casamatch implements OnInit{
- conversations=signal<any[]>([]); active=signal<any|null>(null); messages=signal<any[]>([]);
+ conversations=signal<any[]>([]); showChat=signal(false);active=signal<any|null>(null); messages=signal<any[]>([]);
  loading=signal(true); sending=signal(false); error=signal(''); text=''; image:File|null=null;
  constructor(private api:ApiService){}
  ngOnInit(){this.loadHistory();}

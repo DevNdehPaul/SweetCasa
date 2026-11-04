@@ -12,3 +12,99 @@ input,select,textarea{border-radius:10px!important;border-color:var(--border)!im
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
 
 .hero-photo{border-radius:16px!important}.thumbs img,.gallery button{border-radius:10px!important}.detail-grid>section,.detail-grid>aside,.card,.panel{border-radius:14px!important;box-shadow:none!important}.owner-review-banner{border-radius:12px!important}.crumbs{font-size:12px}.price-card,.contact-card{border-radius:14px!important}
+
+/* ===== Responsive (added) ===== */
+@media(max-width:1024px){.action-card{position:static}}
+@media(max-width:760px){
+ .gallery{grid-template-columns:1fr;height:auto;min-height:0}
+ .gallery>*:first-child{height:clamp(230px,62vw,420px);min-height:0}
+ .thumbs{grid-template-rows:none;grid-template-columns:repeat(5,minmax(0,1fr));height:64px}
+ .content-grid{gap:20px}
+ .title-row{flex-direction:column;gap:14px}
+ .facts{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .amenities{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .map-preview{grid-template-columns:1fr}
+ .photo-strip{grid-template-columns:repeat(2,1fr)}
+ .photo-strip button{height:110px}
+ .nearby-groups{grid-template-columns:1fr}
+ .crumbs{flex-wrap:wrap}.crumbs b{max-width:60vw}
+ .map-embed-button{height:230px}
+ .money-card,.escrow-card{flex-wrap:wrap}
+ .modal-backdrop{padding:0;align-items:end}
+ .viewing-modal{width:100%;border-radius:20px 20px 0 0;max-height:94dvh;overflow:auto;padding:20px}
+}
+@media(max-width:400px){.amenities{grid-template-columns:1fr}}
+
+/* min readable text on phones */
+@media(max-width:760px){.photo-count{font-size:12px}.type,.eyebrow{font-size:12px}.price small{font-size:12px}.facts small{font-size:12px}.map-art small{font-size:12px}.safe{font-size:12px}.safety b{font-size:12px}.safety small{font-size:12px}.money-card small{font-size:12px}.money-card p{font-size:12px}.escrow-card p{font-size:12px}.escrow-card a{font-size:12px}.section-head a{font-size:12px}.map-embed-button>span{font-size:12px}.nearby-groups b{font-size:12px}.nearby-groups span{font-size:12px}.owner-card span,.owner-card small{font-size:12px}.action-message{font-size:12px}.viewing-modal label{font-size:12px}.owner-review-banner span{font-size:12px}.owner-review-banner small{font-size:12px}.owner-review-banner>a{font-size:12px}}
+
+
+/* ===== Property detail: mobile + tablet (React Native design) ===== */
+@media(max-width:1024px){
+ .detail-shell{max-width:760px}
+ .crumbs{margin:0 0 12px;font-size:12px;flex-wrap:wrap;color:var(--m-muted)}
+ .crumbs b{color:var(--m-text)}
+ .gallery{grid-template-columns:1fr;height:auto;min-height:0;gap:8px}
+ .hero-photo{border-radius:20px;height:clamp(220px,62vw,420px)}
+ .heart{width:40px;height:40px;right:12px;top:12px;font-size:20px;display:grid;place-items:center}
+ .heart.active{background:var(--m-primary-dark);color:#fff}
+ .photo-count{font-size:11px;padding:6px 11px}
+ .thumbs button{border-radius:12px}
+ .thumbs button.active{border-color:var(--m-primary)}
+ .content-grid{margin-top:18px;gap:18px}
+ .title-row{display:block;padding-bottom:16px;border-bottom:1px solid var(--m-border-light)}
+ .type{font-size:11px;letter-spacing:.1em;color:var(--m-primary)}
+ .title-row h1{margin:4px 0 6px;font-size:22px;line-height:28px;font-weight:800;letter-spacing:-.4px}
+ .location{font-size:13px;color:var(--m-muted)}
+ .price{text-align:left;margin-top:12px}
+ .price small{font-size:11px;color:var(--m-muted)}
+ .price strong{font-size:24px;font-weight:800;letter-spacing:-.5px;color:var(--m-primary)}
+ .facts{gap:10px;margin:14px 0}
+ .facts article{flex-direction:column;align-items:flex-start;gap:8px;padding:12px;border:1px solid var(--m-border);border-radius:14px;background:var(--m-card)}
+ .facts article>span{width:34px;height:34px;border-radius:10px;background:var(--m-primary-tint);color:var(--m-primary)}
+ .facts b{font-size:14px;font-weight:700}
+ .facts small{font-size:11.5px;color:var(--m-muted)}
+ .panel{padding:20px 0;border-bottom:1px solid var(--m-border-light)}
+ .panel h2{margin:4px 0 10px;font-size:16px;font-weight:700;letter-spacing:-.2px}
+ .eyebrow{font-size:11px;color:var(--m-primary)}
+ .description{font-size:14px;line-height:1.65;color:var(--m-muted)}
+ .amenities span{padding:11px 12px;border-radius:12px;background:var(--m-card-muted);border:1px solid var(--m-border-light);font-size:13px}
+ .action-card{padding:18px;border:1px solid var(--m-border);border-radius:18px;background:var(--m-card);box-shadow:0 3px 10px rgba(0,0,0,.05)}
+ .action-card h3{font-size:19px;font-weight:800;letter-spacing:-.3px}
+ .action-card>p{font-size:13px;line-height:1.55;color:var(--m-muted)}
+ .safe{font-size:11px;color:var(--m-success)}
+ .action-card button,.map-link{min-height:50px;border-radius:14px;font-size:14px;font-weight:700}
+ .primary{background:var(--m-primary)!important;color:#fff!important}
+ .secondary,.map-link{border:1.5px solid var(--m-border)!important;background:var(--m-card)!important;color:var(--m-text)!important}
+ .book{border-color:var(--m-primary)!important;background:var(--m-primary-tint)!important;color:var(--m-primary)!important}
+ .action-message{font-size:13px;background:var(--m-primary-tint);color:var(--m-primary)}
+ .safety{border-top:1px solid var(--m-border-light)}
+ .safety b{font-size:13px}.safety small{font-size:12px;color:var(--m-muted)}
+ .money-card,.escrow-card,.owner-card{border:1px solid var(--m-border);border-radius:16px;background:var(--m-card)}
+ .money-card small{font-size:11px;color:var(--m-muted)}.money-card b{font-size:16px}.money-card p{font-size:12.5px;color:var(--m-muted)}
+ .money-card>span{background:var(--m-primary-tint);color:var(--m-primary)}
+ .escrow-card b{font-size:14px}.escrow-card p{font-size:12.5px;color:var(--m-muted)}.escrow-card a{font-size:12.5px}
+ .owner-avatar{background:var(--m-primary-tint);color:var(--m-primary)}
+ .owner-card b{font-size:14px}.owner-card span,.owner-card small{font-size:12px;color:var(--m-muted)}
+ .section-head a{font-size:12.5px}
+ .map-embed-button{height:220px;border:1px solid var(--m-border);border-radius:16px}
+ .map-embed-button>span{font-size:12px;border-radius:12px;background:var(--m-primary)}
+ .nearby-groups>div{background:var(--m-card-muted);border:1px solid var(--m-border-light);border-radius:12px}
+ .nearby-groups b,.nearby-groups span{font-size:12.5px}
+ .viewing-modal{background:var(--m-card)}
+ .viewing-modal label{font-size:12px;color:var(--m-text)}
+ .viewing-modal input,.viewing-modal textarea{border:1.5px solid var(--m-border);background:var(--m-card-muted);border-radius:12px;padding:12px 14px}
+ .owner-review-banner p{font-size:13px}
+}
+
+
+@media(max-width:1024px){
+ .action-card button,.map-link{display:flex!important;flex-direction:row!important;align-items:center;justify-content:center;gap:8px;text-align:center}
+ .action-card button .ic,.map-link .ic{width:18px;height:18px}
+}
+
+/* ===== Amenities: flowing chips instead of one-per-row (mobile + tablet) ===== */
+@media(max-width:1024px){
+ .amenities{display:flex!important;flex-wrap:wrap;gap:8px!important}
+ .amenities span{display:inline-flex;align-items:center;gap:6px;width:auto;padding:8px 14px;border-radius:50px;background:var(--m-primary-tint);border:1px solid var(--m-primary-border);color:var(--m-primary);font-size:13px;font-weight:600;line-height:1.2;white-space:nowrap}
+}

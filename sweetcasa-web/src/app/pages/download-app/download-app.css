@@ -9,3 +9,9 @@ input,select,textarea{border-radius:10px!important;border-color:var(--border)!im
 input:focus,select:focus,textarea:focus{border-color:color-mix(in srgb,var(--primary) 55%,var(--border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 10%,transparent)!important;outline:0}
 
 .spark{border-radius:16px!important;font-size:26px}.pill{font-weight:700}.store{border-radius:11px!important}.phone-demo{box-shadow:none!important}.phone-demo img{border-radius:18px!important}
+
+/* ===== Responsive (added) ===== */
+@media(max-width:600px){main{margin:36px auto;padding:16px}p{font-size:16px}.store{width:100%;max-width:340px}.phone-demo{width:min(260px,80vw)}}
+
+/* min readable text on phones */
+@media(max-width:760px){.store small{font-size:12px}}

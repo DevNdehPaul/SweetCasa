@@ -1462,18 +1462,32 @@ const FR_TEXT:Record<string,string>={
   'Seeker': 'Chercheur',
   'NEW': 'NOUVEAU',
   'XAF available': 'XAF disponibles',
+  'Total Balance': 'Solde total',
+  'Update your personal details': 'Mettez à jour vos informations personnelles',
+  'Homes you have saved': 'Logements que vous avez enregistrés',
+  'Read our terms of use': 'Lisez nos conditions d’utilisation',
+  'SweetCasa v1.0': 'SweetCasa v1.0',
+  'Save property': 'Enregistrer le bien',
+  'Saved to favourites': 'Enregistré dans les favoris',
+  'Upload': 'Publier',
+  'Beds': 'Ch.',
+  'Baths': 'SdB',
+  'Track your visit requests': 'Suivez vos demandes de visite',
+  'No listings yet — check back soon!': 'Aucune annonce pour le moment — revenez bientôt !',
+  'Listings w/ enquiries': 'Annonces avec demandes',
+  'Tap to view inbox': 'Appuyez pour ouvrir la boîte de réception',
 };
 @Injectable({providedIn:'root'}) export class I18nService{
  lang=signal<'en'|'fr'>((localStorage.getItem('sc-lang') as any)||'en');
- private originals=new WeakMap<Node,string>(); private attrOriginals=new WeakMap<Element,Record<string,string>>(); private observer?:MutationObserver;
+ private originals=new WeakMap<Node,string>(); private written=new WeakMap<Node,string>(); private attrWritten=new WeakMap<Element,Record<string,string>>(); private attrOriginals=new WeakMap<Element,Record<string,string>>(); private observer?:MutationObserver;
  constructor(){queueMicrotask(()=>{this.installObserver();this.translateDocument();})}
  t(key:string){return DICT[this.lang()]?.[key]||DICT.en[key]||key;}
  text(value:string){return this.lang()==='fr'?this.translatePreserve(value).trim():value;}
  setLang(v:'en'|'fr'){this.lang.set(v);localStorage.setItem('sc-lang',v);document.documentElement.lang=v;queueMicrotask(()=>this.translateDocument());}
  private installObserver(){if(this.observer||typeof MutationObserver==='undefined')return;this.observer=new MutationObserver(()=>this.translateDocument());this.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['placeholder','title','aria-label']});}
  private translateDocument(){if(typeof document==='undefined')return;this.observer?.disconnect();this.walk(document.body);this.observer?.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['placeholder','title','aria-label']});}
- private walk(root:Node){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n:Node|null;while((n=w.nextNode())){const p=n.parentElement;if(!p||['SCRIPT','STYLE','TEXTAREA'].includes(p.tagName)||p.closest('[data-i18n-safe]'))continue;const raw=this.originals.get(n)??n.nodeValue??'';if(!this.originals.has(n))this.originals.set(n,raw);n.nodeValue=this.lang()==='fr'?this.translatePreserve(raw):raw;}document.querySelectorAll('input,textarea,button,a,[title],[aria-label]').forEach(el=>{if(!el.closest('[data-i18n-safe]'))this.translateAttrs(el)});}
- private translateAttrs(el:Element){let o=this.attrOriginals.get(el);if(!o){o={};for(const a of ['placeholder','title','aria-label']){const v=el.getAttribute(a);if(v)o[a]=v;}this.attrOriginals.set(el,o);}for(const [a,v] of Object.entries(o))el.setAttribute(a,this.lang()==='fr'?this.translatePreserve(v):v);}
+ private walk(root:Node){const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n:Node|null;while((n=w.nextNode())){const p=n.parentElement;if(!p||['SCRIPT','STYLE','TEXTAREA'].includes(p.tagName)||p.closest('[data-i18n-safe]'))continue;const cur=n.nodeValue??'';const last=this.written.get(n);let raw=this.originals.get(n)??cur;if(last!==undefined&&cur!==last)raw=cur;this.originals.set(n,raw);const out=this.lang()==='fr'?this.translatePreserve(raw):raw;if(n.nodeValue!==out)n.nodeValue=out;this.written.set(n,out);}document.querySelectorAll('input,textarea,button,a,[title],[aria-label]').forEach(el=>{if(!el.closest('[data-i18n-safe]'))this.translateAttrs(el)});}
+ private translateAttrs(el:Element){const keys=['placeholder','title','aria-label'];let o=this.attrOriginals.get(el);let w=this.attrWritten.get(el);if(!o){o={};this.attrOriginals.set(el,o);}if(!w){w={};this.attrWritten.set(el,w);}for(const a of keys){const cur=el.getAttribute(a);if(!cur)continue;if(w[a]!==undefined&&cur!==w[a])o[a]=cur;else if(o[a]===undefined)o[a]=cur;}for(const [a,v] of Object.entries(o)){const out=this.lang()==='fr'?this.translatePreserve(v):v;if(el.getAttribute(a)!==out)el.setAttribute(a,out);w[a]=out;}}
  private translatePreserve(raw:string){const lead=raw.match(/^\s*/)?.[0]||'',trail=raw.match(/\s*$/)?.[0]||'',s=raw.trim();if(!s)return raw;const exact=FR_TEXT[s];if(exact)return lead+exact+trail;return lead+this.fallback(s)+trail;}
  private fallback(s:string){let x=s;const reps:[RegExp,string][]=[[/\bHouse Seeker\b/gi,'Chercheur de logement'],[/\bHouse Owner\b/gi,'Propriétaire'],[/\bproperty owners\b/gi,'propriétaires'],[/\bproperty owner\b/gi,'propriétaire'],[/\bproperties\b/gi,'biens'],[/\bproperty\b/gi,'bien'],[/\bhomes\b/gi,'logements'],[/\bhome\b/gi,'logement'],[/\bSearch\b/g,'Rechercher'],[/\bLoading\b/g,'Chargement'],[/\bAvailable\b/g,'Disponible'],[/\bVerified\b/g,'Vérifié'],[/\bManage\b/g,'Gérer'],[/\bView\b/g,'Voir'],[/\bOpen\b/g,'Ouvrir'],[/\bAdd\b/g,'Ajouter'],[/\bEdit\b/g,'Modifier'],[/\bDelete\b/g,'Supprimer'],[/\bSave\b/g,'Enregistrer'],[/\bContinue\b/g,'Continuer'],[/\bBack\b/g,'Retour'],[/\bNext\b/g,'Suivant'],[/\bPrevious\b/g,'Précédent'],[/\bAccount\b/g,'Compte'],[/\bSupport\b/g,'Assistance'],[/\bLanguage\b/g,'Langue'],[/\bSettings\b/g,'Paramètres'],[/\bPrivacy\b/g,'Confidentialité'],[/\bTerms\b/g,'Conditions'],[/\bPassword\b/g,'Mot de passe'],[/\bEmail\b/g,'E-mail'],[/\bName\b/g,'Nom'],[/\bCity\b/g,'Ville'],[/\bCountry\b/g,'Pays'],[/\bNeighborhood\b/g,'Quartier'],[/\bPrice\b/g,'Prix'],[/\bAmount\b/g,'Montant'],[/\bDescription\b/g,'Description'],[/\bPhotos\b/g,'Photos'],[/\bDocuments\b/g,'Documents'],[/\bMessages\b/g,'Messages'],[/\bWallet\b/g,'Portefeuille'],[/\bReports\b/g,'Signalements'],[/\bProfile\b/g,'Profil'],[/\bDashboard\b/g,'Tableau de bord'],[/\bFor Sale\b/gi,'À vendre'],[/\bFor Rent\b/gi,'À louer'],[/\bPending\b/gi,'En attente'],[/\bApproved\b/gi,'Approuvé'],[/\bRejected\b/gi,'Rejeté'],[/\bCancelled\b/gi,'Annulé'],[/\bConfirmed\b/gi,'Confirmé'],[/\bBedrooms?\b/gi,'Chambres'],[/\bBathrooms?\b/gi,'Salles de bain'],[/\bCaution\b/gi,'Caution'],[/\bMonthly\b/gi,'Mensuel'],[/\bYearly\b/gi,'Annuel'],[/\bDaily\b/gi,'Journalier'],[/\bWeekly\b/gi,'Hebdomadaire']];for(const [r,v] of reps)x=x.replace(r,v);return x;}
 }

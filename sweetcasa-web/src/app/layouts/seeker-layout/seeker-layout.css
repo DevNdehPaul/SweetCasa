@@ -16,3 +16,32 @@ main{grid-column:2;min-width:0}header{height:68px;position:fixed;top:0;right:0;l
 aside{background:linear-gradient(180deg,#f6f3ff 0%,#f1edff 100%)!important;border-right:1px solid #e4dcff!important}
 header{height:68px!important}
 .portal-content{padding:96px 32px 44px!important}
+
+
+/* ===== Mobile + tablet shell (<=1024px). Desktop is unchanged. ===== */
+.m-header,.m-tabbar{display:none}
+@media(max-width:1024px){
+ .portal{display:block;min-height:100dvh;background:var(--m-bg)}
+ aside,header{display:none!important}
+ main{grid-column:auto}
+ .m-header{display:flex;position:fixed;top:0;left:0;right:0;z-index:40;align-items:center;justify-content:space-between;
+  height:calc(60px + env(safe-area-inset-top));padding:env(safe-area-inset-top) max(20px,env(safe-area-inset-right)) 0 max(20px,env(safe-area-inset-left));
+  background:var(--m-bg)}
+ .m-logo{width:38px;height:38px;border-radius:10px;background:var(--m-primary-tint);color:var(--m-primary);display:grid;place-items:center}
+ .m-logo svg{width:19px;height:19px}
+ .m-title{font-size:25px;font-weight:800;letter-spacing:-.6px;color:var(--m-text)}
+ .m-actions{display:flex;gap:8px;align-items:center}
+ .m-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--m-border-light);background:transparent;color:var(--m-text);display:grid;place-items:center;padding:0;cursor:pointer}
+ .m-btn svg{width:19px;height:19px}
+ .m-lang{font-size:11px;font-weight:800;letter-spacing:.02em}
+ .portal-content{max-width:960px!important;margin:0 auto!important;
+  padding:calc(66px + env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))!important}
+ .m-tabbar{display:flex;justify-content:space-around;align-items:stretch;position:fixed;left:0;right:0;bottom:0;z-index:50;
+  background:var(--m-card);border-top:.5px solid var(--m-border-light);box-shadow:0 -3px 12px rgba(124,58,237,.08);
+  padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left))}
+ html[data-theme=dark] .m-tabbar{box-shadow:0 -3px 12px rgba(0,0,0,.25)}
+ .m-tabbar a{flex:1;max-width:130px;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--m-tab-off);font-size:10px;font-weight:600;letter-spacing:.01em;border-radius:12px;-webkit-tap-highlight-color:transparent}
+ .m-tabbar a svg{width:26px;height:26px}
+ .m-tabbar a.on{color:var(--m-primary)}
+}
+@media(max-width:400px){.m-header{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.m-title{font-size:22px}}

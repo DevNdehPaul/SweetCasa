@@ -1,2 +1,4 @@
-import { inject } from '@angular/core'; import { CanActivateFn, Router } from '@angular/router';
-export const desktopGuard:CanActivateFn=()=>{if(typeof window==='undefined'||window.innerWidth>1024)return true;return inject(Router).createUrlTree(['/download-app']);};
+import { CanActivateFn } from '@angular/router';
+// SweetCasa is now fully responsive (phone, tablet, desktop), so every screen size is allowed.
+// The guard is kept as a no-op so existing route config keeps working.
+export const desktopGuard: CanActivateFn = () => true;

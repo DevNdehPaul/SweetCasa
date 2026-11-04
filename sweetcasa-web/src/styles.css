@@ -30,3 +30,38 @@ button,input,select,textarea{font-family:inherit}button{letter-spacing:-.01em}in
 .ui-icon,.sc-icon{width:19px;height:19px;display:inline-block;vertical-align:middle;flex:0 0 auto}
 .btn{min-height:42px;border-radius:11px;padding:0 16px;font-weight:700}.btn.primary{background:var(--primary);box-shadow:none}.btn.primary:hover{background:var(--primary-dark)}
 :focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 22%,transparent);outline-offset:2px}
+
+
+/* ===== Mobile + tablet only (<=1024px). Desktop styling above is untouched. ===== */
+@media(max-width:1024px){
+ :root{
+  --m-primary:#7C3AED;--m-primary-dark:#6D28D9;--m-primary-darker:#5B21B6;--m-primary-tint:#F3F0FF;--m-primary-tint-alt:#F5F3FF;--m-primary-border:#EDE9FE;--m-primary-soft:#DDD6FE;
+  --m-text:#111827;--m-text2:#374151;--m-muted:#6B7280;--m-light:#9CA3AF;
+  --m-bg:#FAFAFA;--m-card:#FFFFFF;--m-card-muted:#F9FAFB;--m-border:#E5E7EB;--m-border-light:#F0F0F0;
+  --m-success:#16A34A;--m-danger:#DC2626;--m-warning:#D97706;--m-warning-bg:#FFFBEB;--m-tab-off:#9CA3AF;
+  --primary:var(--m-primary);--primary-dark:var(--m-primary-dark);--primary-soft:var(--m-primary-tint);
+  --bg:var(--m-bg);--surface:var(--m-card-muted);--card:var(--m-card);--text:var(--m-text);--muted:var(--m-muted);--border:var(--m-border);
+ }
+ html[data-theme=dark]{
+  --m-primary:#9F75FF;--m-primary-dark:#7C3AED;--m-primary-darker:#6D28D9;--m-primary-tint:#2A2140;--m-primary-tint-alt:#251C3A;--m-primary-border:#3D3159;--m-primary-soft:#4C3D73;
+  --m-text:#F3F4F6;--m-text2:#D1D5DB;--m-muted:#9CA3AF;--m-light:#6B7280;
+  --m-bg:#0F0F14;--m-card:#1C1B24;--m-card-muted:#242231;--m-border:#2E2C3A;--m-border-light:#26242F;
+  --m-success:#22C55E;--m-danger:#F87171;--m-warning:#FBBF24;--m-warning-bg:#332008;--m-tab-off:#6B7280;
+ }
+ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;font-size:16px}
+ body{min-height:100dvh;overflow-x:hidden}
+ img,video,canvas,iframe{max-width:100%}
+ h1,h2,h3,p{overflow-wrap:anywhere}
+ .btn{min-height:44px}
+}
+@media(max-width:760px){
+ /* 16px fields stop iOS Safari zooming the page when a field is focused */
+ input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),select,textarea{font-size:16px!important}
+ select,input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]){min-height:44px}
+}
+
+
+/* ===== Shared SVG icons (replace text-symbol icons; all screen sizes) ===== */
+.ic{width:1.15em;height:1.15em;flex:0 0 auto;display:inline-block;vertical-align:-.2em;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+button:has(>.ic),a:has(>.ic){align-items:center;justify-content:center;gap:.45em}
+button:has(>.ic){display:inline-flex}
