@@ -11,10 +11,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.sweetcasa.app",
-      buildNumber: "1",
-      config: {
-        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
-      },
+      buildNumber: process.env.BUILD_NUMBER || "1",
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           "SweetCasa uses your location to help you set the exact location of your property listing.",
@@ -24,11 +21,6 @@ module.exports = {
     android: {
       package: "com.ndehpaul.sweetcasa",
       softwareKeyboardLayoutMode: "resize",
-      config: {
-        googleMaps: {
-          apiKey: process.env.GOOGLE_MAPS_API_KEY,
-        },
-      },
     },
     web: {
       output: "static",
@@ -43,6 +35,13 @@ module.exports = {
         {
           locationWhenInUsePermission:
             "SweetCasa uses your location to help you set the exact location of your property listing.",
+        },
+      ],
+      [
+        "react-native-maps",
+        {
+          iosGoogleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
+          androidGoogleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
         },
       ],
       [
@@ -70,4 +69,4 @@ module.exports = {
       },
     },
   },
-}; 
+};
