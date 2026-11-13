@@ -37,9 +37,14 @@ workflows:
           SCHEME="$(basename "$WORKSPACE" .xcworkspace)"
           xcode-project build-ipa \
             --workspace "$WORKSPACE" \
-            --scheme "$SCHEME"
+            --scheme "$SCHEME" || {
+              echo "---- xcodebuild errors ----"
+              grep -h -B2 -A8 "error:" /tmp/xcodebuild_logs/*.log | head -80
+              exit 1
+            }
     artifacts:
       - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
