@@ -219,6 +219,8 @@ exports.deposit = async (req, res) => {
 // safe to call from the verify endpoint, the webhook, or the cancel fallback.
 // `transaction` must include its `wallet` relation (for the userId used to
 // push the socket event) — every caller below fetches it that way.
+const lastStatusCheck = new Map()
+
 async function confirmDeposit(transaction) {
   const prisma = getPrisma()
 
@@ -227,7 +229,20 @@ async function confirmDeposit(transaction) {
 
   const walletUserId = transaction.wallet?.userId
 
-  const statusRes = await fapshi.getPaymentStatus(transaction.fapshiTransId)
+  // Fapshi allows only 6 status checks per minute per payment. Never ask more than once every
+  // 6 seconds for the same payment, and if Fapshi still says "slow down", just report the
+  // payment as still pending — the next poll (or the webhook) will pick up the result.
+  const now = Date.now()
+  if (now - (lastStatusCheck.get(transaction.id) || 0) < 6000) return transaction
+  lastStatusCheck.set(transaction.id, now)
+
+  let statusRes
+  try {
+    statusRes = await fapshi.getPaymentStatus(transaction.fapshiTransId)
+  } catch (err) {
+    if (err.status === 429) return transaction
+    throw err
+  }
   const fapshiStatus = statusRes.status
 
   if (fapshiStatus === 'SUCCESSFUL') {
