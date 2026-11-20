@@ -1,4 +1,14 @@
 // app.config.js (replaces app.json)
+
+// Build the reversed iOS client ID from the same variable the app already uses.
+// e.g. 123-abc.apps.googleusercontent.com -> com.googleusercontent.apps.123-abc
+const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const iosUrlScheme =
+  process.env.GOOGLE_IOS_URL_SCHEME ||
+  (iosClientId
+    ? `com.googleusercontent.apps.${iosClientId.replace('.apps.googleusercontent.com', '')}`
+    : undefined);
+
 module.exports = {
   expo: {
     name: "SweetCasa",
@@ -11,6 +21,7 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.sweetcasa.app",
+      usesAppleSignIn: true,
       buildNumber: process.env.BUILD_NUMBER || "1",
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
@@ -30,6 +41,7 @@ module.exports = {
       "expo-router",
       "expo-localization",
       "expo-web-browser",
+      "expo-apple-authentication",
       [
         "expo-location",
         {
@@ -47,9 +59,7 @@ module.exports = {
       [
         "@react-native-google-signin/google-signin",
         {
-          // Reversed iOS client ID from Google Cloud Console,
-          // e.g. com.googleusercontent.apps.1234567890-abcdef
-          iosUrlScheme: process.env.GOOGLE_IOS_URL_SCHEME,
+          iosUrlScheme,
         },
       ],
       "expo-font",
