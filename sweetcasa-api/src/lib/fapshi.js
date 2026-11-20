@@ -24,6 +24,17 @@ function baseUrl() {
   return BASE_URLS[process.env.FAPSHI_ENV === 'live' ? 'live' : 'sandbox']
 }
 
+function environment() {
+  return process.env.FAPSHI_ENV === 'live' ? 'live' : 'sandbox'
+}
+
+// Loud, one-time notice so it is obvious in the Railway logs which mode is active.
+// In SANDBOX, Fapshi pretends payments succeed but NO real money moves.
+console.log(`[Fapshi] environment = ${environment().toUpperCase()} (${baseUrl()})`)
+if (environment() === 'sandbox' && process.env.NODE_ENV === 'production') {
+  console.warn('[Fapshi] WARNING: running in production but FAPSHI_ENV is not "live" — payments are TEST ONLY and no real money will move.')
+}
+
 function collectionHeaders() {
   if (!process.env.FAPSHI_COLLECTION_API_USER || !process.env.FAPSHI_COLLECTION_API_KEY) {
     throw new Error('Fapshi collection credentials are not configured (FAPSHI_COLLECTION_API_USER/KEY).')
@@ -54,7 +65,12 @@ async function parseOrThrow(res, label) {
     // non-JSON error body — fall through with empty data
   }
   if (!res.ok) {
-    throw new Error(data?.message || `Fapshi ${label} failed (HTTP ${res.status})`)
+    // Keep Fapshi's real reply in the logs (never the API keys) so failures can be diagnosed.
+    console.error(`[Fapshi] ${label} failed — env=${environment()} HTTP ${res.status}`, JSON.stringify(data))
+    const err = new Error(data?.message || `Fapshi ${label} failed (HTTP ${res.status})`)
+    err.status = res.status
+    err.fapshi = data
+    throw err
   }
   return data
 }
@@ -110,4 +126,4 @@ async function payout({ amount, phone, medium, name, email, userId, externalId, 
   return parseOrThrow(res, 'payout')
 }
 
-module.exports = { directPay, initiatePay, getPaymentStatus, payout, baseUrl }
+module.exports = { directPay, initiatePay, getPaymentStatus, payout, baseUrl, environment }

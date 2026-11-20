@@ -1,57 +1,199 @@
 <sc-topbar/>
+<a class="v2-float" routerLink="/auth" [queryParams]="{mode:'signup'}"><i></i><span>{{i18n.text('Escrow wallet: active')}}</span><b>{{i18n.text('Get started')}} →</b></a>
 <main data-i18n-safe>
-<section class="hero">
-  <div class="aurora a1"></div><div class="aurora a2"></div>
+
+<!-- 1. HERO -->
+<section class="hero v2-hero">
   <div class="copy reveal">
-    <span class="eyebrow">{{i18n.text('✦ THE SMARTER PROPERTY EXPERIENCE IN CAMEROON')}}</span>
+    <div class="v2-pill"><i></i><span>{{i18n.text('Cameroon · Escrow real estate')}}</span></div>
     <h1>{{i18n.text('Find home.')}}<br><em>{{i18n.text('Feel at home.')}}</em></h1>
-    <p>{{i18n.text('Discover verified properties, talk directly with property owners and use CasaMatch AI to narrow down the home that actually fits your life.')}}</p>
-    <div class="actions"><a class="primary-cta" routerLink="/auth" [queryParams]="{mode:'signup',role:'BUYER'}">{{i18n.text('Explore SweetCasa')}} <span>→</span></a><a class="secondary-cta" routerLink="/auth" [queryParams]="{mode:'signup',role:'SELLER'}">{{i18n.text('List a property')}}</a></div>
-    <div class="trust"><div><b><svg viewBox="0 0 24 24"><path d="m7.5 12 3 3 6-7"/></svg></b><span><strong>{{i18n.text('Verified')}}</strong><small>{{i18n.text('property listings')}}</small></span></div><div><b><svg viewBox="0 0 24 24"><path d="M12 3 5.5 6v5.2c0 4.3 2.7 7.6 6.5 9.8 3.8-2.2 6.5-5.5 6.5-9.8V6L12 3Z"/><path d="m9.2 12 1.8 1.8 3.8-4"/></svg></b><span><strong>{{i18n.text('Safer')}}</strong><small>{{i18n.text('in-app conversations')}}</small></span></div><div><b><svg viewBox="0 0 24 24"><path d="M12 3 13.7 8.3 19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z"/></svg></b><span><strong>{{i18n.text('Smarter')}}</strong><small>{{i18n.text('CasaMatch discovery')}}</small></span></div></div>
-  </div>
-  <div class="stage">
-    <div class="dashboard-card">
-      <div class="dash-head"><span class="mini-logo">S</span><b>SweetCasa</b><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-8-4.7-8-10.6A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 2.9c0 5.9-8 10.6-8 10.6Z"/></svg></span></div>
-      <div class="dash-search"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg> <span>{{i18n.text('Where do you want to live?')}}</span><b>{{i18n.t('search')}}</b></div>
-      <div class="property"><img src="/assets/seeker_lifestyle.png"><span class="tag">✓ VERIFIED</span><span class="heart"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-8-4.7-8-10.6A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 2.9c0 5.9-8 10.6-8 10.6Z"/></svg></span></div>
-      <div class="property-info"><small>BONAPRISO · DOUALA</small><h3>{{i18n.text('Modern city apartment')}}</h3><div><b>250,000 XAF</b><span>{{i18n.text('2 beds · 2 baths')}}</span></div></div>
+    <p>{{i18n.text('Homes reviewed by our team before they are listed, with escrow-protected payments through MTN Mobile Money and Orange Money, and direct conversations with property owners.')}}</p>
+
+    <div class="v2-search">
+      <div class="v2-search-top">
+        <div class="v2-seg"><button type="button" [class.on]="mode()==='rent'" (click)="mode.set('rent')">{{i18n.text('Rentals')}}</button><button type="button" [class.on]="mode()==='sale'" (click)="mode.set('sale')">{{i18n.text('For Sale')}}</button></div>
+        <div class="v2-seg">@for(c of cities(); track c){<button type="button" [class.on]="city()===c" (click)="setCity(c)">{{c}}</button>}</div>
+      </div>
+      <div class="v2-search-grid">
+        <label><span>{{i18n.text('Neighbourhood')}}</span>
+          <select (change)="quarter.set($any($event.target).value)">
+            <option value="">{{i18n.text('Any neighbourhood')}}</option>
+            @for(q of quarters(); track q){<option [value]="q">{{q}}</option>}
+          </select></label>
+        <label><span>{{i18n.text('Max budget (XAF)')}}</span>
+          <select (change)="ceiling.set($any($event.target).value)">
+            <option value="">{{i18n.text('No limit')}}</option>
+            @for(c of ceilings; track c){<option [value]="c">{{i18n.text('Up to')}} {{money(c)}}</option>}
+          </select></label>
+        <a class="v2-search-btn" routerLink="/auth" [queryParams]="{mode:'signup',role:'BUYER'}">{{i18n.text('Search')}} {{total()===null?'':total()}} {{i18n.text('homes')}}</a>
+      </div>
+      <div class="v2-search-note"><span><i></i>{{newThisWeek()>0 ? newThisWeek()+' '+i18n.text('new listings this week') : i18n.text('Every listing is reviewed before it appears')}}</span><span>{{i18n.text('Escrow protection included')}}</span></div>
     </div>
-    <div class="floating ai"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4Z"/><path d="M18.5 16v4M16.5 18h4"/></svg></span><div><small>CASAMATCH AI</small><b>{{i18n.text('92% match for you')}}</b></div></div>
-    <div class="floating owner"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.8 12 3l9 7.8"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/></svg></span><div><small>{{i18n.text('DIRECT CONNECTION')}}</small><b>{{i18n.text('Talk to the property owner')}}</b></div></div>
-    <div class="dotgrid"></div>
+
+    <div class="v2-metrics">
+      <div><small>{{i18n.text('Currency')}}</small><b>{{i18n.text('Central African CFA franc (XAF)')}}</b></div>
+      <div><small>{{i18n.text('Escrow protocol')}}</small><b>{{i18n.text('7-day verification window')}}</b></div>
+    </div>
+  </div>
+
+  <div class="v2-stage">
+    <div class="v2-frame2">
+      <div class="v2-photo">
+        <img class="bg" [src]="image(slide())" alt="" aria-hidden="true">
+        <img class="fg" [src]="image(slide())" alt="">
+        <span class="v2-beacon"><i></i>{{i18n.text('Reviewed by SweetCasa')}}</span>
+        @if(slide()?.images?.length > 1){<span class="v2-count">{{slide().images.length}} {{i18n.text('photos')}}</span>}
+      </div>
+      @if(slides().length>1){<div class="v2-dots">@for(x of slides(); track x.id; let i=$index){<button type="button" [class.on]="i===slideIdx()" (click)="goSlide(i)" [attr.aria-label]="'Slide '+(i+1)"></button>}</div>}
+      <div class="v2-listing">
+        @if(slide(); as h){
+          <div class="v2-listing-top"><span class="ok"><i></i>{{i18n.text('Admin verified')}}</span><span>{{i18n.text('Ref.')}} {{h.id}}</span></div>
+          <h3>{{h.title}}</h3>
+          <p>{{place(h)}}</p>
+          <p class="sub">{{beds(h)}}</p>
+          <div class="v2-listing-foot"><div class="price"><b>{{money(h.price)}}</b><span>{{i18n.text(h.paymentFrequency||'')}}</span></div><a routerLink="/auth" [queryParams]="{mode:'signup',role:'BUYER'}">{{i18n.text('View')}}</a></div>
+        } @else {
+          <div class="v2-listing-top"><span class="ok"><i></i>{{i18n.text('Admin verified')}}</span></div>
+          <h3>{{i18n.text('Verified homes in Cameroon')}}</h3>
+          <p class="sub">{{i18n.text('Create an account to browse available properties.')}}</p>
+        }
+      </div>
+    </div>
   </div>
 </section>
 
-<section class="marquee" aria-label="SweetCasa features">
-  <div class="marquee-track">
-    <span>{{i18n.text('Verified homes')}}</span><i>•</i><span>{{i18n.text('Direct conversations')}}</span><i>•</i><span>CasaMatch AI</span><i>•</i><span>{{i18n.text('Property viewings')}}</span><i>•</i><span>{{i18n.text('SweetCasa Wallet')}}</span>
-    <span>{{i18n.text('Verified homes')}}</span><i>•</i><span>{{i18n.text('Direct conversations')}}</span><i>•</i><span>CasaMatch AI</span><i>•</i><span>{{i18n.text('Property viewings')}}</span><i>•</i><span>{{i18n.text('SweetCasa Wallet')}}</span>
+<!-- 2. TRUST STRIP -->
+<section class="v2-strip">
+  <span>{{i18n.text('Listings reviewed before publication')}}</span><em>|</em>
+  <span>{{i18n.text('Escrow wallet')}}</span><em>|</em>
+  <span>MTN MoMo &amp; Orange Money</span><em>|</em>
+  <span>{{i18n.text('English and French')}}</span>
+</section>
+
+<!-- 3. HOW IT WORKS -->
+<section class="v2-sec" id="how-it-works">
+  <div class="v2-head"><span class="section-kicker">{{i18n.text('PROCESS & INTEGRITY')}}</span><h2>{{i18n.text('How SweetCasa works')}}</h2><p>{{i18n.text('Direct owner communication, backed by verification and protected funds. Click a step to preview it.')}}</p></div>
+  <div class="v2-steps">
+    <article class="v2-step" [class.on]="step()===1" (click)="step.set(1)">
+      <div class="v2-step-top"><span>{{i18n.text('Step')}} 01</span><span>01/03</span></div>
+      <h3>{{i18n.text('Search and match')}}</h3>
+      <p>{{i18n.text('Browse listings reviewed by our team, or tell CasaMatch AI your budget, neighbourhood and rooms in English or French.')}}</p>
+      <div class="v2-panel">
+        <div class="v2-panel-h"><span>{{i18n.text('Filter criteria')}}</span><span>XAF</span></div>
+        <div class="v2-row"><span>{{i18n.text('Primary zone')}}</span><b>{{hero()?.city || '—'}}</b></div>
+        <div class="v2-row"><span>{{i18n.text('Neighbourhoods')}}</span><b>{{quarters().slice(0,2).join(' • ') || '—'}}</b></div>
+        <div class="v2-row"><span>{{i18n.text('Max budget')}}</span><b>{{hero() ? money(hero().price) : '—'}}</b></div>
+        <div class="v2-panel-f"><span>{{i18n.text('Review')}}</span><b class="ok">{{i18n.text('Approved listings only')}}</b></div>
+      </div>
+    </article>
+    <article class="v2-step" [class.on]="step()===2" (click)="step.set(2)">
+      <div class="v2-step-top"><span>{{i18n.text('Step')}} 02</span><span>02/03</span></div>
+      <h3>{{i18n.text('Pay safely into escrow')}}</h3>
+      <p>{{i18n.text('Deposit with MTN Mobile Money or Orange Money. When you purchase a home, your funds are locked in your SweetCasa escrow wallet.')}}</p>
+      <div class="v2-panel">
+        <div class="v2-panel-h"><span>{{i18n.text('Escrow deposit')}}</span><span class="lock">{{i18n.text('Protected')}}</span></div>
+        <div class="v2-amount"><small>MTN MoMo / Orange Money</small><b>{{money(hero()?.price || amount())}}</b></div>
+        <div class="v2-row"><span>{{i18n.text('Processing fee (4%)')}}</span><b>{{money(feeOf(hero()?.price || amount()))}}</b></div>
+        <div class="v2-panel-f"><span class="ok">{{i18n.text('Funds escrowed')}}</span><span>{{i18n.text('Owner pending')}}</span></div>
+      </div>
+    </article>
+    <article class="v2-step" [class.on]="step()===3" (click)="step.set(3)">
+      <div class="v2-step-top"><span>{{i18n.text('Step')}} 03</span><span>03/03</span></div>
+      <h3>{{i18n.text('Verify and move in')}}</h3>
+      <p>{{i18n.text('Check the home during your 7-day verification window. Funds go to the owner only after you are satisfied, and you can report an issue if something is wrong.')}}</p>
+      <div class="v2-panel">
+        <div class="v2-panel-h"><span>{{i18n.text('Verification window')}}</span><span class="clock">7d</span></div>
+        <div class="v2-row"><span>{{i18n.text('Status')}}</span><b class="ok">{{i18n.text('Inspection window active')}}</b></div>
+        <div class="v2-btns"><span>{{i18n.text('Confirm move-in')}}</span><span>{{i18n.text('Report issue')}}</span></div>
+        <div class="v2-panel-f"><span>{{i18n.text('Release trigger')}}</span><b>{{i18n.text('Tenant confirms')}}</b></div>
+      </div>
+    </article>
   </div>
 </section>
 
-<section class="intro-band">
-  <div class="intro-number"><span>01</span><i></i></div>
-  <div>
-    <span class="section-kicker">{{i18n.text('PROPERTY, WITHOUT THE NOISE')}}</span>
-    <h2>{{i18n.text('A clearer way to move from searching to settling in.')}}</h2>
+<!-- 4. ESCROW -->
+<section class="v2-sec v2-alt" id="escrow-protocol">
+  <div class="v2-two">
+    <div>
+      <span class="section-kicker">{{i18n.text('ESCROW PROTOCOL')}}</span>
+      <h2>{{i18n.text('Safe payments, guaranteed price ceilings.')}}</h2>
+      <p class="v2-lead">{{i18n.text('Tenants deposit money through MTN Mobile Money or Orange Money into a dedicated escrow wallet. The funds are held safely until you verify the condition of the home within 7 days of moving in. Once an agreement is made, our price ceiling prevents owners from raising the rental or purchase price.')}}</p>
+      <div class="v2-compare">
+        <p class="v2-compare-h">{{i18n.text('Traditional renting vs SweetCasa escrow')}}</p>
+        <div><div><span>{{i18n.text('Traditional renting')}}</span><p>{{i18n.text('Cash handed over before you have checked the home.')}}</p></div><div class="on"><span>{{i18n.text('SweetCasa escrow')}}</span><p>{{i18n.text('Mobile Money deposit held in escrow until you verify.')}}</p></div></div>
+        <div><div><span>{{i18n.text('Price adjustments')}}</span><p>{{i18n.text('The price can change after you agree.')}}</p></div><div class="on"><span>{{i18n.text('Guaranteed ceiling')}}</span><p>{{i18n.text('The agreed price cannot be raised.')}}</p></div></div>
+        <div><div><span>{{i18n.text('Defect recourse')}}</span><p>{{i18n.text('Little recourse once you have paid.')}}</p></div><div class="on"><span>{{i18n.text('7-day inspection')}}</span><p>{{i18n.text('Report an issue within the verification window.')}}</p></div></div>
+      </div>
+    </div>
+    <div class="v2-sim">
+      <div class="v2-sim-h"><div><small>{{i18n.text('Escrow simulator')}}</small><h4>{{i18n.text('Live protection vault')}}</h4></div><span class="v2-tag"><i></i>{{i18n.text('Protected escrow')}}</span></div>
+      <div class="v2-sim-l"><span>{{i18n.text('Select a monthly rent')}}</span><span>{{i18n.text('Quick presets')}}</span></div>
+      <div class="v2-presets">@for(p of presets; track p){<button type="button" [class.on]="amount()===p" (click)="amount.set(p)">{{money(p)}}</button>}</div>
+      <input type="range" min="100000" max="1500000" step="25000" [value]="amount()" (input)="setAmount($event)">
+      <div class="v2-range"><span>100,000</span><span>{{money(amount())}}</span><span>1,500,000</span></div>
+      <div class="v2-held"><div><small>{{i18n.text('Escrow balance held')}}</small><b>{{money(amount())}}</b></div><div class="r"><small>{{i18n.text('Price ceiling')}}</small><span>{{i18n.text('Locked')}}</span></div></div>
+      <div class="v2-lines">
+        <div><span>{{i18n.text('Processing fee (4%)')}}</span><b>{{money(fee())}}</b></div>
+        <div><span>{{i18n.text('You pay')}}</span><b>{{money(totalPay())}}</b></div>
+        <div><span>{{i18n.text('Payment provider')}}</span><b>MTN MoMo / Orange Money</b></div>
+        <div><span>{{i18n.text('Release rule')}}</span><b>{{i18n.text('After 7-day verification')}}</b></div>
+      </div>
+      <div class="v2-prog-h"><span>{{i18n.text('Inspection window (example)')}}</span><span>{{i18n.text('Day 4 of 7')}}</span></div>
+      <div class="v2-prog"><div style="width:57%"></div></div>
+      <small class="v2-foot">{{i18n.text('Funds are released to the owner when you confirm, or at the end of the window unless you report an issue.')}}</small>
+    </div>
   </div>
-  <p>{{i18n.text('SweetCasa brings discovery, conversations, viewings and property management into one focused experience for people looking for homes and the people who own them.')}}</p>
 </section>
 
-<section class="experience">
- <div class="section-copy"><span>{{i18n.text('ONE PLATFORM. TWO JOURNEYS.')}}</span><h2>{{i18n.text('Built differently for the person searching and the person listing.')}}</h2><p>{{i18n.text('SweetCasa gives house seekers and property owners their own focused experience, while keeping the property journey connected.')}}</p></div>
- <div class="journeys">
-  <article class="seeker"><div class="label">{{i18n.text('HOUSE SEEKER')}}</div><h3>{{i18n.text('Stop scrolling blindly.')}}<br>{{i18n.text('Start finding deliberately.')}}</h3><p>{{i18n.text('Search approved homes, save favourites, request viewings, chat safely and let CasaMatch help refine the search.')}}</p><img src="/assets/seeker_security.png"><a routerLink="/auth" [queryParams]="{mode:'signup',role:'BUYER'}">{{i18n.text('Start searching')}} <span>→</span></a></article>
-  <article class="owner"><div class="label">{{i18n.text('PROPERTY OWNER')}}</div><h3>{{i18n.text('Your properties deserve')}}<br>{{i18n.text('a better workspace.')}}</h3><p>{{i18n.text('Publish listings, manage enquiries, follow viewing requests and keep your property activity organised.')}}</p><img src="/assets/owner_dashboard.png"><a routerLink="/auth" [queryParams]="{mode:'signup',role:'SELLER'}">{{i18n.text('List with SweetCasa')}} <span>→</span></a></article>
- </div>
+<!-- 5. OWNERS -->
+<section class="v2-sec" id="for-owners">
+  <div class="v2-two">
+    <div>
+      <span class="section-kicker">{{i18n.text('OWNER & LANDLORD PORTAL')}}</span>
+      <h2>{{i18n.text('Direct enquiries, reliable tenants, protected payouts.')}}</h2>
+      <div class="v2-list">
+        <div><h3>{{i18n.text('Direct enquiries')}}</h3><p>{{i18n.text('Chat with house seekers inside the app and arrange viewings in one place.')}}</p></div>
+        <div><h3>{{i18n.text('Protected payouts')}}</h3><p>{{i18n.text('Tenant payments are secured in escrow before release, so both sides are covered.')}}</p></div>
+        <div><h3>{{i18n.text('Transparent listing management')}}</h3><p>{{i18n.text('Upload photos, a video walkthrough and your legal documents, then update availability and prices in one place.')}}</p></div>
+      </div>
+      <a class="secondary-cta" routerLink="/auth" [queryParams]="{mode:'signup',role:'SELLER'}">{{i18n.text('List a property')}}</a>
+    </div>
+    <div class="v2-owner">
+      <div class="v2-owner-h"><div><small>{{i18n.text('Owner listing manager')}}</small><b>{{hero()?.title || i18n.text('Your property')}}</b></div><span class="v2-tag"><i></i>{{i18n.text('Active listing')}}</span></div>
+      <div class="v2-row"><span>{{i18n.text('Review status')}}</span><b class="ok">{{i18n.text('Approved by SweetCasa')}}</b></div>
+      <div class="v2-row"><span>{{i18n.text('Listed price')}}</span><b>{{hero() ? money(hero().price) : '—'}}</b></div>
+      <div class="v2-row"><span>{{i18n.text('Location')}}</span><b>{{hero() ? place(hero()) : '—'}}</b></div>
+      <div class="v2-row"><span>{{i18n.text('Documents')}}</span><b>{{i18n.text('Submitted and reviewed')}}</b></div>
+      <div class="v2-panel-f"><span>{{i18n.text('Next payout')}}</span><b>{{i18n.text('After the verification window')}}</b></div>
+    </div>
+  </div>
 </section>
 
-<section class="casamatch">
- <div class="ai-visual"><div class="chat"><div class="bubble user">{{i18n.text('I need a 2-bedroom apartment in Douala, under 300k.')}}</div><div class="bubble bot"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4Z"/><path d="M18.5 16v4M16.5 18h4"/></svg></span><div><b>CasaMatch</b><p>{{i18n.text("I found homes that fit what you're looking for. The strongest match is in Bonapriso.")}}</p></div></div><div class="match-card"><img src="/assets/seeker_verified.png"><div><small>{{i18n.text('92% MATCH')}}</small><b>{{i18n.text('Modern 2-bedroom')}}</b><span>Bonapriso · 250,000 XAF</span></div></div></div></div>
- <div class="section-copy"><span>{{i18n.text('MEET CASAMATCH AI')}}</span><h2>{{i18n.text("Describe the home you want like you're talking to a person.")}}</h2><p>{{i18n.text('Budget, city, rooms, facilities or deal-breakers. CasaMatch turns a natural conversation into a smarter property search.')}}</p><ul><li>{{i18n.text('Understands English and French')}}</li><li>{{i18n.text("Searches SweetCasa's available inventory")}}</li><li>{{i18n.text('Surfaces close alternatives when useful')}}</li></ul><a routerLink="/auth" [queryParams]="{mode:'login',role:'BUYER'}">{{i18n.text('Try CasaMatch')}} <b>→</b></a></div>
+<!-- 6. CASAMATCH -->
+<section class="v2-sec v2-alt">
+  <div class="v2-two">
+    <div>
+      <span class="section-kicker">{{i18n.text('NATURAL LANGUAGE SEARCH')}}</span>
+      <h2>{{i18n.text('Describe your ideal home in plain English or French.')}}</h2>
+      <p class="v2-lead">{{i18n.text('Tell CasaMatch your city, neighbourhood, budget in XAF and the rooms you need. No complicated filters.')}}</p>
+      <div class="v2-chips"><span>{{i18n.text('Try an example')}}</span>
+        @for(p of prompts; track $index){<button type="button" [class.on]="prompt()===$index" (click)="prompt.set($index)">“{{i18n.text(p)}}”</button>}
+      </div>
+    </div>
+    <div class="v2-chat">
+      <div class="v2-chat-h"><span><i></i>{{i18n.text('CasaMatch AI')}}</span><small>{{i18n.text('English · Français')}}</small></div>
+      <div class="me"><small>{{i18n.text('You')}}</small><p>“{{i18n.text(prompts[prompt()])}}”</p></div>
+      <div class="ai"><small>{{i18n.text('CasaMatch AI')}}</small>
+        <p>{{i18n.text("I found homes that fit what you're looking for.")}}</p>
+        <div class="v2-cards">
+          @for(l of listings().slice(0,2); track l.id){
+            <div><div class="t"><span>{{place(l)}}</span><em>{{i18n.text('Verified')}}</em></div><p>{{l.title}}</p><b>{{money(l.price)}}</b></div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
-
-<section class="safety"><div><span>{{i18n.text('TRUST IS PART OF THE PRODUCT')}}</span><h2>{{i18n.text('Property conversations belong somewhere safer.')}}</h2><p>{{i18n.text('SweetCasa keeps communication inside the platform, helping both sides avoid unnecessary exposure of personal contact and payment information.')}}</p><div class="safety-points"><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8 4.5 5.6v5.7c0 4.6 3.2 8.4 7.5 9.8 4.3-1.4 7.5-5.2 7.5-9.8V5.6L12 2.8Z"/></svg> {{i18n.text('In-app messaging')}}</span><span>✓ {{i18n.text('Verified listings')}}</span><span><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4.5h12l-2.5 4 2.5 4H5"/></svg> {{i18n.text('Reporting tools')}}</span></div></div><div class="shield-art"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="shield"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8 4.5 5.6v5.7c0 4.6 3.2 8.4 7.5 9.8 4.3-1.4 7.5-5.2 7.5-9.8V5.6L12 2.8Z"/></svg></div><span class="safe-note n1">✓ {{i18n.text('Listing verified')}}</span><span class="safe-note n2"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8 4.5 5.6v5.7c0 4.6 3.2 8.4 7.5 9.8 4.3-1.4 7.5-5.2 7.5-9.8V5.6L12 2.8Z"/></svg> {{i18n.text('Conversation protected')}}</span></div></section>
 
 <section class="team-section">
   <div class="team-head">
@@ -109,6 +251,33 @@
   </div>
 </section>
 
+
+
+<!-- FAQ -->
+<section class="v2-sec v2-faq-sec" id="faq">
+  <div class="v2-head center"><span class="section-kicker">{{i18n.text('CLARITY & TERMS')}}</span><h2>{{i18n.text('Frequently asked questions')}}</h2><p>{{i18n.text('Clear answers about escrow, verification and listings.')}}</p></div>
+  <div class="v2-faq">
+    @for(f of faqs; track $index){
+      <div [class.open]="openFaq()===$index">
+        <button type="button" (click)="openFaq.set(openFaq()===$index?-1:$index)"><span>{{i18n.text(f.q)}}</span><i>{{openFaq()===$index?'−':'+'}}</i></button>
+        @if(openFaq()===$index){<p>{{i18n.text(f.a)}}</p>}
+      </div>
+    }
+  </div>
+</section>
+
 <section class="final-cta"><span class="spark"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4Z"/><path d="M18.5 16v4M16.5 18h4"/></svg></span><h2>{{i18n.text('Your next home might be one good search away.')}}</h2><p>{{i18n.text('Create your SweetCasa account and continue the journey on web or in the app.')}}</p><div><a class="white" routerLink="/auth" [queryParams]="{mode:'signup'}">{{i18n.text('Create account →')}}</a><a class="outline" routerLink="/auth" [queryParams]="{mode:'login'}">{{i18n.t('signIn')}}</a></div></section>
 </main>
-<footer><div><span class="footer-logo">S</span><div><b>SweetCasa</b><small>{{i18n.text('Find home.')}} {{i18n.text('Feel at home.')}}</small></div></div><nav><a routerLink="/">{{i18n.t('home')}}</a><a routerLink="/auth" [queryParams]="{mode:'login'}">{{i18n.t('signIn')}}</a><a routerLink="/auth" [queryParams]="{mode:'signup'}">{{i18n.t('createAccount')}}</a><a routerLink="/privacy">{{i18n.text('Privacy')}}</a><a routerLink="/terms">{{i18n.text('Terms')}}</a></nav><small>© 2026 SweetCasa</small></footer>
+<footer class="v2-footer">
+  <div class="v2-foot-grid">
+    <div><div class="v2-foot-brand"><span class="footer-logo">S</span><b>SweetCasa</b></div><p>{{i18n.text('Property rental and sales platform for Cameroon. Escrow-protected and reviewed by our team.')}}</p><small>{{i18n.text('All prices are in XAF (Central African CFA franc).')}}</small></div>
+    <div><span>{{i18n.text('Platform & legal')}}</span><a href="#how-it-works">{{i18n.text('How it works')}}</a><a href="#for-owners">{{i18n.text('For owners')}}</a><a routerLink="/privacy">{{i18n.text('Privacy')}}</a><a routerLink="/terms">{{i18n.text('Terms')}}</a></div>
+    <div><span>{{i18n.text('Account')}}</span><a routerLink="/auth" [queryParams]="{mode:'login'}">{{i18n.t('signIn')}}</a><a routerLink="/auth" [queryParams]="{mode:'signup'}">{{i18n.t('createAccount')}}</a></div>
+    <div class="v2-contact"><span>{{i18n.text('Contact')}}</span>
+      <div><small>{{i18n.text('Email')}}</small><a href="mailto:sweetcasa.h@gmail.com">sweetcasa.h@gmail.com</a></div>
+      <div><small>{{i18n.text('Phone')}}</small><a href="tel:+237676004832">+237 6 76 00 48 32</a><a href="tel:+237673254504">+237 6 73 25 45 04</a></div>
+      <div><small>{{i18n.text('Location')}}</small><em>{{i18n.text('Yaoundé, Cameroon')}}</em></div>
+    </div>
+  </div>
+  <div class="v2-foot-bar"><span>© 2026 SweetCasa. {{i18n.text('All rights reserved.')}}</span><span>{{i18n.text('Cameroon')}}</span></div>
+</footer>

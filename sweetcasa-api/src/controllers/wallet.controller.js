@@ -6,7 +6,7 @@ const { cloudinary, ensureCloudinaryConfigured } = require('../lib/cloudinary')
 const streamifier = require('streamifier')
 
 const MIN_FAPSHI_AMOUNT = 100 // XAF — Fapshi's own minimum for both collection and payout
-const FAPSHI_FEE_RATE = 0.03  // Fapshi's per-transaction collection fee (see https://www.fapshi.com/en/pricing)
+const FAPSHI_FEE_RATE = 0.04  // Processing fee added on top of every escrow deposit (shown to the user before they confirm)
                                 // Charged ON TOP of the escrow amount so the full amount the seeker
                                 // intends to lock actually reaches the Hold, instead of Fapshi's cut
                                 // silently shrinking it.
@@ -14,6 +14,16 @@ const FAPSHI_FEE_RATE = 0.03  // Fapshi's per-transaction collection fee (see ht
 function toStr(decimal) {
   return decimal === null || decimal === undefined ? null : decimal.toString()
 }
+
+// Fapshi wants a bare 9-digit Cameroon number (6XXXXXXXX). Users type "+237 6 70 00 00 00",
+// "670 000 000" etc. from web and mobile, so normalise here for every client.
+function normalizePhone(raw) {
+  let d = String(raw || '').replace(/[^0-9]/g, '')
+  if (d.startsWith('00237')) d = d.slice(5)
+  else if (d.startsWith('237') && d.length > 9) d = d.slice(3)
+  return d
+}
+const PHONE_RE = /^6\d{8}$/
 
 function serializeTransaction(t) {
   return {
@@ -155,13 +165,14 @@ exports.listMyTransactions = async (req, res) => {
 exports.deposit = async (req, res) => {
   try {
     const amount = Number.parseInt(req.body?.amount, 10)
-    const phone = req.body?.phone ? String(req.body.phone).trim() : null
+    const phone = req.body?.phone ? normalizePhone(req.body.phone) : null
     const medium = req.body?.medium ? String(req.body.medium).trim() : null
 
     if (!Number.isFinite(amount) || amount < MIN_FAPSHI_AMOUNT) {
       return res.status(400).json({ error: `amount must be a number, minimum ${MIN_FAPSHI_AMOUNT} XAF.` })
     }
     if (!phone) return res.status(400).json({ error: 'phone is required.' })
+    if (!PHONE_RE.test(phone)) return res.status(400).json({ error: 'Enter a valid Cameroon mobile number (9 digits, starting with 6).' })
     if (medium !== 'mobile money' && medium !== 'orange money') {
       return res.status(400).json({ error: "medium must be 'mobile money' or 'orange money'." })
     }
@@ -183,7 +194,11 @@ exports.deposit = async (req, res) => {
         message: 'SweetCasa escrow wallet deposit',
       })
     } catch (err) {
-      const failed = await getPrisma().transaction.update({ where: { id: transaction.id }, data: { status: 'Failed' } })
+      console.error(`Deposit ${transaction.id} — Fapshi direct-pay rejected (env=${fapshi.environment ? fapshi.environment() : 'unknown'}):`, err.message)
+      const failed = await getPrisma().transaction.update({
+        where: { id: transaction.id },
+        data: { status: 'Failed', fapshiStatus: 'FAILED', reason: (err.message || 'Could not start the payment with Fapshi.').slice(0, 250) },
+      })
       emitDepositUpdate(req.user.id, failed)
       return res.status(502).json({ error: err.message || 'Could not start the payment with Fapshi.' })
     }
@@ -215,35 +230,41 @@ async function confirmDeposit(transaction) {
   const statusRes = await fapshi.getPaymentStatus(transaction.fapshiTransId)
   const fapshiStatus = statusRes.status
 
-    if (fapshiStatus === 'SUCCESSFUL') {
-    // amount + feeAmount were fixed at deposit time (feeAmount = ceil(amount * 3%),
-    // charged to Fapshi on top of amount) — so the full `amount` the seeker was
-    // quoted is always what gets held, regardless of Fapshi's own fee accounting.
+  if (fapshiStatus === 'SUCCESSFUL') {
+    // amount + feeAmount were fixed at deposit time (feeAmount = ceil(amount * FAPSHI_FEE_RATE),
+    // charged on top of amount) — so the full `amount` the seeker was quoted is what gets held.
     const netAmount = Number(transaction.amount)
 
-    const [updatedDeposit] = await prisma.$transaction([
-      prisma.transaction.update({
-        where: { id: transaction.id },
+    // The webhook, the verify endpoint and the cancel fallback can all land at the same moment.
+    // Only the call that flips Pending -> Completed may credit the wallet, so a deposit is
+    // never credited twice.
+    const updatedDeposit = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.transaction.updateMany({
+        where: { id: transaction.id, status: 'Pending' },
         data: { status: 'Completed', fapshiStatus },
-      }),
-      prisma.wallet.update({
+      })
+      if (claimed.count === 0) return null
+      await tx.wallet.update({
         where: { id: transaction.walletId },
         data: { availableBalance: { increment: netAmount } },
-      }),
-    ])
+      })
+      return tx.transaction.findUnique({ where: { id: transaction.id } })
+    })
+    if (!updatedDeposit) return prisma.transaction.findUnique({ where: { id: transaction.id } })
     emitDepositUpdate(walletUserId, updatedDeposit)
     return updatedDeposit
   }
 
   if (fapshiStatus === 'FAILED' || fapshiStatus === 'EXPIRED') {
-    const resolved = await prisma.transaction.update({
-      where: { id: transaction.id },
+    await prisma.transaction.updateMany({
+      where: { id: transaction.id, status: 'Pending' },
       data: {
         status: fapshiStatus === 'EXPIRED' ? 'Cancelled' : 'Failed',
         fapshiStatus,
-        reason: statusRes.reason || statusRes.message || null,
+        reason: statusRes.reason || statusRes.message || (fapshiStatus === 'EXPIRED' ? 'The payment request expired.' : 'The payment was declined or failed.'),
       },
     })
+    const resolved = await prisma.transaction.findUnique({ where: { id: transaction.id } })
     emitDepositUpdate(walletUserId, resolved)
     return resolved
   }
@@ -890,52 +911,64 @@ exports.refundHold = async (req, res) => {
 exports.withdraw = async (req, res) => {
   try {
     const amount = Number.parseInt(req.body?.amount, 10)
-    const phone = req.body?.phone ? String(req.body.phone).trim() : null
+    const phone = req.body?.phone ? normalizePhone(req.body.phone) : null
+    const viaFapshiEmail = req.body?.medium === 'fapshi'
 
     if (!Number.isFinite(amount) || amount < MIN_FAPSHI_AMOUNT) {
       return res.status(400).json({ error: `amount must be a number, minimum ${MIN_FAPSHI_AMOUNT} XAF.` })
     }
-    if (!phone && req.body?.medium !== 'fapshi') {
+    if (!phone && !viaFapshiEmail) {
       return res.status(400).json({ error: 'phone is required.' })
     }
-
-    const wallet = await getOrCreateWallet(req.user.id)
-    if (Number(wallet.availableBalance) < amount) {
-      return res.status(400).json({ error: 'Insufficient available balance.' })
+    if (phone && !PHONE_RE.test(phone)) {
+      return res.status(400).json({ error: 'Enter a valid Cameroon mobile number (9 digits, starting with 6).' })
     }
 
-    const user = await getPrisma().user.findUnique({ where: { id: req.user.id } })
+    const prisma = getPrisma()
+    const wallet = await getOrCreateWallet(req.user.id)
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } })
 
+    // 1) Reserve the money FIRST, atomically. Two quick taps (or two devices) can no longer both
+    //    pass the balance check and trigger two real payouts.
+    const reserved = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.wallet.updateMany({
+        where: { id: wallet.id, availableBalance: { gte: amount } },
+        data: { availableBalance: { decrement: amount } },
+      })
+      if (claimed.count === 0) return null
+      return tx.transaction.create({
+        data: { walletId: wallet.id, type: 'Withdrawal', status: 'Pending', amount, phone, medium: req.body?.medium || null, initiatedBy: req.user.id },
+      })
+    })
+    if (!reserved) return res.status(400).json({ error: 'Insufficient available balance.' })
+
+    // 2) Ask Fapshi to pay out.
     let fapshiRes
     try {
       fapshiRes = await fapshi.payout({
         amount,
         phone: phone || undefined,
-        medium: req.body?.medium,
+        medium: req.body?.medium === 'fapshi' ? undefined : req.body?.medium,
         name: user?.name,
-        email: req.body?.medium === 'fapshi' ? user?.email : undefined,
-        externalId: `withdraw-${req.user.id}-${Date.now()}`,
+        email: viaFapshiEmail ? user?.email : undefined,
+        externalId: `withdraw-${reserved.id}`,
         message: 'SweetCasa withdrawal',
       })
     } catch (err) {
+      // Fapshi refused: give the money back and keep the real reason on the record.
+      console.error(`Withdrawal ${reserved.id} — Fapshi payout rejected:`, err.message)
+      await prisma.$transaction([
+        prisma.transaction.update({ where: { id: reserved.id }, data: { status: 'Failed', reason: (err.message || 'Fapshi payout failed.').slice(0, 250) } }),
+        prisma.wallet.update({ where: { id: wallet.id }, data: { availableBalance: { increment: amount } } }),
+      ])
       return res.status(502).json({ error: err.message || 'Fapshi withdrawal payout failed.' })
     }
 
-    const [transaction] = await getPrisma().$transaction([
-      getPrisma().transaction.create({
-        data: {
-          walletId: wallet.id,
-          type: 'Withdrawal',
-          status: 'Completed',
-          amount,
-          phone,
-          medium: req.body?.medium || null,
-          fapshiTransId: fapshiRes.transId,
-          initiatedBy: req.user.id,
-        },
-      }),
-      getPrisma().wallet.update({ where: { id: wallet.id }, data: { availableBalance: { decrement: amount } } }),
-    ])
+    // 3) Fapshi accepted it.
+    const transaction = await prisma.transaction.update({
+      where: { id: reserved.id },
+      data: { status: 'Completed', fapshiTransId: fapshiRes.transId },
+    })
 
     res.status(201).json({ transaction: serializeTransaction(transaction) })
   } catch (err) {
