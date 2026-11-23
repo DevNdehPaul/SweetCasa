@@ -1,13 +1,24 @@
 // app.config.js (replaces app.json)
 
-// Build the reversed iOS client ID from the same variable the app already uses.
-// e.g. 123-abc.apps.googleusercontent.com -> com.googleusercontent.apps.123-abc
+// Google sign-in on iPhone needs the "reversed" iOS client ID as a URL scheme:
+//   123-abc.apps.googleusercontent.com  ->  com.googleusercontent.apps.123-abc
+// This accepts GOOGLE_IOS_URL_SCHEME in either form (already reversed, or the plain client ID)
+// and falls back to EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID, so a wrong paste can't break the build.
+const REVERSED_PREFIX = 'com.googleusercontent.apps.';
 const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-const iosUrlScheme =
-  process.env.GOOGLE_IOS_URL_SCHEME ||
-  (iosClientId
-    ? `com.googleusercontent.apps.${iosClientId.replace('.apps.googleusercontent.com', '')}`
-    : undefined);
+const rawScheme = (process.env.GOOGLE_IOS_URL_SCHEME || iosClientId || '').trim();
+const iosUrlScheme = rawScheme
+  ? rawScheme.startsWith(REVERSED_PREFIX)
+    ? rawScheme
+    : `${REVERSED_PREFIX}${rawScheme.replace('.apps.googleusercontent.com', '')}`
+  : undefined;
+
+if (!iosUrlScheme) {
+  console.warn('[app.config] GOOGLE_IOS_URL_SCHEME / EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is not set: Google sign-in will not work on iPhone.');
+}
+if (!iosClientId) {
+  console.warn('[app.config] EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is not set: Google sign-in will be disabled on iPhone.');
+}
 
 module.exports = {
   expo: {
@@ -62,10 +73,28 @@ module.exports = {
           iosUrlScheme,
         },
       ],
+      // iPhone refuses photo access (and can crash) unless these texts are in the build.
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "SweetCasa needs access to your photos so you can upload property pictures, your profile photo and images for CasaMatch.",
+          cameraPermission:
+            "SweetCasa needs the camera so you can take a photo of your property or your ID.",
+          microphonePermission: false,
+        },
+      ],
+      // Voice notes in CasaMatch AI.
+      [
+        "expo-audio",
+        {
+          microphonePermission:
+            "SweetCasa uses the microphone so you can send voice notes to CasaMatch AI.",
+        },
+      ],
       "expo-font",
       "expo-image",
       "expo-splash-screen",
-      "expo-audio",
       "expo-video",
     ],
     experiments: {

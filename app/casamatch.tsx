@@ -89,6 +89,35 @@ type Styles = ReturnType<typeof getStyles>;
 
 const BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
 
+
+// ─── Multipart upload (iPhone-safe) ───────────────────────────────────────────
+// Newer Expo builds replace the global fetch() with one that rejects React Native's
+// { uri, name, type } file parts ("Unsupported FormDataPart implementation").
+// XMLHttpRequest is React Native's own networking layer and always supports them.
+function postMultipart(
+  url: string,
+  headers: Record<string, string>,
+  form: FormData,
+): Promise<{ ok: boolean; status: number; data: any }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    Object.entries(headers).forEach(([k, v]) => {
+      // Never set Content-Type ourselves: the boundary must be added automatically.
+      if (k.toLowerCase() !== 'content-type') xhr.setRequestHeader(k, v);
+    });
+    xhr.timeout = 120000; // the AI can take a while, especially with a photo or a voice note
+    xhr.onload = () => {
+      let data: any = {};
+      try { data = JSON.parse(xhr.responseText); } catch { /* non-JSON body */ }
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+    };
+    xhr.onerror = () => reject(new Error('Network request failed. Check your connection and try again.'));
+    xhr.ontimeout = () => reject(new Error('The request took too long. Please try again.'));
+    xhr.send(form as any);
+  });
+}
+
 // ─── API helpers ──────────────────────────────────────────────────────────────
 async function getAuthHeaders(): Promise<Record<string, string>> {
   // Reuse however you store the JWT in your app (AsyncStorage, SecureStore, context, etc.)
@@ -482,11 +511,12 @@ function ChatScreen({
       form.append('language', (i18n.resolvedLanguage || i18n.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en');
 
       if (imgToSend?.uri) {
-        const ext = imgToSend.uri.split('.').pop() ?? 'jpg';
+        // iPhone photos can be HEIC; the picker re-encodes them, so label them honestly as JPEG/PNG.
+        const isPng = /png/i.test(imgToSend.mimeType || '') || /\.png$/i.test(imgToSend.uri);
         form.append('image', {
           uri:  imgToSend.uri,
-          name: `photo.${ext}`,
-          type: imgToSend.mimeType,
+          name: isPng ? 'photo.png' : 'photo.jpg',
+          type: isPng ? 'image/png' : 'image/jpeg',
         } as any);
       }
 
@@ -499,13 +529,12 @@ function ChatScreen({
         } as any);
       }
 
-      const res = await fetch(`${BASE_URL}/api/casamatch-chat/conversations/${convId}/messages`, {
-        method:  'POST',
-        headers: { ...headers },
-        body:    form,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send message');
+      const { ok, data } = await postMultipart(
+        `${BASE_URL}/api/casamatch-chat/conversations/${convId}/messages`,
+        { ...headers },
+        form,
+      );
+      if (!ok) throw new Error(data?.error || 'Failed to send message');
 
       // Replace optimistic message + add AI response
       setMessages(prev => [

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
+import { Platform } from "react-native";
 
 export const BASE_URL = 'https://sweetcasa-production-4232.up.railway.app';
 
@@ -34,19 +35,44 @@ export async function uploadWithFetch(
 ): Promise<any> {
   const token = await AsyncStorage.getItem("token");
 
-  const response = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      // Do NOT set Content-Type — fetch sets it automatically with the correct boundary
-    },
-    body: formData,
-  });
+  let data: any = {};
+  let ok = false;
+  let status = 0;
 
-  const data = await response.json();
+  if (Platform.OS === "web") {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    });
+    data = await response.json();
+    ok = response.ok;
+    status = response.status;
+  } else {
+    // iPhone/Android: use XMLHttpRequest. Newer Expo builds swap the global fetch() for one that
+    // rejects React Native file parts ("Unsupported FormDataPart implementation"); XHR always works.
+    // Do NOT set Content-Type — the boundary is added automatically.
+    const result = await new Promise<{ ok: boolean; status: number; data: any }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, `${BASE_URL}${path}`);
+      if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.timeout = 120000;
+      xhr.onload = () => {
+        let body: any = {};
+        try { body = JSON.parse(xhr.responseText); } catch { /* non-JSON body */ }
+        resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data: body });
+      };
+      xhr.onerror = () => reject(new Error("Network request failed"));
+      xhr.ontimeout = () => reject(new Error("The upload took too long"));
+      xhr.send(formData as any);
+    });
+    data = result.data;
+    ok = result.ok;
+    status = result.status;
+  }
 
-  if (!response.ok) {
-    throw { response: { data, status: response.status } };
+  if (!ok) {
+    throw { response: { data, status } };
   }
 
   // Wrap in the same { data } shape axios responses use, so callers can

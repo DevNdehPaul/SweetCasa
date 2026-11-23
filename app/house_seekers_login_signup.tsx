@@ -279,6 +279,12 @@ function useSocialAuth(role: 'BUYER') {
       crossAlert('Not Configured', 'Google Sign-In is not set up yet. Please try again later.');
       return;
     }
+    // On iPhone the native Google module HARD-CRASHES the whole app (no JS error to catch) when the
+    // iOS client ID is missing from the build. Stop here with a readable message instead.
+    if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) {
+      crossAlert('Not Configured', 'Google Sign-In is missing its iPhone setup (EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID). Please use email or Apple for now.');
+      return;
+    }
     setSocialLoading('google');
     try {
       ensureGoogleSignInConfigured();
@@ -317,7 +323,7 @@ function useSocialAuth(role: 'BUYER') {
       } else if (isErrorWithCode(err) && err.code === statusCodes.IN_PROGRESS) {
         // A sign-in is already in flight — ignore the duplicate tap.
       } else {
-        crossAlert('Google Sign-In Failed', 'Something went wrong. Please try again.');
+        crossAlert('Google Sign-In Failed', `Something went wrong. Please try again.${err?.code || err?.message ? `\n\n(${err?.code ?? err?.message})` : ''}`);
       }
       setSocialLoading(null);
     }
@@ -351,7 +357,7 @@ function useSocialAuth(role: 'BUYER') {
       });
     } catch (err: any) {
       if (err.code !== 'ERR_REQUEST_CANCELED') {
-        crossAlert('Apple Sign-In Failed', 'Something went wrong. Please try again.');
+        crossAlert('Apple Sign-In Failed', `Something went wrong. Please try again.${err?.code || err?.message ? `\n\n(${err?.code ?? err?.message})` : ''}`);
       }
       setSocialLoading(null);
     }

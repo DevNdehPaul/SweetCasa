@@ -13,7 +13,7 @@ main{grid-column:2;min-width:0}header{height:68px;position:fixed;top:0;right:0;l
 .brand{padding:20px 18px!important}.brand-mark{border-radius:11px!important;box-shadow:none!important}.nav a{border-radius:9px!important;margin:2px 10px!important;min-height:43px!important}.nav a.active{background:var(--primary-soft)!important;color:var(--primary)!important}.nav-icon{width:34px!important;height:34px!important;border-radius:9px!important;background:transparent!important}.topbar{background:color-mix(in srgb,var(--bg) 92%,transparent)!important;backdrop-filter:blur(12px);border-bottom:1px solid var(--border)!important;box-shadow:none!important}.profile,.user{border-radius:10px!important}.portal-content{max-width:1480px!important;margin:0 auto!important;padding:28px 32px 44px!important}
 
 /* V15 shell fixes */
-aside{background:linear-gradient(180deg,#f6f3ff 0%,#f1edff 100%)!important;border-right:1px solid #e4dcff!important}
+html:not([data-theme=dark]) aside{background:linear-gradient(180deg,#f6f3ff 0%,#f1edff 100%)!important;border-right:1px solid #e4dcff!important}
 header{height:68px!important}
 .portal-content{padding:96px 32px 44px!important}
 
@@ -45,3 +45,32 @@ header{height:68px!important}
  .m-tabbar a.on{color:var(--m-primary)}
 }
 @media(max-width:400px){.m-header{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}.m-title{font-size:22px}}
+
+
+/* ===== Theme / language / log out live in the top bar on desktop ===== */
+.head-actions{gap:10px}
+.head-actions .hb{height:38px!important;width:auto!important;min-width:38px;padding:0 11px;display:inline-flex!important;align-items:center;justify-content:center;gap:7px;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:11px;font:inherit;font-size:12px;font-weight:750;cursor:pointer;text-decoration:none;box-shadow:0 3px 10px #11100008;transition:background .15s,color .15s,border-color .15s}
+.head-actions .hb:hover{background:var(--surface);color:var(--text)}
+.head-actions .hb .ui-icon{width:17px;height:17px;flex:0 0 auto}
+.head-actions .hb-icon{padding:0;width:38px!important}
+.head-actions .hb-logout:hover{color:#b91c1c;border-color:color-mix(in srgb,#b91c1c 35%,var(--border));background:color-mix(in srgb,#b91c1c 7%,var(--card))}
+.head-actions .head-sep{width:1px;height:24px;background:var(--border);margin:0 2px}
+.head-actions a.head-icon,.head-actions a.avatar{width:38px!important;height:38px!important}
+@media(max-width:1024px){.head-actions .hb{display:none!important}}
+
+
+/* ===== Dark mode: sidebar (soft, calm, easy on the eyes) ===== */
+html[data-theme=dark] aside{
+ background:#17161f!important;
+ border-right:1px solid rgba(255,255,255,.06)!important;
+ box-shadow:none
+}
+html[data-theme=dark] aside .brand,html[data-theme=dark] aside .brand b{color:#f2f0f8}
+html[data-theme=dark] aside .brand small{color:#8e8aa3}
+html[data-theme=dark] aside .brand img{box-shadow:none;outline:1px solid rgba(255,255,255,.08)}
+html[data-theme=dark] aside .role{background:rgba(167,139,250,.10);color:#b9a8f5;border:1px solid rgba(167,139,250,.16)}
+html[data-theme=dark] aside nav a{color:#9d99b3}
+html[data-theme=dark] aside nav a:hover{background:rgba(255,255,255,.05)!important;color:#ece9f6}
+html[data-theme=dark] aside nav a.active{background:rgba(167,139,250,.13)!important;color:#d9ccff!important;box-shadow:inset 3px 0 0 #a78bfa}
+html[data-theme=dark] aside nav a.active .nav-icon{color:#c4b5fd}
+html[data-theme=dark] aside nav{scrollbar-color:rgba(255,255,255,.12) transparent}

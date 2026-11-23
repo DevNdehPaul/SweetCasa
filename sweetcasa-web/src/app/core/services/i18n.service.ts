@@ -1618,6 +1618,11 @@ const FR_TEXT:Record<string,string>={
   "Pay with MTN Mobile Money or Orange Money. Your funds are held until you verify the home.": "Payez avec MTN Mobile Money ou Orange Money. Vos fonds sont conservés jusqu'à ce que vous vérifiiez le logement.",
   "Check the home after you move in, before the owner is paid.": "Vérifiez le logement après votre emménagement, avant que le propriétaire soit payé.",
   "XAF · MTN MoMo · Orange Money": "XAF · MTN MoMo · Orange Money",
+  "Reviewed listings.": "Annonces vérifiées.",
+  "Escrow-protected payments.": "Paiements protégés par séquestre.",
+  "7-day verification window.": "Fenêtre de vérification de 7 jours.",
+  "Stay safe on SweetCasa": "Restez en sécurité sur SweetCasa",
+  "Never pay viewing fees or deposits outside the SweetCasa app. Payments made outside the platform are not covered by escrow protection.": "Ne payez jamais de frais de visite ou de cautions en dehors de l'application SweetCasa. Les paiements effectués hors de la plateforme ne sont pas couverts par la protection séquestre.",
 };
 @Injectable({providedIn:'root'}) export class I18nService{
  lang=signal<'en'|'fr'>((localStorage.getItem('sc-lang') as any)||'en');
