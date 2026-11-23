@@ -467,7 +467,9 @@ function ChatScreen({
       // Read the LIVE microphone permission first (it reflects a switch the user just turned on in
       // Settings), and only show the system prompt if iOS is still willing to ask.
       let permission = await AudioModule.getRecordingPermissionsAsync();
-      if (!permission.granted && permission.canAskAgain) {
+      if (!permission.granted) {
+        // Always ask: iOS shows its pop-up only when the user hasn't answered yet, and otherwise just
+        // returns the current answer. (Relying on canAskAgain meant the pop-up was never shown.)
         permission = await AudioModule.requestRecordingPermissionsAsync();
       }
       if (!permission.granted) {

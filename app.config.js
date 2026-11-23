@@ -83,7 +83,10 @@ module.exports = {
             "SweetCasa needs access to your photos so you can upload property pictures, your profile photo and images for CasaMatch.",
           cameraPermission:
             "SweetCasa needs the camera so you can take a photo of your property or your ID.",
-          microphonePermission: false,
+          // Keep the microphone text here too. Passing `false` makes this plugin DELETE the microphone
+          // permission text from the iPhone build, which silently disables voice notes.
+          microphonePermission:
+            "SweetCasa uses the microphone so you can send voice notes to CasaMatch AI.",
         },
       ],
       // Voice notes in CasaMatch AI.
