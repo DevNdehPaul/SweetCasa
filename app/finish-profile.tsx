@@ -19,6 +19,7 @@ import {
     View,
 } from 'react-native';
 import api from '../constants/api';
+import { alertOpenSettings } from '../constants/permissions';
 import { routeForRole } from '../constants/auth';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
@@ -142,7 +143,7 @@ function NationalIdUpload({
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      crossAlert('Permission Required', 'Please allow access to your photo library to upload your ID.');
+      alertOpenSettings('Permission Required', 'Please allow access to your photo library to upload your ID.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -164,7 +165,7 @@ function NationalIdUpload({
   const handlePickCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      crossAlert('Permission Required', 'Please allow camera access to take a photo of your ID.');
+      alertOpenSettings('Permission Required', 'Please allow camera access to take a photo of your ID.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ allowsEditing: false, quality: 0.85 });

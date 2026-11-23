@@ -28,6 +28,7 @@ import {
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -421,11 +422,28 @@ function ChatScreen({
 
   useEffect(() => { if (!loading) scrollToBottom(); }, [messages.length, loading]);
 
+  // When access was refused, explain why it is needed and offer to open the phone's Settings
+  // page for SweetCasa, where the user can switch the permission on.
+  const askToOpenSettings = (message: string) => {
+    const fr = (i18n.resolvedLanguage || i18n.language || 'en').toLowerCase().startsWith('fr');
+    Alert.alert(
+      t('casaMatch.chat_permission_needed'),
+      message,
+      [
+        { text: t('common.cancel', { defaultValue: fr ? 'Annuler' : 'Cancel' }), style: 'cancel' },
+        {
+          text: t('casaMatch.chat_open_settings', { defaultValue: fr ? 'Ouvrir les réglages' : 'Open Settings' }),
+          onPress: () => { Linking.openSettings().catch(() => {}); },
+        },
+      ],
+    );
+  };
+
   // ── Image picker ───────────────────────────────────────────────────────────
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('casaMatch.chat_permission_needed'), t('casaMatch.chat_photo_permission'));
+      askToOpenSettings(t('casaMatch.chat_photo_permission'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -444,7 +462,7 @@ function ChatScreen({
     try {
       const permission = await AudioModule.requestRecordingPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(t('casaMatch.chat_permission_needed'), t('casaMatch.chat_microphone_permission'));
+        askToOpenSettings(t('casaMatch.chat_microphone_permission'));
         return;
       }
 

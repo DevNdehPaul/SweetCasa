@@ -23,6 +23,7 @@ import MapPickerModal from '../../components/MapPickerModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { BASE_URL } from '../../constants/api';
+import { alertOpenSettings } from '../../constants/permissions';
 import { ThemeColors } from '../../constants/theme';
 import { useAppTheme } from '../../hooks/use-app-theme';
 
@@ -298,7 +299,7 @@ const MediaUploadBox = ({
   const handleAdd = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(t('report.permissionNeeded'), t('report.permissionDesc'));
+      alertOpenSettings(t('report.permissionNeeded'), t('report.permissionDesc'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

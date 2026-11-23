@@ -20,6 +20,7 @@ import {
   View,
 } from "react-native";
 import api, { uploadWithFetch } from "../constants/api";
+import { alertOpenSettings } from "../constants/permissions";
 import { ThemeColors } from "../constants/theme";
 import { useAppTheme } from "../hooks/use-app-theme";
 
@@ -262,7 +263,7 @@ export default function AccountInformation() {
   const pickAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
+      alertOpenSettings(
         "Permission Required",
         "Please allow access to your photo library to choose a profile photo.",
       );

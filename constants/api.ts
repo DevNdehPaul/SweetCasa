@@ -25,6 +25,35 @@ api.interceptors.response.use(
   },
 );
 
+// Low-level multipart sender used by every upload in the app.
+// iPhone builds of Expo replace the global fetch() with one that rejects React Native file parts
+// ("Unsupported FormDataPart implementation"); XMLHttpRequest is React Native's own network layer
+// and always accepts { uri, name, type }. Never set Content-Type: the boundary is added automatically.
+export function xhrMultipart(
+  url: string,
+  method: "POST" | "PUT" | "PATCH",
+  headers: Record<string, string>,
+  formData: FormData,
+  timeoutMs = 300000,
+): Promise<{ ok: boolean; status: number; data: any }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    Object.entries(headers).forEach(([k, v]) => {
+      if (k.toLowerCase() !== "content-type") xhr.setRequestHeader(k, v);
+    });
+    xhr.timeout = timeoutMs;
+    xhr.onload = () => {
+      let data: any = {};
+      try { data = JSON.parse(xhr.responseText); } catch { /* non-JSON body */ }
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+    };
+    xhr.onerror = () => reject(new Error("Network request failed. Check your connection and try again."));
+    xhr.ontimeout = () => reject(new Error("The upload took too long. Please try again."));
+    xhr.send(formData as any);
+  });
+}
+
 // Use this for multipart/form-data uploads (file uploads)
 // Axios on React Native doesn't handle FormData+files correctly,
 // so we use fetch directly which works natively.

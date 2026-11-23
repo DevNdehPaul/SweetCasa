@@ -21,7 +21,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BASE_URL } from '../constants/api';
+import { BASE_URL, xhrMultipart } from '../constants/api';
+import { alertOpenSettings } from '../constants/permissions';
 import { ThemeColors } from '../constants/theme';
 import { useAppTheme } from '../hooks/use-app-theme';
 
@@ -292,7 +293,7 @@ const MediaUploadBox = ({
   const handleAdd = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(t('report.permissionNeeded'), t('report.permissionDesc'));
+      alertOpenSettings(t('report.permissionNeeded'), t('report.permissionDesc'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -940,13 +941,13 @@ export default function MyListings() {
         } as any);
       });
 
-      const res = await fetch(`${BASE_URL}/listings/${editTarget.id}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
+      const { ok, data } = await xhrMultipart(
+        `${BASE_URL}/listings/${editTarget.id}`,
+        'PATCH',
+        { Authorization: `Bearer ${token}` },
         body,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || t('myListings.updateError'));
+      );
+      if (!ok) throw new Error(data?.error || t('myListings.updateError'));
       setListings((prev) =>
         prev.map((l) => (l.id === editTarget.id ? { ...l, ...data.listing } : l))
       );
