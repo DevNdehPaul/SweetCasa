@@ -297,11 +297,8 @@ const MediaUploadBox = ({
   const s = useMemo(() => getStyles(colors), [colors]);
 
   const handleAdd = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      alertOpenSettings(t('report.permissionNeeded'), t('report.permissionDesc'));
-      return;
-    }
+    // iOS 14+ / Android 13+ open the system photo picker, which needs NO photo-library permission.
+    // Asking for it first only blocked users who had already allowed access, so just open the picker.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: pickerMode === 'video'
         ? ImagePicker.MediaTypeOptions.Videos

@@ -441,16 +441,20 @@ function ChatScreen({
 
   // ── Image picker ───────────────────────────────────────────────────────────
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
+    // iOS 14+ / Android 13+ open the system photo picker, which needs NO photo-library permission.
+    // Asking for it first only blocked users who had already allowed access, so just open the picker.
+    let result: ImagePicker.ImagePickerResult;
+    try {
+      result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        base64: false,
+      });
+    } catch {
+      // Only reached if the phone really refuses photo access.
       askToOpenSettings(t('casaMatch.chat_photo_permission'));
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-      base64: false,
-    });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
       setPendingImg({ uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg' });
@@ -460,7 +464,12 @@ function ChatScreen({
   // ── Voice recording ────────────────────────────────────────────────────────
   const startRecording = async () => {
     try {
-      const permission = await AudioModule.requestRecordingPermissionsAsync();
+      // Read the LIVE microphone permission first (it reflects a switch the user just turned on in
+      // Settings), and only show the system prompt if iOS is still willing to ask.
+      let permission = await AudioModule.getRecordingPermissionsAsync();
+      if (!permission.granted && permission.canAskAgain) {
+        permission = await AudioModule.requestRecordingPermissionsAsync();
+      }
       if (!permission.granted) {
         askToOpenSettings(t('casaMatch.chat_microphone_permission'));
         return;

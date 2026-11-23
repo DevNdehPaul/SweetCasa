@@ -38,8 +38,8 @@ const GOOGLE_EMAIL_SIGNUP_URL =
 // token verifiable on your backend. iosClientId is only needed on iOS.
 // The Android client (package name + SHA-1) is matched automatically by
 // Play Services — it is NOT passed here.
-const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
 
 let googleSignInConfigured = false;
 function ensureGoogleSignInConfigured() {
@@ -546,11 +546,8 @@ function NationalIdUpload({
   s: Styles;
 }) {
   const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      alertOpenSettings('Permission Required', 'Please allow access to your photo library to upload your ID.');
-      return;
-    }
+    // iOS 14+ / Android 13+ open the system photo picker, which needs NO photo-library permission.
+    // Asking for it first only blocked users who had already allowed access, so just open the picker.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,

@@ -141,11 +141,8 @@ function NationalIdUpload({
   s: Styles;
 }) {
   const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      alertOpenSettings('Permission Required', 'Please allow access to your photo library to upload your ID.');
-      return;
-    }
+    // iOS 14+ / Android 13+ open the system photo picker, which needs NO photo-library permission.
+    // Asking for it first only blocked users who had already allowed access, so just open the picker.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,

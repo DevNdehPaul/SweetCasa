@@ -37,8 +37,8 @@ const GOOGLE_EMAIL_SIGNUP_URL =
 // token verifiable on your backend. iosClientId is only needed on iOS.
 // The Android client (package name + SHA-1) is matched automatically by
 // Play Services — it is NOT passed here.
-const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim();
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim();
 
 let googleSignInConfigured = false;
 function ensureGoogleSignInConfigured() {

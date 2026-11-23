@@ -5,8 +5,10 @@
 // This accepts GOOGLE_IOS_URL_SCHEME in either form (already reversed, or the plain client ID)
 // and falls back to EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID, so a wrong paste can't break the build.
 const REVERSED_PREFIX = 'com.googleusercontent.apps.';
-const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-const rawScheme = (process.env.GOOGLE_IOS_URL_SCHEME || iosClientId || '').trim();
+const iosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim();
+// The scheme MUST match the iosClientId the app passes to Google, otherwise the Google SDK crashes the app.
+// So derive it from the client ID first; GOOGLE_IOS_URL_SCHEME is only a fallback.
+const rawScheme = (iosClientId || process.env.GOOGLE_IOS_URL_SCHEME || '').trim();
 const iosUrlScheme = rawScheme
   ? rawScheme.startsWith(REVERSED_PREFIX)
     ? rawScheme
